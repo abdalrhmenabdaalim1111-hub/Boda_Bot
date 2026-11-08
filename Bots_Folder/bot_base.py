@@ -119,8 +119,8 @@ def start_polling(bot, bot_name: str = "bot"):
 
     مثال::
 
-        from bot_base import start_polling
-        start_polling(bot, "currency")
+        from bot_base import start_bot
+        start_bot(bot, "base")
     """
     log = get_logger(bot_name)
     log.info("🚀 بدء التشغيل (Polling)...")

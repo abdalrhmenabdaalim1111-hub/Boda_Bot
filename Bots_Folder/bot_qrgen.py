@@ -106,7 +106,5 @@ def handle_color_selection(call):
         bot.edit_message_text(f"❌ خطأ: {e}", call.message.chat.id, call.message.message_id)
 
 if __name__ == "__main__":
-    log.info("🚀 QRGen starting (@QRGenProBot)")
-    bot.delete_webhook(drop_pending_updates=True)
-    time.sleep(2)  # Wait for Telegram to release previous session
-    bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=20)
+    from bot_base import start_bot
+    start_bot(bot, "qrgen")

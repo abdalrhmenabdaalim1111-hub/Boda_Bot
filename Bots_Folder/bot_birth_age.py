@@ -189,5 +189,5 @@ def process_date(message):
     bot.send_message(message.chat.id, res, reply_markup=app_kb())
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "birth-age")
+    from bot_base import start_bot
+    start_bot(bot, "birth_age")

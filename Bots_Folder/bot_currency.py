@@ -119,13 +119,5 @@ def unknown_text(msg):
     bot.reply_to(msg, "⚠️ يرجى إرسال أرقام فقط (المبلغ المُراد تحويله) لكي أبدأ.")
 
 if __name__ == "__main__":
-    log.info("🚀 محول العملات الذكي — CurrencyBot starting...")
-    try:
-        me = bot.get_me()
-        log.info(f"Authenticated: @{me.username}")
-    except Exception as e:
-        log.error(f"Auth failed: {e}"); sys.exit(1)
-    bot.delete_webhook(drop_pending_updates=True)
-    bot.infinity_polling(
-        skip_pending=True, timeout=10, long_polling_timeout=20,
-        allowed_updates=["message", "callback_query"])
+    from bot_base import start_bot
+    start_bot(bot, "currency", allowed_updates=["message", "callback_query"])

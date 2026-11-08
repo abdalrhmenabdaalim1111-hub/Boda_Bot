@@ -141,7 +141,5 @@ def guide(message):
         bot.send_message(message.chat.id, "❌ <b>رابط غير صالح!</b> أرسل رابط فيديو صحيح.", reply_markup=app_kb())
 
 if __name__ == "__main__":
-    log.info("🚀 VidLoad starting (@VidLoadXBot)")
-    bot.delete_webhook(drop_pending_updates=True)
-    time.sleep(2)  # Wait for Telegram to release previous session
-    bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=20)
+    from bot_base import start_bot
+    start_bot(bot, "vidload")

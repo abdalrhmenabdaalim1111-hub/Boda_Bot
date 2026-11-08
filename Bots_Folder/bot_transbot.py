@@ -101,5 +101,5 @@ def handle_lang_selection(call):
     threading.Thread(target=do, daemon=True).start()
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "transbot")
+    from bot_base import start_bot
+    start_bot(bot, "transbot")
