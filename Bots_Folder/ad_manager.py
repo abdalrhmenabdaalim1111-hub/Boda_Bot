@@ -195,3 +195,58 @@ def get_ad_manager() -> AdManager:
     if _ad_manager_instance is None:
         _ad_manager_instance = AdManager()
     return _ad_manager_instance
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  التركيب التلقائي على أي بوت — attach_unified_ads(bot, bot_name)
+#  يُستدعى من bot_base.start_polling/start_webhook تلقائياً:
+#    • يغلّف bot.send_message بحيث يُلحق إعلان الذيل حسب التكرار المضبوط
+#      (في المحادثات الخاصة فقط، مع احترام وضع HTML أو النص العادي)
+# ─────────────────────────────────────────────────────────────────────────────
+_TAG_RE = None
+
+
+def _strip_html(text: str) -> str:
+    """إزالة وسوم HTML من نص الإعلان عند إرساله في رسالة نصية عادية"""
+    global _TAG_RE
+    if _TAG_RE is None:
+        import re
+        _TAG_RE = re.compile(r"<[^>]+>")
+    return _TAG_RE.sub("", text)
+
+
+def attach_unified_ads(bot, bot_name: str = "bot"):
+    """تطبيق نظام الإعلانات المركزي على بوت دون تعديل كوده"""
+    mgr = get_ad_manager()
+    if not mgr.is_enabled():
+        return
+
+    original_send = bot.send_message
+    logger.info(f"📢 نظام الإعلانات الموحد مفعّل على: {bot_name}")
+
+    def send_message_with_ads(*args, **kwargs):
+        try:
+            text = args[1] if len(args) > 1 else kwargs.get("text", "")
+            chat_id = args[0] if args else kwargs.get("chat_id")
+            # إعلانات المحادثات الخاصة فقط (chat_id موجب = مستخدم)
+            uid = chat_id if isinstance(chat_id, int) and chat_id > 0 else None
+
+            if isinstance(text, str) and text and uid:
+                ad = mgr.get_footer_ad(uid)
+                if ad:
+                    parse_mode = kwargs.get("parse_mode") or (len(args) > 2 and args[2])
+                    if parse_mode:
+                        kwargs["parse_mode"] = parse_mode
+                        text = text + ad
+                    else:
+                        # رسالة نصية عادية → ننظف الوسوم من الإعلان
+                        text = text + _strip_html(ad)
+                    if len(args) > 1:
+                        args = (args[0], text) + tuple(args[2:])
+                    else:
+                        kwargs["text"] = text
+        except Exception:
+            pass  # الإعلان لا يعطّل الرسالة أبداً
+        return original_send(*args, **kwargs)
+
+    bot.send_message = send_message_with_ads

@@ -153,6 +153,13 @@ def start_polling(bot, bot_name: str = "bot"):
     except Exception as e:
         log.debug(f"GrowthEngine attach: {e}")
 
+    # الطبقة الموحدة: تتبع المستخدمين + زر القائمة + بطاقة التطبيق
+    try:
+        from unified_middleware import install_unified_layer
+        install_unified_layer(bot, bot_name)
+    except Exception as e:
+        log.debug(f"UnifiedLayer install: {e}")
+
     try:
         bot.delete_webhook(drop_pending_updates=True)
         time.sleep(1)
@@ -218,6 +225,13 @@ def start_webhook(bot, bot_name: str, webhook_url: str,
     except Exception as e:
         log.debug(f"GrowthEngine attach: {e}")
 
+    # الطبقة الموحدة: تتبع المستخدمين + زر القائمة + بطاقة التطبيق
+    try:
+        from unified_middleware import install_unified_layer
+        install_unified_layer(bot, bot_name)
+    except Exception as e:
+        log.debug(f"UnifiedLayer install: {e}")
+
     try:
         bot.remove_webhook()
         time.sleep(1)
@@ -253,3 +267,22 @@ def start_bot(bot, bot_name: str = "bot"):
         start_webhook(bot, bot_name, webhook_url, port=port)
     else:
         start_polling(bot, bot_name)
+
+
+# ── مساعدات التطبيقات المصغّرة (إعادة تصدير للاستخدام الاختياري في البوتات) ──
+def get_miniapps_url(bot_id: str) -> str:
+    """رابط التطبيق المصغّر لبوت معيّن (من unified_middleware)"""
+    try:
+        from unified_middleware import get_miniapps_url as _get_url
+        return _get_url(bot_id)
+    except Exception:
+        return ""
+
+
+def webapp_keyboard(bot_id: str):
+    """لوحة أزرار التطبيق (من unified_middleware)"""
+    try:
+        from unified_middleware import webapp_keyboard as _kb
+        return _kb(bot_id)
+    except Exception:
+        return None
