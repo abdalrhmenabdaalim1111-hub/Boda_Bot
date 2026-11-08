@@ -139,7 +139,5 @@ def handle_text(msg):
     cmd_start(msg)
 
 if __name__ == "__main__":
-    log.info(f"🚀 {BOT_NAME} starting...")
-    bot.delete_webhook(drop_pending_updates=True)
-    bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=20,
-                         allowed_updates=["message", "callback_query"])
+    from bot_base import start_bot
+    start_bot(bot, "luckybox", allowed_updates=["message", "callback_query"])

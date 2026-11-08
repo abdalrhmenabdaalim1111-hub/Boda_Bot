@@ -97,5 +97,5 @@ def handle_text(message):
     bot.send_message(message.chat.id, f"❓ <b>السؤال {count+1}:</b>\n\n{q}")
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "iqtest")
+    from bot_base import start_bot
+    start_bot(bot, "iqtest")

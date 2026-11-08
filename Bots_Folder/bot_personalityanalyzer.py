@@ -187,5 +187,5 @@ def finish_quiz(uid, chat_id, message_id):
     except: pass
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "personality")
+    from bot_base import start_bot
+    start_bot(bot, "personalityanalyzer")

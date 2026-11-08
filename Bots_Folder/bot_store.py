@@ -402,22 +402,11 @@ def _handle_admin_input(message, text):
 
 # ── Entry ──────────────
 if __name__ == "__main__":
-    log.info("Boda Store Bot v5.0 starting...")
+    log.info("Boda Store Bot v5.1 starting...")
     log.info(f"Registry: {REGISTRY} | exists={os.path.exists(REGISTRY)}")
     apps    = load_apps()
     visible = [a for a in apps if not a.get("hidden")]
     log.info(f"Visible bots ({len(visible)}): {[a['name'] for a in visible]}")
-    try:
-        me = bot.get_me()
-        log.info(f"Authenticated: @{me.username}")
-    except Exception as e:
-        log.error(f"Auth failed: {e}"); sys.exit(1)
-    try:
-        bot.delete_webhook(drop_pending_updates=True)
-        time.sleep(2)  # Wait for Telegram to release previous session
-        log.info("Polling started...")
-        bot.infinity_polling(skip_pending=True, timeout=10,
-                             long_polling_timeout=20,
-                             allowed_updates=["message","callback_query","inline_query"])
-    except Exception as e:
-        log.error(f"Fatal: {e}"); raise
+    from bot_base import start_bot
+    start_bot(bot, "store",
+              allowed_updates=["message","callback_query","inline_query"])

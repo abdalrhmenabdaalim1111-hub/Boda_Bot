@@ -93,5 +93,5 @@ def handle_text(message):
         del user_states[uid]
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "lovecalculator")
+    from bot_base import start_bot
+    start_bot(bot, "lovecalculator")

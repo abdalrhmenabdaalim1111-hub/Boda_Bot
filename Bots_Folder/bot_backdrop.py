@@ -153,5 +153,5 @@ def guide(message):
     bot.send_message(message.chat.id, "📸 <b>أرسل أي صورة لحذف خلفيتها!</b>", reply_markup=app_kb())
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "backdrop")
+    from bot_base import start_bot
+    start_bot(bot, "backdrop")

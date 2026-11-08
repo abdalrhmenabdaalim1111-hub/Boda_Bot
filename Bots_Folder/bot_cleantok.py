@@ -167,11 +167,5 @@ def handle_other(message):
         bot.send_message(message.chat.id, "❌ <b>الرابط غير صالح!</b>\nأرسل رابط فيديو تيك توك.")
 
 if __name__ == "__main__":
-    log.info("CleanTok Bot starting... (@CleanTokVidBot)")
-    try:
-        bot.delete_webhook(drop_pending_updates=True)
-        time.sleep(2)  # Wait for Telegram to release previous session
-        bot.infinity_polling(skip_pending=True, timeout=10,
-                             long_polling_timeout=20)
-    except Exception as e:
-        log.error(f"Fatal: {e}"); raise
+    from bot_base import start_bot
+    start_bot(bot, "cleantok")

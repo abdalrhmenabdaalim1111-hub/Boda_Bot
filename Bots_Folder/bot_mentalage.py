@@ -103,5 +103,5 @@ def handle_text(message):
         del _sessions[uid]
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "mentalage")
+    from bot_base import start_bot
+    start_bot(bot, "mentalage")

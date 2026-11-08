@@ -144,11 +144,5 @@ def handle_other(message):
     bot.send_message(message.chat.id, "📸 <b>أرسل صورة فقط للبدء في إنشاء الملصق!</b>", reply_markup=app_kb())
 
 if __name__ == "__main__":
-    log.info("StickerX Bot starting (@StickerXMakerBot)")
-    try:
-        bot.delete_webhook(drop_pending_updates=True)
-        time.sleep(2)  # Wait for Telegram to release previous session
-        bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=20)
-    except Exception as e:
-        log.error(f"Fatal: {e}")
-        raise
+    from bot_base import start_bot
+    start_bot(bot, "stickerx")

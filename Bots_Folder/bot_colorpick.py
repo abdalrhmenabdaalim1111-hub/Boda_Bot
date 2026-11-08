@@ -125,7 +125,5 @@ def guide(msg):
     bot.reply_to(msg, "📸 <b>أرسل أي صورة</b> لتحليل ألوانها!", reply_markup=store_kb())
 
 if __name__ == "__main__":
-    log.info(f"🚀 {BOT_NAME} starting...")
-    bot.delete_webhook(drop_pending_updates=True)
-    bot.infinity_polling(skip_pending=True, timeout=10, long_polling_timeout=20,
-                         allowed_updates=["message", "callback_query"])
+    from bot_base import start_bot
+    start_bot(bot, "colorpick", allowed_updates=["message", "callback_query"])

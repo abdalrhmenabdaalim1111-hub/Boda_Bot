@@ -62,5 +62,5 @@ def handle_text_message(message):
     bot.reply_to(message, f"✨ <b>اقتراح اليوم:</b>\n\n{s}", parse_mode="HTML", reply_markup=markup)
 
 if __name__ == "__main__":
-    from bot_base import start_polling
-    start_polling(bot, "random-suggest")
+    from bot_base import start_bot
+    start_bot(bot, "random_suggest")
