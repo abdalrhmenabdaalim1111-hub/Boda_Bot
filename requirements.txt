@@ -1,0 +1,22 @@
+# المكتبات الأساسية للبوتات
+pyTelegramBotAPI>=4.14.0
+requests>=2.31.0
+
+# مكتبات QR Code
+qrcode>=7.4.0
+Pillow>=10.0.0
+
+# مكتبات معالجة الصور
+rembg>=2.0.50
+numpy>=1.24.0
+
+# مكتبات الترجمة
+deep-translator>=1.11.0
+
+# مكتبات إضافية
+python-dotenv>=1.0.0
+psutil>=5.9.0
+
+# مكتبات الاختبار
+pytest>=7.4.0
+pytest-mock>=3.11.0
