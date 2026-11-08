@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.vscode
+.git
+.gitignore
+*.docx
+Backups/*
+!Backups/.gitkeep
+Data/*.db-journal
+Data/*.tmp
+Logs/*.log
+*.bat
+tests
+
