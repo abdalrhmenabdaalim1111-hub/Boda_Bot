@@ -34,7 +34,7 @@ def get_miniapps_url(bot_id: str) -> str:
 
 
 def webapp_keyboard(bot_id: str) -> InlineKeyboardMarkup:
-    """لوحة أزرار التطبيق: افتح التطبيق + الموقع بالمتصفح + المتجر"""
+    """لوحة أزرار التطبيق: افتح التطبيق + الموقع بالمتصفح + راعي + المتجر"""
     kb = InlineKeyboardMarkup(row_width=1)
     url = get_miniapps_url(bot_id)
     if url:
@@ -45,6 +45,14 @@ def webapp_keyboard(bot_id: str) -> InlineKeyboardMarkup:
         kb.add(InlineKeyboardButton(
             "🌐  الموقع بالمتصفح",
             url=url))
+    # زر الراعي Monetag (إن ضُبطت شفرة) — يمر عبر تتبع النقرات في بوت المتجر
+    try:
+        from ad_manager import get_ad_manager
+        sponsor_url = get_ad_manager().build_ad_click_url(bot_id)
+        if sponsor_url:
+            kb.add(InlineKeyboardButton("🔥  عرض حصري", url=sponsor_url))
+    except Exception:
+        pass
     kb.add(InlineKeyboardButton("🏪  متجر تطبيقات بودة",
                                 url="https://t.me/BodaStoreeBot"))
     return kb

@@ -151,6 +151,26 @@ def cmd_start(message):
     _store_stats["start_count"] += 1
     _store_stats["unique_users"].add(uid)
     log.info(f"/start from {uid} (@{message.from_user.username})")
+
+    # ── تتبع نقرات إعلانات Monetag: /start adclick_<bot_id> ────────────────
+    try:
+        from ad_manager import parse_ad_click_payload, get_ad_manager
+        click_bid = parse_ad_click_payload(getattr(message, "text", "") or "")
+        if click_bid:
+            info = get_ad_manager().resolve_ad_click(click_bid)
+            if info and info.get("direct_link"):
+                ad_kb = InlineKeyboardMarkup()
+                ad_kb.add(InlineKeyboardButton("🔥 فتح العرض الآن",
+                                               url=info["direct_link"]))
+                bot.send_message(
+                    message.chat.id,
+                    f"🎁 <b>عرض خاص من {info.get('bot_name', click_bid)}</b>\n\n"
+                    "اضغط الزر بالأسفل لفتح العرض:",
+                    reply_markup=ad_kb)
+                return
+    except Exception as e:
+        log.debug(f"ad click tracking: {e}")
+
     apps = load_apps()
     if not apps:
         bot.send_message(message.chat.id, "⚠️ خطأ في تحميل البوتات.")
