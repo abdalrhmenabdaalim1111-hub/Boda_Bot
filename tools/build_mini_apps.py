@@ -34,6 +34,15 @@ REG    = ROOT / "bots_registry.json"
 STORE_URL   = "https://t.me/BodaStoreeBot"
 DEV_EVENT_DAYS = 30
 
+# قاعدة موقع التطبيقات (من .env: MINIAPPS_BASE_URL) لبناء وسوم Open Graph
+MINIAPPS_BASE = ""
+try:
+    from dotenv import load_dotenv  # noqa: E402
+    load_dotenv(ROOT / ".env")
+    MINIAPPS_BASE = os.getenv("MINIAPPS_BASE_URL", "").strip().rstrip("/")
+except Exception:
+    pass
+
 
 # ── الإعلانات من ads_config.json و monetag_config.json ─────────────────────────
 def build_ads_cfg(bot_id: str = None) -> dict:
@@ -182,7 +191,8 @@ def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
         title=title, subtitle=subtitle,
         body_html=body, app_js=js, app_css=css,
         api_base=api_base, ads_cfg=ads_cfg,
-        share_url=share, back_url="../store/")
+        share_url=share, back_url="../store/",
+        page_url=f"{MINIAPPS_BASE}/{bot_id}/" if MINIAPPS_BASE else "")
 
 
 # ── المتجر كتطبيق مصغّر ──────────────────────────────────────────────────────
@@ -303,7 +313,8 @@ def render_store(apps: list, ads_cfg: dict, api_base: str) -> str:
         subtitle="تصفح كل البوتات والتطبيقات المصغّرة",
         body_html=body, app_js=STORE_JS, app_css=STORE_CSS,
         api_base=api_base, ads_cfg={"banner": None, "sponsor": ads_cfg.get("sponsor"), "every": 99},
-        share_url=STORE_URL).replace(
+        share_url=STORE_URL,
+        page_url=f"{MINIAPPS_BASE}/store/" if MINIAPPS_BASE else "").replace(
         "window.__BODA_BOT_ID__   = \"store\";",
         "window.__BODA_BOT_ID__   = \"store\";\nwindow.__BODA_CATALOG__ = "
         + json.dumps(catalog, ensure_ascii=False))

@@ -290,7 +290,7 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
                body_html: str, app_js: str, app_css: str = "",
                api_base: str = "", ads_cfg: dict | None = None,
                share_url: str = "https://t.me/BodaStoreeBot",
-               back_url: str = "") -> str:
+               back_url: str = "", page_url: str = "") -> str:
     """تجميع صفحة تطبيق كاملة من القالب + أجزاء التطبيق"""
     import json as _json
     ads_data = ads_cfg or {"banner": None, "sponsor": None, "every": 5}
@@ -301,12 +301,31 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
     if ads_data.get("monetag_script"):
         monetag_tag = f'<script src="{ads_data["monetag_script"]}"></script>\n'
 
+    # ── وسوم احترافية: تعاينة مشاركة (OG) + ثيم + فافيكون SVG مدمج ──
+    favicon = ("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+               f"<text x='0' y='26' font-size='26'>{emoji}</text></svg>").replace(
+               "<", "%3C").replace(">", "%3E").replace(" ", "%20").replace("'", "%27")
+    full_desc = str(subtitle)[:150]
+    og = ""
+    if page_url:
+        og = (f'<meta property="og:type" content="website">\n'
+              f'<meta property="og:url" content="{page_url}">\n'
+              f'<meta property="og:title" content="{emoji} {title} — Boda">\n'
+              f'<meta property="og:description" content="{full_desc}">\n'
+              f'<meta name="twitter:card" content="summary">\n'
+              f'<meta name="twitter:title" content="{emoji} {title} — Boda">\n'
+              f'<meta name="twitter:description" content="{full_desc}">\n')
+
     return f"""<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>{emoji} {title} — Boda</title>
+<meta name="description" content="{full_desc}">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#17212b">
+<link rel="icon" href="{favicon}">
+{og}<title>{emoji} {title} — Boda</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 {monetag_tag}<style>{COMMON_CSS}
 {app_css}</style>

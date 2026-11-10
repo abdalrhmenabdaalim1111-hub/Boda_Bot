@@ -76,6 +76,51 @@ def test_dev_tools_new_bot(tmp_path, monkeypatch, capsys):
     assert "BOT_TESTDEMO_TOKEN=" in env_content
 
 
+def test_dev_tools_bots_check_fake_env(tmp_path, monkeypatch, capsys):
+    """اختبار فحص الجودة: بوت مثالي + بوت ناقص (ملف مفقود وسجل فاسد)"""
+    fake_bots_dir = tmp_path / "Bots_Folder"
+    fake_bots_dir.mkdir()
+    (fake_bots_dir / "bot_alpha.py").write_text(
+        "from bot_base import get_token, start_bot\nTOKEN = get_token()\n",
+        encoding="utf-8")
+
+    fake_reg = tmp_path / "bots_registry.json"
+    fake_reg.write_text(json.dumps([
+        {"id": "alpha", "name": "Alpha", "username": "@Alpha_Bot", "file": "bot_alpha.py"},
+        {"id": "beta", "name": "", "username": ""},
+    ], ensure_ascii=False), encoding="utf-8")
+
+    fake_env = tmp_path / ".env"
+    fake_env.write_text("BOT_ALPHA_TOKEN=123456789:AAHabcdefghijk12345XY\n", encoding="utf-8")
+
+    webroot = tmp_path / "webroot" / "alpha"
+    webroot.mkdir(parents=True)
+    (webroot / "index.html").write_text(
+        '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
+        encoding="utf-8")
+
+    monkeypatch.setattr(dev_tools, "BOTS_DIR", fake_bots_dir)
+    monkeypatch.setattr(dev_tools, "REGISTRY", fake_reg)
+    monkeypatch.setattr(dev_tools, "ENV_FILE", fake_env)
+    monkeypatch.setattr(dev_tools, "BASE_DIR", tmp_path)
+
+    code = dev_tools.cmd_bots_check()
+    captured = capsys.readouterr().out
+    # بوت ناقص → إجمالي 14 فحص، 7 ناجحة للبوت المثالي فقط
+    assert "7/14" in captured
+    assert "beta" in captured
+    assert code == 1
+
+
+def test_dev_tools_bots_check_real(capsys):
+    """فحص الجودة الشامل على المشروع الحقيقي: 34 بوت × 7 فحوصات يجب أن تُنجز بالكامل"""
+    code = dev_tools.cmd_bots_check()
+    captured = capsys.readouterr().out
+    assert code == 0
+    assert "100%" in captured
+    assert "كل الفحوصات ناجحة" in captured
+
+
 class TestParseTokenEntries:
     """اختبارات دالة تحليل أسطر التوكنات بالجملة"""
 
