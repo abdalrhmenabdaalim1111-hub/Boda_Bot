@@ -23,7 +23,7 @@ import json
 import time
 import threading
 from pathlib import Path
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime, timedelta
 
@@ -46,6 +46,24 @@ try:
 except ImportError:
     pass
 API_SERVER_KEY = os.getenv("API_SERVER_KEY", "").strip()
+
+# ── Control Center integration (Phase 1) ─────────────────────────────────────
+# The Control Center is an *extension* of this server: every legacy route
+# below keeps working exactly as before, and the new /api/v1 surface is
+# dispatched first. If the package cannot be imported the legacy server
+# still starts — a broken control plane must never take the bots offline.
+try:
+    from control_center import api as cc_api
+    from control_center import migrations as cc_migrations
+    from control_center.http import Response as CCResponse
+    from control_center.http import Request as CCRequest
+    CONTROL_CENTER_AVAILABLE = True
+except Exception as _cc_error:  # pragma: no cover - defensive
+    cc_api = None
+    cc_migrations = None
+    CCResponse = None
+    CONTROL_CENTER_AVAILABLE = False
+    print(f"⚠️  Control Center غير متاح ({_cc_error}) — يعمل الخادم بالوضع القديم")
 
 
 def record_event(event: dict) -> bool:
@@ -285,7 +303,80 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             return bool(key) and key == API_SERVER_KEY
         return False
 
+    # ── Control Center dispatch ─────────────────────────────────────────────
+    def _send_control_center(self, response) -> None:
+        """Write a Control Center response (CORS headers included)."""
+        if response is None:
+            return
+        if getattr(response, "sent", False):
+            return  # the handler already wrote the response (SSE)
+        payload = response.payload()
+        self.send_response(response.status)
+        self.send_header("Content-Type", response.content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        for key, value in (response.headers or {}).items():
+            self.send_header(key, value)
+        self.end_headers()
+        if payload:
+            self.wfile.write(payload)
+
+    def _dispatch_control_center(self, method: str) -> bool:
+        """
+        Hand the request to the Control Center router.
+
+        Returns True when the request was handled (including error answers),
+        False when it must fall through to the legacy routes.
+        """
+        if not CONTROL_CENTER_AVAILABLE:
+            return False
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        if not (path.startswith("/api/v1") or path in ("/openapi.json", "/docs")):
+            return False
+
+        body = b""
+        if method == "POST":
+            try:
+                length = min(int(self.headers.get("Content-Length", 0)), 1024 * 1024)
+                body = self.rfile.read(length) if length else b""
+            except Exception:
+                body = b""
+
+        request = CCRequest(self, method, path, parse_qs(parsed.query), body)
+        route, params = cc_api.ROUTER.match(method, path)
+        if route is None:
+            if params and params.get("_method_mismatch"):
+                self._send_json(405, {"error": "Method Not Allowed"})
+            else:
+                self._send_json(404, {"error": "Not Found",
+                                      "hint": "استخدم /openapi.json لعرض المسارات"})
+            return True
+
+        request.params = params
+        try:
+            response = route.handler(request)
+        except Exception as exc:
+            import traceback
+            self._send_json(500, {"error": str(exc),
+                                  "traceback": traceback.format_exc()[-1200:]})
+            return True
+
+        self._send_control_center(response)
+        return True
+
+    def do_OPTIONS(self):
+        """CORS preflight for the Control Center and the legacy API."""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.end_headers()
+
     def do_GET(self):
+        if self._dispatch_control_center("GET"):
+            return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         qs = parse_qs(parsed.query)
@@ -398,6 +489,8 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             })
 
     def do_POST(self):
+        if self._dispatch_control_center("POST"):
+            return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
 
@@ -457,9 +550,25 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
 
 
 def run_api_server(host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> HTTPServer:
-    """تشغيل خادم الـ API (افتراضياً محلي فقط — مرر --host 0.0.0.0 عمداً عند النشر)"""
-    server = HTTPServer((host, port), BodaAPIHandler)
+    """
+    تشغيل خادم الـ API (افتراضياً محلي فقط — مرر --host 0.0.0.0 عمداً عند النشر)
+
+    يستخدم ``ThreadingHTTPServer`` لأن بثّ السجلات (SSE) يتطلب أن لا يحجب
+    طلب واحد بقية الطلبات.
+    """
+    if CONTROL_CENTER_AVAILABLE:
+        try:
+            report = cc_migrations.ensure_ready()
+            if report.get("applied"):
+                print(f"🗄️  تم تطبيق ترحيلات قاعدة البيانات: {', '.join(report['applied'])}")
+        except Exception as e:
+            print(f"⚠️  تعذر تطبيق الترحيلات: {e}")
+
+    server = ThreadingHTTPServer((host, port), BodaAPIHandler)
+    server.daemon_threads = True
     print(f"🚀 Boda Bot API Server v{SERVER_VERSION} running on http://{host}:{port}")
+    if CONTROL_CENTER_AVAILABLE:
+        print(f"🧭  Control Center API: http://{host}:{port}/api/v1  (توثيق: /docs)")
     if host in ("0.0.0.0", "::") and not API_SERVER_KEY:
         print("⚠️  تحذير: الاستماع على كل الواجهات بدون API_SERVER_KEY — الطلبات الخارجية سترفض تلقائياً")
     return server
