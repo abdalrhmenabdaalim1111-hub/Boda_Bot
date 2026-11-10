@@ -1,22 +1,28 @@
 # المكتبات الأساسية للبوتات
 pyTelegramBotAPI>=4.14.0
 requests>=2.31.0
+python-dotenv>=1.0.0
 
 # مكتبات QR Code
 qrcode>=7.4.0
 Pillow>=10.0.0
 
-# مكتبات معالجة الصور
-rembg>=2.0.50
+# مكتبات معالجة الصور والذكاء الاصطناعي (مزيل الخلفية)
+# rembg[cpu] يجلب تلقائياً: onnxruntime + scikit-image + pymatting
+rembg[cpu]>=2.0.50
+onnxruntime>=1.16.0,<1.23
 numpy>=1.24.0
 
-# مكتبات الترجمة
+# الترجمة والصوت
 deep-translator>=1.11.0
+gtts>=2.4.0
 
-# مكتبات إضافية
-python-dotenv>=1.0.0
+# تحميل الفيديوهات
+yt-dlp>=2024.3.10
+
+# أدوات النظام
 psutil>=5.9.0
 
 # مكتبات الاختبار
 pytest>=7.4.0
-pytest-mock>=3.11.0
+pytest-cov>=4.1.0

@@ -24,6 +24,14 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
+# حماية الترميز على Windows (cp1252 يفشل مع الإيموجي في المخرجات)
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 BASE_DIR    = Path(__file__).parent.resolve()
 BOTS_DIR    = BASE_DIR / "Bots_Folder"
 DATA_DIR    = BASE_DIR / "Data"
@@ -102,7 +110,7 @@ def cmd_status() -> dict:
 
     # فحص قاعدة البيانات SQLite
     print("\n🗄️ [4/5] قاعدة البيانات:")
-    db_file = DATA_DIR / "boda_bots.db"
+    db_file = DATA_DIR / "boda_bot.db"
     db_info = {"exists": False, "users": 0, "size": 0}
     if db_file.exists():
         db_size_kb = db_file.stat().st_size / 1024

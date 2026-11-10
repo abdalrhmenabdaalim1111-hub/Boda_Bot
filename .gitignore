@@ -39,6 +39,7 @@ Logs/
 
 # Data
 Data/
+Backups/
 *.db
 *.sqlite
 *.sqlite3
@@ -55,3 +56,14 @@ Thumbs.db
 *_token.py
 tokens.py
 secrets.py
+new_tokens.txt
+
+# Test artifacts
+.coverage
+htmlcov/
+
+# Session artifacts
+.zcode/
+
+#.generating runtime data (rebuild with: python tools/build_mini_apps.py)
+webroot/data/stats.json

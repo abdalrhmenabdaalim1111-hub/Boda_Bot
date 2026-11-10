@@ -70,7 +70,7 @@ def _get_db():
 def get_system_health() -> dict:
     """جمع بيانات الفحص الصحي للنظام"""
     env_file = BASE_DIR / ".env"
-    db_file = DATA_DIR / "boda_bots.db"
+    db_file = DATA_DIR / "boda_bot.db"
 
     return {
         "status": "healthy",
