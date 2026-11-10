@@ -10,6 +10,7 @@ Bots_Folder/ad_manager.py — نظام إدارة الإعلانات والاش�
 5. تفعيل / إيقاف الإعلانات والتحكم بنسب الظهور من ملف الإعدادات Data/ads_config.json
 """
 import os
+import re
 import sys
 import json
 import logging
@@ -21,6 +22,12 @@ logger = logging.getLogger("AdManager")
 DATA_DIR = Path(__file__).parent.parent / "Data"
 ADS_CONFIG_FILE = DATA_DIR / "ads_config.json"
 MONETAG_CONFIG_FILE = DATA_DIR / "monetag_config.json"
+
+# ── تتبع نقرات الإعلانات بلا استضافة ─────────────────────────────────────────
+# زر الإعلان يفتح رابطاً عميقاً لبوت المتجر: /start adclick_<bot_id>
+# فيسجّل المتجر النقرة في قاعدة البيانات ثم يعرض رابط Monetag للعرض.
+STORE_BOT_USERNAME = os.getenv("BODA_STORE_BOT_USERNAME", "BodaStoreeBot").lstrip("@")
+AD_CLICK_PREFIX = "adclick_"
 
 DEFAULT_MONETAG_CONFIG = {
     "_version": "1.0",
@@ -227,6 +234,32 @@ class AdManager:
             }
         return statuses
 
+    # ── تتبع نقرات Monetag عبر رابط عميق لبوت المتجر ─────────────────────────
+    def build_ad_click_url(self, bot_id: str) -> str:
+        """رابط عميق لتسجيل النقرة ثم عرض الإعلان — يعيد "" إن لم تُضبط شفرة."""
+        clean_id = bot_id.replace("bot_", "").strip().lower()
+        if not clean_id:
+            return ""
+        cfg = self.get_monetag_config(clean_id)
+        if not cfg.get("direct_link"):
+            return ""
+        return f"https://t.me/{STORE_BOT_USERNAME}?start={AD_CLICK_PREFIX}{clean_id}"
+
+    def resolve_ad_click(self, bot_id: str) -> Optional[dict]:
+        """تسجيل نقرة إعلان من رابط التتبع وإرجاع معلومات العرض للعرض."""
+        clean_id = bot_id.replace("bot_", "").strip().lower()
+        cfg = self.get_monetag_config(clean_id)
+        direct = cfg.get("direct_link", "").strip()
+        if not clean_id or not direct:
+            return None
+        self.record_ad_click(clean_id, "direct_link")
+        return {
+            "bot_id": clean_id,
+            "bot_name": cfg.get("bot_name", clean_id),
+            "direct_link": direct,
+            "zone_id": cfg.get("zone_id", ""),
+        }
+
     def _load_config(self) -> dict:
         """تحميل إعدادات الإعلانات من الملف"""
         self.config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -429,15 +462,30 @@ def attach_unified_ads(bot, bot_name: str = "bot"):
     bot.send_message = send_message_with_ads
 
 
+def parse_ad_click_payload(text: str) -> str:
+    """استخراج معرف البوت من /start adclick_<id> — يعيد "" إن لم يكن أمر تتبع."""
+    parts = (text or "").strip().split(maxsplit=1)
+    if len(parts) < 2:
+        return ""
+    payload = parts[1].strip()
+    if not payload.startswith(AD_CLICK_PREFIX):
+        return ""
+    bot_id = payload[len(AD_CLICK_PREFIX):].strip().lower()
+    if re.fullmatch(r"[a-z0-9_]{2,32}", bot_id):
+        return bot_id
+    return ""
+
+
 def get_monetag_button(bot_name: str = "bot"):
-    """إرجاع زر راعي Inline مرتبط بـ Monetag Direct Smartlink إن وُجد."""
+    """زر راعي Inline مرتبط بـ Monetag — عبر رابط تتبع يسجّل النقرة تلقائياً."""
     mgr = get_ad_manager()
     cfg = mgr.get_monetag_config(bot_name)
     link = cfg.get("direct_link", "").strip()
     if not link:
         return None
+    url = mgr.build_ad_click_url(bot_name) or link
     try:
         from telebot.types import InlineKeyboardButton
-        return InlineKeyboardButton(text="🔥 عرض حصري / راعي التطبيق", url=link)
+        return InlineKeyboardButton(text="🔥 عرض حصري / راعي التطبيق", url=url)
     except Exception:
         return None

@@ -989,6 +989,161 @@ def cmd_errors(bot_id: Optional[str] = None) -> int:
     return 0
 
 
+def collect_diagnostics(db=None, monetag_statuses: Optional[Dict[str, dict]] = None) -> Dict[str, Any]:
+    """جمع بيانات التشخيص الشامل (بنية/توكنات/صفحات/إعلانات/أخطاء) — بلا شبكة وقابلة للفحص"""
+    from collections import Counter
+
+    # 1) السجل والتوكنات والصفحات
+    bots: List[dict] = []
+    if REGISTRY.exists():
+        try:
+            with open(REGISTRY, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            bots = data if isinstance(data, list) else data.get("bots", [])
+        except Exception:
+            bots = []
+
+    env_map: Dict[str, str] = {}
+    if ENV_FILE.exists():
+        try:
+            for ln in ENV_FILE.read_text(encoding="utf-8").splitlines():
+                if "=" in ln and not ln.strip().startswith("#"):
+                    k, _, v = ln.partition("=")
+                    env_map[k.strip()] = v.strip()
+        except Exception:
+            pass
+
+    token_re = re.compile(r"^\d{5,}:[\w-]{20,}$")
+    tokens_ok = sum(
+        1 for b in bots
+        if token_re.match(env_map.get(f"BOT_{str(b.get('id', '')).upper()}_TOKEN", "")))
+    pages_ok = sum(
+        1 for b in bots
+        if (BASE_DIR / "webroot" / str(b.get("id", "")) / "index.html").exists())
+
+    # 2) تغطية إعلانات Monetag
+    if monetag_statuses is None:
+        try:
+            from ad_manager import get_ad_manager
+            monetag_statuses = get_ad_manager().get_all_monetag_statuses()
+        except Exception:
+            monetag_statuses = {}
+    ads_ready = sum(1 for st in monetag_statuses.values() if st.get("has_ad"))
+
+    # 3) قاعدة البيانات: الأخطاء والإعلانات
+    if db is None:
+        try:
+            from database import get_db
+            db = get_db()
+        except Exception:
+            db = None
+
+    errors_summary: Dict[str, Any] = {}
+    recent_errors: List[dict] = []
+    ad_summary: Dict[str, Any] = {}
+    ad_top: List[dict] = []
+    if db:
+        try:
+            errors_summary = db.get_error_summary(days=7) or {}
+        except Exception:
+            pass
+        try:
+            recent_errors = db.get_recent_errors(limit=300) or []
+        except Exception:
+            pass
+        try:
+            ad_summary = db.get_ad_summary() or {}
+        except Exception:
+            pass
+        try:
+            ad_top = db.get_ad_stats() or []
+        except Exception:
+            pass
+
+    fp_counter = Counter(e.get("fingerprint", "") for e in recent_errors if e.get("fingerprint"))
+    return {
+        "bots_total": len(bots),
+        "tokens_ok": tokens_ok,
+        "pages_ok": pages_ok,
+        "ads_ready": ads_ready,
+        "ads_total": len(monetag_statuses),
+        "errors_summary": errors_summary,
+        "top_fingerprints": fp_counter.most_common(5),
+        "recent_errors_count": len(recent_errors),
+        "ad_summary": ad_summary,
+        "ad_top": ad_top,
+    }
+
+
+def cmd_diagnose() -> int:
+    """تشخيص ذكي شامل: البنية + التوكنات + الصفحات + إعلانات Monetag + الأخطاء + توصيات فورية"""
+    print_banner()
+    rep = collect_diagnostics()
+    total = rep["bots_total"]
+    err = rep["errors_summary"] or {}
+
+    print("\n🩺 التشخيص الذكي الشامل — تقرير فوري")
+    print("═" * 62)
+
+    # ── البنية ──
+    print("🧩 بنية النظام")
+    print(f"   • البوتات المسجلة:             {total}")
+    print(f"   • توكنات صالحة الصيغة:         {rep['tokens_ok']}/{total}")
+    print(f"   • صفحات التطبيقات المبنية:     {rep['pages_ok']}/{total}")
+    print(f"   • شفرات Monetag الجاهزة:       {rep['ads_ready']}/{rep['ads_total']}")
+
+    # ── الأخطاء ──
+    print("\n🚨 صحة الأخطاء (آخر 7 أيام)")
+    total_errors = err.get("total_errors", 0)
+    print(f"   • إجمالي الأخطاء: {total_errors}   (أحدث سجل محمّل: {rep['recent_errors_count']})")
+    by_type = err.get("by_type") or {}
+    if by_type:
+        print("   • حسب النوع: " + " | ".join(f"{k}: {v}" for k, v in list(by_type.items())[:5]))
+    by_bot = err.get("by_bot") or {}
+    if by_bot:
+        print("   • حسب البوت: " + " | ".join(f"{k}: {v}" for k, v in list(by_bot.items())[:5]))
+    if rep["top_fingerprints"]:
+        print("   • أكثر البصمات تكراراً: " +
+              " | ".join(f"{fp}×{cnt}" for fp, cnt in rep["top_fingerprints"]))
+
+    # ── الإعلانات ──
+    ads = rep["ad_summary"] or {}
+    print("\n📢 أداء إعلانات Monetag")
+    print(f"   • الظهور الكلي: {ads.get('total_impressions', 0)}   |   النقرات: {ads.get('total_clicks', 0)}"
+          f"   |   CTR: {ads.get('overall_ctr', 0.0)}%")
+    print(f"   • اليوم: ظهور {ads.get('today_impressions', 0)} / نقرات {ads.get('today_clicks', 0)}")
+    if rep["ad_top"]:
+        tops = ", ".join(f"{r.get('bot_name', '?')} ({r.get('impressions', 0)})"
+                         for r in rep["ad_top"][:5])
+        print(f"   • الأكثر ظهوراً: {tops}")
+
+    # ── التوصيات الذكية ──
+    print("\n💡 التوصيات:")
+    tips: List[str] = []
+    if rep["tokens_ok"] < total:
+        tips.append(f"🔑 {total - rep['tokens_ok']} بوت بلا توكن صالح — أضفه عبر: "
+                    "python dev_tools.py import-tokens")
+    if rep["pages_ok"] < total:
+        tips.append("🛠 بعض صفحات التطبيقات مفقودة — أعد البناء: "
+                    "python tools/build_mini_apps.py")
+    if rep["ads_ready"] == 0:
+        tips.append("📢 لم تُضبط شفرات Monetag بعد — اضبطها عبر: "
+                    "python dev_tools.py set-ad <bot_id> <smartlink|zone_id>")
+    dominant = max(by_type.items(), key=lambda kv: kv[1])[0] if by_type else ""
+    if total_errors and dominant.startswith("AUTH_TOKEN"):
+        tips.append("🔐 أخطاء توكن مسيطرة — تحقق فوراً: python dev_tools.py tokens-verify")
+    if total_errors and dominant.startswith("TELEGRAM_RATE_LIMIT"):
+        tips.append("⏳ أخطاء Rate Limit مسيطرة — ارفع فترات الانتظار أو فعّل rate_limiter")
+    if not tips:
+        tips.append("✅ كل شيء سليم — لا إجراءات مطلوبة الآن")
+    for t in tips:
+        print(f"   • {t}")
+
+    print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("🔎 لمزيد من التفاصيل: python dev_tools.py errors  |  python dev_tools.py ads")
+    return 0
+
+
 def cmd_apm_stats() -> int:
     """عرض إحصائيات الأداء والمستخدمين والإعلانات الشاملة"""
     print_banner()
@@ -1094,6 +1249,7 @@ def main():
         print("  ads                          - جدول حالة شفرات إعلانات Monetag لجميع التطبيقات")
         print("  set-ad <id> <link|zone>      - ضبط شفرة Monetag لتطبيق معين وحقنها فوراً")
         print("  errors [bot_id]              - مركز تشخيص وسجل الأخطاء الحديثة")
+        print("  diagnose                     - تشخيص ذكي شامل (بنية + توكنات + إعلانات + أخطاء + توصيات)")
         print("  list-bots                    - جدول بجميع البوتات ومعرفاتها وحالة توكناتها")
         print("  set-token <id> <token>       - إعداد توكن البوت والتحقق منه تلقائياً")
         print("  set-username <id> <username> - تحديث يوزر البوت في السجل")
@@ -1128,6 +1284,8 @@ def main():
     elif cmd in ("errors", "err", "error-center"):
         bid = sys.argv[2] if len(sys.argv) > 2 else None
         sys.exit(cmd_errors(bid))
+    elif cmd in ("diagnose", "doctor"):
+        sys.exit(cmd_diagnose())
     elif cmd in ("list-bots", "list", "bots"):
         cmd_list_bots()
     elif cmd == "set-token":
