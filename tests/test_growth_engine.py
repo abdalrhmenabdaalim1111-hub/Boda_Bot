@@ -92,11 +92,11 @@ def engine(tmp_path, monkeypatch):
 
 # ── التعيين الذكي ─────────────────────────────────────────────────────────────
 
-def test_assignment_size_and_current_bot_excluded(engine):
+def test_assignment_size_and_current_bot_included(engine):
     eng, db = engine
     a = eng.get_or_create_assignment(101, current_bot="b3")
     assert len(a) == 5
-    assert "b3" not in a                       # البوت الحالي مستثنى
+    assert "b3" in a                           # البوت الحالي مشمول الآن — المستخدم موجود فيه
     assert "store" in a                        # المتجر ثابت دائماً
     assert len(set(a)) == 5                    # لا تكرار
 

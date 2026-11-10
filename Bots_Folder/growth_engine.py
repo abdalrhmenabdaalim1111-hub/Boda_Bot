@@ -177,7 +177,8 @@ class GrowthEngine:
         """
         البوتات الخمسة المخصصة للمستخدم:
         • تعيين محفوظ سابقاً → إعادة استخدامه (استقرار التحقق)
-        • مستخدم جديد → الثوابت (المتجر) + الأقل مستخدمين عشوائياً
+        • مستخدم جديد → الثوابت (المتجر) + current_bot + الأقل مستخدمين عشوائياً
+        current_bot يُضمن دائماً في التعيين ليُحسب "مشتركاً" تلقائياً.
         """
         db = _get_db()
         if db:
@@ -186,12 +187,16 @@ class GrowthEngine:
                 return existing
 
         size = int(self.config.get("assignment_size", 5))
-        exclude = set(self.config.get("exclude_ids", [])) | {current_bot}
+        exclude = set(self.config.get("exclude_ids", []))
         fixed_ids = [b for b in self.config.get("fixed_bot_ids", ["store"])
                      if b not in exclude]
         by_id = {b["id"] for b in self._load_registry_pool()}
 
+        # ابدأ بالثوابت + current_bot (إذا لم يكن ثابتاً بالفعل)
         assignment = [b for b in fixed_ids if b in by_id]
+        if current_bot and current_bot not in assignment and current_bot in by_id:
+            assignment.append(current_bot)
+
         candidates = [b["id"] for b in self._load_registry_pool()
                       if b["id"] not in exclude and b["id"] not in assignment]
         need = size - len(assignment)
