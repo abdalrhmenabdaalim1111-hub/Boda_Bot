@@ -127,3 +127,4 @@ def start_ad_watcher(stop_event: threading.Event,
     t = threading.Thread(target=_watcher_loop, name="AdConfigWatcher", daemon=True)
     t.start()
     return t
+

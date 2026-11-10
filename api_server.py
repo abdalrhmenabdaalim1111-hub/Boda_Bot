@@ -33,6 +33,8 @@ DATA_DIR    = BASE_DIR / "Data"
 LOGS_DIR    = BASE_DIR / "Logs"
 REGISTRY    = BASE_DIR / "bots_registry.json"
 EVENTS_FILE = DATA_DIR / "events.jsonl"
+WEBROOT_DIR = BASE_DIR / "webroot"
+WEBAPPS_DIR = BASE_DIR / "webapps"
 
 SERVER_VERSION = "5.0.0"
 DEFAULT_PORT   = 8080
@@ -183,6 +185,15 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _send_bytes(self, status_code: int, body: bytes, content_type: str = "text/html; charset=utf-8"):
+        self.send_response(status_code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _is_authorized(self) -> bool:
         """الطلبات المحلية مسموحة؛ الخارجية تتطلب X-API-Key صحيحاً"""
         client_ip = self.client_address[0]
@@ -208,6 +219,37 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200 if payload.get("ready") else 503, payload)
             return
 
+        # تقديم تطبيقات الويب بدون حجب المفتاح (متاح لمستخدمي تيليجرام)
+        if path.startswith("/apps"):
+            parts = [p for p in path.split("/") if p and p != "apps"]
+            target_file = None
+            c_type = "text/html; charset=utf-8"
+
+            if not parts or parts[0] == "store":
+                target_file = WEBROOT_DIR / "store" / "index.html"
+            elif parts[0] == "data" and len(parts) > 1:
+                target_file = WEBROOT_DIR / "data" / parts[1]
+                c_type = "application/json; charset=utf-8"
+            else:
+                clean_bot = parts[0].replace("bot_", "").lower()
+                p1 = WEBROOT_DIR / clean_bot / "index.html"
+                p2 = WEBAPPS_DIR / f"{clean_bot}.html"
+                if p1.exists():
+                    target_file = p1
+                elif p2.exists():
+                    target_file = p2
+
+            if target_file and target_file.exists():
+                try:
+                    self._send_bytes(200, target_file.read_bytes(), content_type=c_type)
+                    return
+                except Exception as e:
+                    self._send_json(500, {"error": f"Failed reading file: {e}"})
+                    return
+            else:
+                self._send_bytes(404, b"<!DOCTYPE html><html><body><h2>MiniApp Not Found</h2></body></html>")
+                return
+
         if not self._is_authorized():
             self._send_json(403, {"error": "Forbidden — أدخل X-API-Key صحيحاً"})
             return
@@ -217,6 +259,15 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/bots":
             self._send_json(200, get_bots_list())
+
+        elif path == "/api/ads/status":
+            try:
+                sys.path.insert(0, str(BOTS_DIR))
+                from ad_manager import get_ad_manager
+                statuses = get_ad_manager().get_all_monetag_statuses()
+                self._send_json(200, {"ok": True, "count": len(statuses), "apps": statuses})
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
 
         elif path == "/api/logs":
             bot = qs.get("bot", [None])[0]
@@ -243,8 +294,9 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {
                 "error": "Not Found",
-                "endpoints": ["/health", "/ready", "/api/stats", "/api/bots",
-                              "/api/logs", "/api/events", "POST /api/track"]
+                "endpoints": ["/health", "/ready", "GET /apps/<bot_id>", "/api/stats",
+                              "/api/bots", "/api/ads/status", "/api/logs", "/api/events",
+                              "POST /api/track", "POST /api/ads/set"]
             })
 
     def do_POST(self):
@@ -264,6 +316,39 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
 
         if not self._is_authorized():
             self._send_json(403, {"error": "Forbidden — أدخل X-API-Key صحيحاً"})
+            return
+
+        if path == "/api/ads/set":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                payload = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                bot_id = payload.get("bot_id", "").strip().lower().replace("bot_", "")
+                if not bot_id:
+                    self._send_json(400, {"error": "Missing bot_id"})
+                    return
+                d_link = payload.get("direct_link", "").strip()
+                z_id = str(payload.get("zone_id", "")).strip()
+                s_url = payload.get("script_url", "").strip()
+                fmt = payload.get("format", "direct_link")
+                freq = int(payload.get("frequency", 3))
+                active = bool(payload.get("active", True))
+
+                sys.path.insert(0, str(BOTS_DIR))
+                from ad_manager import get_ad_manager
+                mgr = get_ad_manager()
+                mgr.set_monetag_config(bot_id, direct_link=d_link, zone_id=z_id,
+                                       script_url=s_url, format_type=fmt,
+                                       frequency=freq, active=active)
+                from ad_watcher import sync_mini_apps
+                sync_report = sync_mini_apps()
+                self._send_json(200, {
+                    "ok": True,
+                    "bot_id": bot_id,
+                    "message": f"Updated Monetag ads for {bot_id} and synchronized HTML files.",
+                    "sync": sync_report
+                })
+            except Exception as e:
+                self._send_json(500, {"error": str(e)})
             return
 
         self._send_json(404, {"error": "Not Found"})

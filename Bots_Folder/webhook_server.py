@@ -16,10 +16,15 @@ import json
 import logging
 import threading
 from datetime import datetime
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 logger = logging.getLogger("WebhookServer")
+
+BASE_DIR = Path(__file__).parent.parent.resolve()
+WEBROOT_DIR = BASE_DIR / "webroot"
+WEBAPPS_DIR = BASE_DIR / "webapps"
 
 SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token"
 
@@ -133,6 +138,18 @@ class WebhookServer:
                 self.send_response(code)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _send_bytes(self, code: int, body: bytes, content_type: str = "text/html; charset=utf-8"):
+                self.send_response(code)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
+                self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(body)
 
@@ -148,16 +165,91 @@ class WebhookServer:
                 elif path == "/":
                     self._json(200, {
                         "service": "Boda Webhook Server",
-                        "endpoints": ["/health", "POST /webhook/<bot_id>"],
+                        "endpoints": ["/health", "GET /apps/<bot_id>", "GET /api/ads/status",
+                                      "POST /api/ads/set", "POST /webhook/<bot_id>"],
                         "bots": server.bot_names(),
                     })
+                elif path == "/api/ads/status":
+                    try:
+                        from ad_manager import get_ad_manager
+                        statuses = get_ad_manager().get_all_monetag_statuses()
+                        self._json(200, {"ok": True, "count": len(statuses), "apps": statuses})
+                    except Exception as e:
+                        self._json(500, {"error": str(e)})
+                elif path.startswith("/apps"):
+                    parts = [p for p in path.split("/") if p and p != "apps"]
+                    target_file = None
+                    c_type = "text/html; charset=utf-8"
+
+                    if not parts or parts[0] == "store":
+                        target_file = WEBROOT_DIR / "store" / "index.html"
+                    elif parts[0] == "data" and len(parts) > 1:
+                        target_file = WEBROOT_DIR / "data" / parts[1]
+                        c_type = "application/json; charset=utf-8"
+                    else:
+                        clean_bot = parts[0].replace("bot_", "").lower()
+                        p1 = WEBROOT_DIR / clean_bot / "index.html"
+                        p2 = WEBAPPS_DIR / f"{clean_bot}.html"
+                        if p1.exists():
+                            target_file = p1
+                        elif p2.exists():
+                            target_file = p2
+
+                    if target_file and target_file.exists():
+                        try:
+                            content = target_file.read_bytes()
+                            self._send_bytes(200, content, content_type=c_type)
+                            return
+                        except Exception as e:
+                            self._json(500, {"error": f"Failed reading mini app file: {e}"})
+                            return
+                    else:
+                        self._send_bytes(404, b"<!DOCTYPE html><html><body style='text-align:center;padding:50px;'><h2>\xd8\xa7\xd9\x84\xd8\xaa\xd8\xb7\xd8\xa8\xd9\x8a\xd9\x82 \xd8\xba\xd9\x8a\xd8\xb1 \xd9\x85\xd9\x88\xd8\xac\xd9\x88\xd8\xaf</h2></body></html>")
                 else:
                     self._json(404, {"error": "Not Found"})
 
             def do_POST(self):
                 path = urlparse(self.path).path.rstrip("/")
 
-                # 1) التحقق من السر (إن فُعّل)
+                # 1) نقطة نهاية لتحديث وحقن الإعلانات عن بُعد
+                if path == "/api/ads/set":
+                    if server.secret:
+                        token = self.headers.get(SECRET_HEADER, "")
+                        if token != server.secret:
+                            self._json(401, {"error": "Unauthorized"})
+                            return
+                    try:
+                        length = int(self.headers.get("Content-Length") or 0)
+                        payload = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                        bot_id = payload.get("bot_id", "").strip().lower().replace("bot_", "")
+                        if not bot_id:
+                            self._json(400, {"error": "Missing bot_id"})
+                            return
+                        d_link = payload.get("direct_link", "").strip()
+                        z_id = str(payload.get("zone_id", "")).strip()
+                        s_url = payload.get("script_url", "").strip()
+                        fmt = payload.get("format", "direct_link")
+                        freq = int(payload.get("frequency", 3))
+                        active = bool(payload.get("active", True))
+
+                        from ad_manager import get_ad_manager
+                        mgr = get_ad_manager()
+                        mgr.set_monetag_config(bot_id, direct_link=d_link, zone_id=z_id,
+                                               script_url=s_url, format_type=fmt,
+                                               frequency=freq, active=active)
+                        from ad_watcher import sync_mini_apps
+                        sync_report = sync_mini_apps()
+                        self._json(200, {
+                            "ok": True,
+                            "bot_id": bot_id,
+                            "message": f"Updated Monetag ads for {bot_id} and synchronized HTML files.",
+                            "sync": sync_report
+                        })
+                    except Exception as e:
+                        self._json(500, {"error": str(e)})
+                    return
+
+                # 2) التحقق من السر لتحديثات تيليجرام (إن فُعّل)
                 if server.secret:
                     token = self.headers.get(SECRET_HEADER, "")
                     if token != server.secret:
