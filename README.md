@@ -142,6 +142,9 @@ python dev_tools.py lint
 # فحص صحة وتكامل البوتات المسجلة وملفاتها
 python dev_tools.py health
 
+# فحص جودة شامل: 7 فحوصات لكل بوت (ملف/صياغة/نظام موحد/توكن/سجل/صفحة/تطبيق) بلا إنترنت
+python dev_tools.py bots-check
+
 # تنظيف ملفات الكاش والملفات المؤقتة
 python dev_tools.py clean
 
