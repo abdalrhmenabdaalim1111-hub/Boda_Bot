@@ -12,7 +12,8 @@ def test_dev_tools_status(capsys):
     res = dev_tools.cmd_status()
     captured = capsys.readouterr().out
     assert "BODA BOT SYSTEM" in captured
-    assert res["env_exists"] is True
+    # متوافق مع البيئات النظيفة (CI) حيث .env غير موجود أصلاً
+    assert res["env_exists"] == dev_tools.ENV_FILE.exists()
     assert res["total_bots"] >= 30
 
 

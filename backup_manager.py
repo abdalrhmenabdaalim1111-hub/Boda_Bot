@@ -147,7 +147,8 @@ def list_backups() -> List[Path]:
         if item.name.startswith("backup_") and (item.is_dir() or item.suffix == ".zip"):
             items.append(item)
 
-    return sorted(items, key=lambda d: d.stat().st_mtime, reverse=True)
+    # الترتيب بالاسم هو تساوي زمنياً موثوق (الاسم يحوي طوق أيضاً بملي ثانية)
+    return sorted(items, key=lambda d: d.name, reverse=True)
 
 
 def _cleanup_old_backups():
