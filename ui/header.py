@@ -48,8 +48,7 @@ class Header:
         btns.grid(row=0, column=2, padx=16, pady=10, sticky="e")
 
         btn_defs = [
-            ("➕  New Bot",    "Success", callbacks.get("new_bot")),
-            ("▶  Start All",   "Neutral", callbacks.get("start_all")),
+            ("▶  Start All",   "Success", callbacks.get("start_all")),
             ("⏹  Stop All",    "Danger",  callbacks.get("stop_all")),
             ("🔄  Refresh",    "Accent",  callbacks.get("refresh")),
             ("📂  Open Folder","Neutral",  callbacks.get("open_folder")),

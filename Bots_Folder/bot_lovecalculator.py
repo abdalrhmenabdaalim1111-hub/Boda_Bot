@@ -27,7 +27,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[LoveCalc] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("lovecalculator")
 
-TOKEN = os.getenv("BOT_LOVECALCULATOR_TOKEN", "REDACTED-TELEGRAM-TOKEN")
+from bot_base import get_token
+TOKEN = get_token("BOT_LOVECALCULATOR_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 
 user_states = {}

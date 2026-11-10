@@ -112,7 +112,7 @@ def record_error(bot_name: str, error: Exception, user_id: int = None):
         pass
 
 
-def start_polling(bot, bot_name: str = "bot"):
+def start_polling(bot, bot_name: str = "bot", allowed_updates=None):
     """
     تشغيل البوت بالشكل الصحيح مع معالجة الأخطاء وتسجيل الجلسة.
     يُستخدَم في جميع البوتات بدلاً من كتابة polling في كل ملف.
@@ -121,6 +121,7 @@ def start_polling(bot, bot_name: str = "bot"):
 
         from bot_base import start_bot
         start_bot(bot, "base")
+        start_bot(bot, "poll_bot", allowed_updates=["message", "callback_query"])
     """
     log = get_logger(bot_name)
     log.info("🚀 بدء التشغيل (Polling)...")
@@ -130,6 +131,11 @@ def start_polling(bot, bot_name: str = "bot"):
         log.info(f"✅ متصل: @{me.username}")
     except Exception as e:
         log.error(f"❌ فشل الاتصال: {e}")
+        try:
+            from error_tracker import track_exception
+            track_exception(bot_name, e, context="startup_get_me")
+        except Exception:
+            pass
         sys.exit(1)
 
     db = get_db()
@@ -164,15 +170,23 @@ def start_polling(bot, bot_name: str = "bot"):
         bot.delete_webhook(drop_pending_updates=True)
         time.sleep(1)
         log.info("📡 Polling started...")
-        bot.infinity_polling(
+        poll_kwargs = dict(
             skip_pending=True,
             timeout=10,
             long_polling_timeout=20,
         )
+        if allowed_updates:
+            poll_kwargs["allowed_updates"] = allowed_updates
+        bot.infinity_polling(**poll_kwargs)
     except KeyboardInterrupt:
         log.info("⏹ تم الإيقاف يدوياً.")
     except Exception as e:
         log.error(f"❌ خطأ فادح: {e}")
+        try:
+            from error_tracker import track_exception
+            track_exception(bot_name, e, context="polling_crash")
+        except Exception:
+            pass
         raise
     finally:
         if db and session_id:
@@ -183,7 +197,8 @@ def start_polling(bot, bot_name: str = "bot"):
 
 
 def start_webhook(bot, bot_name: str, webhook_url: str,
-                  host: str = "0.0.0.0", port: int = 8443):
+                  host: str = "0.0.0.0", port: int = 8443,
+                  allowed_updates=None):
     """
     تشغيل البوت بنظام Webhook للإنتاج والنشر السحابي.
 
@@ -193,6 +208,7 @@ def start_webhook(bot, bot_name: str, webhook_url: str,
         webhook_url: رابط الـ Webhook العام (HTTPS)
         host: واجهة الاستماع المحلية
         port: المنفذ المحلي
+        allowed_updates: قائمة أنواع التحديثات المطلوبة (اختياري)
     """
     log = get_logger(bot_name)
     log.info(f"🚀 بدء التشغيل (Webhook على {webhook_url})...")
@@ -202,6 +218,11 @@ def start_webhook(bot, bot_name: str, webhook_url: str,
         log.info(f"✅ متصل: @{me.username}")
     except Exception as e:
         log.error(f"❌ فشل الاتصال: {e}")
+        try:
+            from error_tracker import track_exception
+            track_exception(bot_name, e, context="startup_get_me")
+        except Exception:
+            pass
         sys.exit(1)
 
     db = get_db()
@@ -236,7 +257,10 @@ def start_webhook(bot, bot_name: str, webhook_url: str,
         bot.remove_webhook()
         time.sleep(1)
         full_url = f"{webhook_url.rstrip('/')}/{bot_name}"
-        bot.set_webhook(url=full_url)
+        hook_kwargs = dict(url=full_url)
+        if allowed_updates:
+            hook_kwargs["allowed_updates"] = allowed_updates
+        bot.set_webhook(**hook_kwargs)
         log.info(f"🌐 تم تفعيل Webhook: {full_url}")
         # إذا كانت مكتبة الخادم مجهزة يتم تشغيلها
         log.info(f"👂 الاستماع على {host}:{port}")
@@ -253,20 +277,26 @@ def start_webhook(bot, bot_name: str, webhook_url: str,
                 pass
 
 
-def start_bot(bot, bot_name: str = "bot"):
+def start_bot(bot, bot_name: str = "bot", allowed_updates=None):
     """
     مشغّل ذكي موحد للبوت:
     يفحص تلقائياً متغيرات البيئة USE_WEBHOOK و WEBHOOK_URL
     لاختيار التشغيل عبر Webhook أو Polling تلقائياً.
+
+    Args:
+        bot: كائن البوت (telebot)
+        bot_name: اسم البوت
+        allowed_updates: قائمة أنواع التحديثات المطلوبة (اختياري)
     """
     use_webhook = os.getenv("USE_WEBHOOK", "false").lower() in ("true", "1", "yes")
     webhook_url = os.getenv("WEBHOOK_URL", "").strip()
 
     if use_webhook and webhook_url:
         port = int(os.getenv("WEBHOOK_PORT", "8443"))
-        start_webhook(bot, bot_name, webhook_url, port=port)
+        start_webhook(bot, bot_name, webhook_url, port=port,
+                      allowed_updates=allowed_updates)
     else:
-        start_polling(bot, bot_name)
+        start_polling(bot, bot_name, allowed_updates=allowed_updates)
 
 
 # ── مساعدات التطبيقات المصغّرة (إعادة تصدير للاستخدام الاختياري في البوتات) ──

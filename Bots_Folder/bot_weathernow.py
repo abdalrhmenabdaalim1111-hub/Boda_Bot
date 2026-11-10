@@ -19,7 +19,8 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, format="[WeatherNow] %(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("weather")
 
-TOKEN     = "ضع_التوكن_هنا"
+from bot_base import get_token
+TOKEN = get_token("BOT_WEATHERNOW_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 BOT_NAME  = "بوت الطقس"
 # Open-Meteo + Geocoding API — مجاني 100% بدون key

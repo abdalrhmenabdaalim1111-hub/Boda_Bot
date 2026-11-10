@@ -18,7 +18,8 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, format="[TextSpeak] %(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("textspeak")
 
-TOKEN     = "ضع_التوكن_هنا"
+from bot_base import get_token
+TOKEN = get_token("BOT_TEXTSPEAK_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 BOT_NAME  = "محوّل النص لصوت"
 bot       = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)

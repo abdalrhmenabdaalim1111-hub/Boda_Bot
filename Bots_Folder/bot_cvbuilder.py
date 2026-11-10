@@ -18,7 +18,8 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, format="[CVBuilder] %(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("cvbuilder")
 
-TOKEN     = "ضع_التوكن_هنا"
+from bot_base import get_token
+TOKEN = get_token("BOT_CVBUILDER_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 BOT_NAME  = "بوت السيرة الذاتية"
 bot       = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)

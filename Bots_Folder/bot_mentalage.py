@@ -26,7 +26,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[MentalAge] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("mentalage")
 
-TOKEN = os.getenv("BOT_MENTALAGE_TOKEN", "REDACTED-TELEGRAM-TOKEN")
+from bot_base import get_token
+TOKEN = get_token("BOT_MENTALAGE_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 
 _sessions = {}

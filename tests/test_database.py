@@ -93,5 +93,66 @@ class TestBodaDatabase:
         assert isinstance(summary, list)
 
 
+class TestSmartNetwork:
+    """اختبارات شبكة الـ 5 بوتات الذكية: التعيين، التحقق الحقيقي، الحظر"""
+
+    @pytest.fixture
+    def db(self, tmp_path):
+        from database import BodaDatabase
+        return BodaDatabase(db_path=str(tmp_path / "net.db"))
+
+    def test_set_get_assignments_roundtrip(self, db):
+        db.set_network_assignments(1, ["store", "qrgen", "vidload", "safepass", "iqtest"])
+        assert db.get_network_assignments(1) == ["store", "qrgen", "vidload", "safepass", "iqtest"]
+
+    def test_set_assignments_replaces_completely(self, db):
+        db.set_network_assignments(2, ["a", "b", "c", "d", "e"])
+        db.set_network_assignments(2, ["x", "y", "z", "w", "v"])
+        assert db.get_network_assignments(2) == ["x", "y", "z", "w", "v"]
+
+    def test_assignments_are_per_user(self, db):
+        db.set_network_assignments(3, ["a", "b", "c", "d", "e"])
+        db.set_network_assignments(4, ["f", "g", "h", "i", "j"])
+        assert "a" in db.get_network_assignments(3)
+        assert "a" not in db.get_network_assignments(4)
+
+    def test_has_user_started(self, db):
+        db.track_user("qrgen", 777, "أحمد")
+        assert db.has_user_started("qrgen", 777) is True
+        assert db.has_user_started("vidload", 777) is False
+        assert db.has_user_started("qrgen", 888) is False
+
+    def test_bot_user_counts(self, db):
+        db.track_user("qrgen", 1, "u1")
+        db.track_user("qrgen", 2, "u2")
+        db.track_user("vidload", 3, "u3")
+        counts = db.get_bot_user_counts()
+        assert counts.get("qrgen") == 2
+        assert counts.get("vidload") == 1
+
+    def test_activation_time_for_ttl(self, db):
+        assert db.get_network_activation_time(5) is None
+        db.set_network_activated(5, True)
+        t = db.get_network_activation_time(5)
+        assert t is not None
+        from datetime import datetime
+        assert abs((datetime.now() - datetime.fromisoformat(t)).total_seconds()) < 60
+
+    def test_mark_user_blocked_and_list(self, db):
+        # مستخدم له سجل مسبق
+        db.track_user("qrgen", 9, "u9")
+        db.mark_user_blocked("qrgen", 9)
+        assert "qrgen" in db.get_blocked_bot_ids(9)
+
+        # مستخدم بلا سجل مسبق — يُسجل الحظر على أي حال
+        db.mark_user_blocked("vidload", 10)
+        assert "vidload" in db.get_blocked_bot_ids(10)
+
+        # غير المحظور لا يظهر
+        db.track_user("iqtest", 9, "u9b")
+        assert "iqtest" not in db.get_blocked_bot_ids(9)
+
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
