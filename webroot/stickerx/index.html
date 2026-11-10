@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="description" content="حوّل صورك إلى ملصقات تيليجرام — عبر البوت">
+<meta name="description" content="جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#17212b">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2032%2032%27%3E%3Ctext%20x=%270%27%20y=%2726%27%20font-size=%2726%27%3E🖼️%3C/text%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://abdalrhmenabdaalim1111-hub.github.io/Boda_Bot/stickerx/">
 <meta property="og:title" content="🖼️ صانع الملصقات — Boda">
-<meta property="og:description" content="حوّل صورك إلى ملصقات تيليجرام — عبر البوت">
+<meta property="og:description" content="جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="🖼️ صانع الملصقات — Boda">
-<meta name="twitter:description" content="حوّل صورك إلى ملصقات تيليجرام — عبر البوت">
+<meta name="twitter:description" content="جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت">
 <title>🖼️ صانع الملصقات — Boda</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -147,16 +147,32 @@ label { display: block; font-size: 12.5px; color: var(--hint); margin: 10px 0 5p
   <header class="app-header">
     <span class="emoji">🖼️</span>
     <h1>صانع الملصقات</h1>
-    <p>حوّل صورك إلى ملصقات تيليجرام — عبر البوت</p>
+    <p>جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت</p>
   </header>
 
 
-<div class="card" style="text-align:center">
-  <div style="font-size:64px">🎨</div>
-  <h2 style="margin:10px 0">صناعة الملصقات عبر البوت</h2>
-  <p style="color:var(--hint);line-height:2;font-size:14px">
-    أرسل أي صورة للبوت وسيحولها لملصق بحجم تيليجرام الرسمي (512px) ويفصل الخلفية تلقائياً</p>
-  <button class="btn" onclick="location.href='https://t.me/BodaStickerXBot'">🤖 فتح البوت</button>
+<div class="card">
+  <label>اختر صورة من جهازك</label>
+  <input type="file" id="img" accept="image/*" style="width:100%;color:var(--text)">
+  <label>الإطار</label>
+  <div class="chips">
+    <span class="chip active" onclick="setFrame('none', this)">بدون</span>
+    <span class="chip" onclick="setFrame('white', this)">أبيض</span>
+    <span class="chip" onclick="setFrame('black', this)">أسود</span>
+  </div>
+  <label>الاستدارة</label>
+  <div class="chips">
+    <span class="chip active" onclick="setRound(false, this)">مربّع</span>
+    <span class="chip" onclick="setRound(true, this)">دائرة</span>
+  </div>
+  <div style="text-align:center;margin:10px 0">
+    <canvas id="cv" width="512" height="512" style="max-width:230px;border-radius:12px;background:var(--surface)">
+    </canvas>
+  </div>
+  <button class="btn" id="dl" style="display:none" onclick="download()">⬇️ تنزيل الملصق (512px)</button>
+  <p style="color:var(--hint);font-size:12px;line-height:1.9;text-align:center">
+    بعد التنزيل: أرسل الملف للبوت وسيضيفه للعبوة ويفصل الخلفية إن رغبت</p>
+  <button class="btn secondary" onclick="location.href='https://t.me/BodaStickerXBot'">🤖 فتح البوت</button>
 </div>
 
 
@@ -314,7 +330,54 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
 })();
 </script>
 <script>
-Boda.track('app_open',{detail:'landing'});
+let frame='none', round=false, imgSrc=null;
+
+function setChip(el){
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+function setFrame(v, el){ if(el) setChip(el); frame=v; Boda.haptic('light'); paint(); }
+function setRound(v, el){ if(el) setChip(el); round=v; Boda.haptic('light'); paint(); }
+
+function paint(){
+  if(!imgSrc) return;
+  const img=document.createElement('img');
+  img.onload=()=>{
+    const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,512,512);
+    ctx.save();
+    if(round){ ctx.beginPath(); ctx.arc(256,256,256,0,Math.PI*2); ctx.clip(); }
+    // احتواء الصورة داخل 512×512
+    const sc=Math.min(512/img.width, 512/img.height);
+    const w=img.width*sc, h=img.height*sc;
+    if(frame!=='none'){
+      ctx.fillStyle=(frame==='white')?'#ffffff':'#000000';
+      const pad=8;
+      if(round){ ctx.beginPath(); ctx.arc(256,256,252,0,Math.PI*2); ctx.fill(); }
+      else ctx.fillRect((512-w)/2-pad,(512-h)/2-pad,w+pad*2,h+pad*2);
+    }
+    ctx.drawImage(img,(512-w)/2,(512-h)/2,w,h);
+    ctx.restore();
+    document.getElementById('dl').style.display='block';
+  };
+  img.src=imgSrc;
+}
+
+function download(){
+  Boda.haptic('light');
+  const a=document.createElement('a');
+  a.href=document.getElementById('cv').toDataURL('image/png');
+  a.download='sticker-512.png';
+  a.click();
+  Boda.toast('✅ نُزّل الملصق — أرسله للبوت لإضافته للعبوة');
+  Boda.track('feature_use',{detail:'sticker_export'});
+}
+
+document.getElementById('img').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  imgSrc=URL.createObjectURL(f); paint();
+  Boda.track('app_open',{detail:'tool'});
+};
 </script>
 </body>
 </html>

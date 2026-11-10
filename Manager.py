@@ -150,7 +150,6 @@ class BodaBotManager:
 
         # Header
         self.header = Header(self.root, {
-            "new_bot":     self._open_new_bot_dialog,
             "start_all":   self._start_all,
             "stop_all":    self._stop_all,
             "refresh":     self._refresh,
@@ -175,6 +174,7 @@ class BodaBotManager:
             on_stop       = self._stop_bot,
             on_scroll_log = self._scroll_log_to,
             on_set_token  = self._open_token_dialog,
+            on_set_ads    = self._open_monetag_dialog,
         )
 
         # Right — Notebook (Log + Stats)
@@ -194,8 +194,12 @@ class BodaBotManager:
 
         # تبويب الإحصائيات
         stats_frame = tk.Frame(self.notebook, bg=C["bg"])
-        self.notebook.add(stats_frame, text="  📊  الإحصائيات  ")
-        self.stats_panel = StatsPanel(stats_frame)
+        self.notebook.add(stats_frame, text="  📊  الإحصائيات والمراقبة  ")
+        self.stats_panel = StatsPanel(
+            stats_frame,
+            on_edit_token = self._open_token_dialog,
+            on_edit_ads   = self._open_monetag_dialog
+        )
 
         # Status bar
         self.statusbar = StatusBar(self.root, bots_folder_path=BOTS_FOLDER)
@@ -247,7 +251,9 @@ class BodaBotManager:
             folder.mkdir(parents=True)
             self.log_panel.write_sys(f"📂 Created {folder.resolve()}", "warn")
 
-        found   = list(folder.glob("*.py"))
+        # البوتات الحقيقية دائماً بصيغة bot_<id>.py — الأدوات المساعدة بلا زر منطقي
+        # (مثال: error_tracker.py / utils.py) فلا تُسمّى إلا الملفات ذات البادئة bot_
+        found   = list(folder.glob("bot_*.py"))
         added   = 0
 
         # Reload .env if possible
@@ -417,9 +423,20 @@ class BodaBotManager:
             bot.log_queue.put(f"__EXIT__{rc}")
 
     def _start_all(self):
-        for name in self.bots:
-            if self.bots[name].status != "running":
-                self._start_bot(name)
+        started = 0
+        skipped = 0
+        for name, bot in self.bots.items():
+            if bot.status != "running":
+                if bot.has_token:
+                    self._start_bot(name)
+                    started += 1
+                else:
+                    skipped += 1
+        if skipped > 0:
+            self.log_panel.write_sys(
+                f"ℹ️ تشغيل {started} بوت بنجاح — وتخطي {skipped} بوت لأنها بانتظار التوكنات (اضغط 🔑 لإدخال التوكن).", "warn")
+        else:
+            self.log_panel.write_sys(f"🚀 تم بدء تشغيل جميع البوتات ({started} بوت).", "ok")
 
     def _stop_all(self):
         for name in list(self.bots):
@@ -649,92 +666,141 @@ class BodaBotManager:
                                cursor="hand2", command=dlg.destroy)
         cancel_btn.pack(side="right")
 
-    def _open_new_bot_dialog(self):
-        """نافذة منبثقة لإنشاء وتوليد بوت جديد في ثوانٍ."""
+    def _open_monetag_dialog(self, bot_id_or_name: str):
+        """نافذة منبثقة تفاعلية لضبط وتحديث شفرات إعلانات Monetag للبوت وتطبيقه المصغر."""
+        clean_id = bot_id_or_name.replace("bot_", "")
+        bot = self.bots.get(bot_id_or_name) or self.bots.get(f"bot_{clean_id}")
+        b_name = bot.display_name if bot else clean_id
+
+        from ad_manager import get_ad_manager
+        mgr = get_ad_manager()
+        cfg = mgr.get_monetag_config(clean_id)
+
         dlg = tk.Toplevel(self.root)
-        dlg.title("➕ إضافة وتوليد بوت جديد")
+        dlg.title(f"📢 ضبط إعلانات Monetag: {b_name}")
         dlg.configure(bg=C["panel"])
-        dlg.geometry("540x420")
+        dlg.geometry("560x440")
         dlg.resizable(False, False)
         dlg.transient(self.root)
         dlg.grab_set()
 
         self.root.update_idletasks()
-        x = self.root.winfo_x() + (self.root.winfo_width() - 540) // 2
-        y = self.root.winfo_y() + (self.root.winfo_height() - 420) // 2
+        x = self.root.winfo_x() + (self.root.winfo_width() - 560) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - 440) // 2
         dlg.geometry(f"+{x}+{y}")
 
         content = tk.Frame(dlg, bg=C["panel"], padx=20, pady=15)
         content.pack(fill="both", expand=True)
 
-        tk.Label(content, text="➕ إنشاء وتوليد بوت جديد في النظام",
-                 font=("Segoe UI", 12, "bold"), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w", pady=(0, 8))
+        tk.Label(content, text=f"📢 إعداد شفرات Monetag — {b_name} ({clean_id})",
+                 font=("Segoe UI", 12, "bold"), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w", pady=(0, 2))
 
-        # ID
-        tk.Label(content, text="معرّف البوت (ID بالإنجليزية مثل my_tools):",
-                 font=("Segoe UI", 8), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
-        id_var = tk.StringVar()
-        id_entry = tk.Entry(content, textvariable=id_var, font=("Consolas", 10),
-                            bg=C["bg"], fg=C["text_bright"], highlightthickness=1, highlightbackground=C["border"])
-        id_entry.pack(fill="x", pady=(2, 6), ipady=3)
-        id_entry.focus()
+        tk.Label(content, text="يمكنك جلب هذه البيانات من لوحة تحكم Monetag (monetag.com)",
+                 font=("Segoe UI", 8), bg=C["panel"], fg=C["text_dim"]).pack(anchor="w", pady=(0, 10))
 
-        # Name
-        tk.Label(content, text="اسم البوت بالعربي (مثل: مساعد الترجمة الذكي):",
-                 font=("Segoe UI", 8), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
-        name_var = tk.StringVar()
-        name_entry = tk.Entry(content, textvariable=name_var, font=("Segoe UI", 9),
+        # Direct Smartlink
+        tk.Label(content, text="رابط Monetag الذكي المباشر (Direct Smartlink URL):",
+                 font=("Segoe UI", 8, "bold"), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
+        link_var = tk.StringVar(value=cfg.get("direct_link", ""))
+        link_entry = tk.Entry(content, textvariable=link_var, font=("Consolas", 9),
                               bg=C["bg"], fg=C["text_bright"], highlightthickness=1, highlightbackground=C["border"])
-        name_entry.pack(fill="x", pady=(2, 6), ipady=3)
+        link_entry.pack(fill="x", pady=(2, 6), ipady=3)
 
-        # Category
-        tk.Label(content, text="التصنيف:", font=("Segoe UI", 8), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
-        cat_var = tk.StringVar(value="أدوات")
-        cat_cb = ttk.Combobox(content, textvariable=cat_var,
-                              values=["أدوات", "ترفيه", "ذكاء اصطناعي", "تحميل", "ترجمة", "صحة", "تعليم", "مالية"],
-                              state="readonly")
-        cat_cb.pack(fill="x", pady=(2, 6))
+        # Zone ID
+        tk.Label(content, text="معرف الزون في Monetag (Zone ID):",
+                 font=("Segoe UI", 8, "bold"), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
+        zone_var = tk.StringVar(value=cfg.get("zone_id", ""))
+        zone_entry = tk.Entry(content, textvariable=zone_var, font=("Consolas", 9),
+                              bg=C["bg"], fg=C["text_bright"], highlightthickness=1, highlightbackground=C["border"])
+        zone_entry.pack(fill="x", pady=(2, 6), ipady=3)
 
-        # Token
-        tk.Label(content, text="توكن البوت من @BotFather (اختياري الآن):",
+        # Script URL
+        tk.Label(content, text="رابط سكربت الإعلان (Script URL لـ In-Page Push أو Interstitial):",
                  font=("Segoe UI", 8), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
-        tok_var = tk.StringVar()
-        tok_entry = tk.Entry(content, textvariable=tok_var, font=("Consolas", 9),
-                             bg=C["bg"], fg=C["text_bright"], highlightthickness=1, highlightbackground=C["border"])
-        tok_entry.pack(fill="x", pady=(2, 6), ipady=3)
+        script_var = tk.StringVar(value=cfg.get("script_url", ""))
+        script_entry = tk.Entry(content, textvariable=script_var, font=("Consolas", 9),
+                                bg=C["bg"], fg=C["text_bright"], highlightthickness=1, highlightbackground=C["border"])
+        script_entry.pack(fill="x", pady=(2, 6), ipady=3)
 
-        status_lbl = tk.Label(content, text="💡 سيتم إنشاء ملف البوت وربطه بقاعدة البيانات وشبكة التفعيل والمتجر فوراً.",
+        # Format & Frequency row
+        row_opts = tk.Frame(content, bg=C["panel"])
+        row_opts.pack(fill="x", pady=(2, 8))
+
+        fmt_box = tk.Frame(row_opts, bg=C["panel"])
+        fmt_box.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        tk.Label(fmt_box, text="صيغة الإعلان:", font=("Segoe UI", 8), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
+        fmt_var = tk.StringVar(value=cfg.get("format", "direct_link"))
+        fmt_cb = ttk.Combobox(fmt_box, textvariable=fmt_var,
+                              values=["direct_link", "in_page_push", "interstitial", "popunder"],
+                              state="readonly")
+        fmt_cb.pack(fill="x", pady=(2, 0))
+
+        freq_box = tk.Frame(row_opts, bg=C["panel"])
+        freq_box.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        tk.Label(freq_box, text="تكرار الظهور (كل N استخدام):", font=("Segoe UI", 8), bg=C["panel"], fg=C["text_bright"]).pack(anchor="w")
+        freq_var = tk.StringVar(value=str(cfg.get("frequency", 3)))
+        freq_cb = ttk.Combobox(freq_box, textvariable=freq_var,
+                               values=["1", "2", "3", "5", "10"],
+                               state="readonly")
+        freq_cb.pack(fill="x", pady=(2, 0))
+
+        status_lbl = tk.Label(content, text="💡 اضغط 'حفظ لهذا البوت' لتطبيق الشفرة وتحديث تطبيق الويب فوراً.",
                               font=("Segoe UI", 8), bg=C["panel"], fg=C["text_dim"])
-        status_lbl.pack(anchor="w", pady=(0, 10))
+        status_lbl.pack(anchor="w", pady=(0, 8))
 
         btn_box = tk.Frame(content, bg=C["panel"])
         btn_box.pack(fill="x", side="bottom")
 
-        def do_create():
-            bid = id_var.get().strip()
-            bname = name_var.get().strip()
-            cat = cat_var.get().strip()
-            tok = tok_var.get().strip()
+        def do_save_custom():
+            d_link = link_var.get().strip()
+            z_id   = zone_var.get().strip()
+            s_url  = script_var.get().strip()
+            fmt    = fmt_var.get()
+            freq   = int(freq_var.get()) if freq_var.get().isdigit() else 3
 
-            if not bid or not bname:
-                status_lbl.config(text="❌ يرجى إدخال المعرف واسم البوت بالعربي!", fg=C["danger"])
-                return
+            mgr.set_monetag_config(clean_id, direct_link=d_link, zone_id=z_id,
+                                   script_url=s_url, format_type=fmt, frequency=freq, active=True)
+            try:
+                import subprocess
+                subprocess.Popen([sys.executable, "tools/build_mini_apps.py"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
 
-            import dev_tools
-            success = dev_tools.cmd_new_bot(bid, bname, cat)
-            if success:
-                if tok and len(tok) > 20 and ":" in tok:
-                    dev_tools.cmd_set_token(bid, tok)
-                self.log_panel.write_sys(f"🎉 تم إنشاء البوت الجديد [{bid}] بنجاح!", "ok")
-                self._discover_bots()
-                dlg.destroy()
-            else:
-                status_lbl.config(text="❌ تعذر إنشاء البوت، المعرف مكرر مسبقاً.", fg=C["danger"])
+            self.stats_panel.refresh(self.bots)
+            if bot:
+                self._update_card(bot.name)
+            self.log_panel.write_sys(f"✅ تم تحديث وحقن شفرات Monetag للبوت [{clean_id}] بنجاح!", "ok")
+            dlg.destroy()
 
-        create_btn = tk.Button(btn_box, text="🚀 إنشاء البوت الآن", font=("Segoe UI", 9, "bold"),
-                               bg=C["success"], fg="white", relief="flat", padx=12, pady=5,
-                               cursor="hand2", command=do_create)
-        create_btn.pack(side="left")
+        def do_set_global():
+            d_link = link_var.get().strip()
+            z_id   = zone_var.get().strip()
+            s_url  = script_var.get().strip()
+            fmt    = fmt_var.get()
+            freq   = int(freq_var.get()) if freq_var.get().isdigit() else 3
+
+            mgr.set_global_monetag_default(direct_link=d_link, zone_id=z_id,
+                                           script_url=s_url, format_type=fmt, frequency=freq)
+            try:
+                import subprocess
+                subprocess.Popen([sys.executable, "tools/build_mini_apps.py"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+            self.stats_panel.refresh(self.bots)
+            self.log_panel.write_sys("⚡ تم تعميم شفرة Monetag الموحدة لجميع التطبيقات بنجاح!", "ok")
+            dlg.destroy()
+
+        save_btn = tk.Button(btn_box, text="💾 حفظ لهذا البوت", font=("Segoe UI", 9, "bold"),
+                             bg="#27ae60", fg="white", relief="flat", padx=10, pady=5,
+                             cursor="hand2", command=do_save_custom)
+        save_btn.pack(side="left", padx=(0, 6))
+
+        global_btn = tk.Button(btn_box, text="⚡ تعميم على الكل", font=("Segoe UI", 9),
+                               bg=C["accent"], fg="white", relief="flat", padx=8, pady=5,
+                               cursor="hand2", command=do_set_global)
+        global_btn.pack(side="left", padx=(0, 6))
 
         cancel_btn = tk.Button(btn_box, text="إلغاء", font=("Segoe UI", 9),
                                bg=C["border"], fg=C["text_bright"], relief="flat", padx=10, pady=5,

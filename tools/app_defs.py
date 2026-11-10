@@ -1140,88 +1140,278 @@ function conv(mode){
 )
 
 APPS["silentcut"] = dict(
-    emoji="🔇", title="قصادم الصوت الصامت", subtitle="معالجة صوتية داخل جهازك — قريباً بمكتبة كاملة",
-    interactive=False,
+    emoji="🔇", title="آلة قص الصمت", subtitle="يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت",
+    interactive=True,
     body="""
-<div class="card" style="text-align:center">
-  <div style="font-size:64px">🔇</div>
-  <h2 style="margin:10px 0">نسخة الويب قيد التطوير</h2>
-  <p style="color:var(--hint);line-height:2;font-size:14px">
-    إزالة الصمت من الفيديوهات تحتاج معالجة ثقيلة تعمل حالياً عبر البوت نفسه.<br>
-    <b>أرسل فيديوك للبوت الآن وسيحدثك خلال دقائق!</b></p>
-  <button class="btn" onclick="location.href='https://t.me/BodaSilentCutBot'">🤖 فتح البوت مباشرة</button>
+<div class="card">
+  <label>اختر ملف صوتي أو فيديو</label>
+  <input type="file" id="file" accept="audio/*,video/*" style="width:100%;color:var(--text)">
+  <div class="chips" id="strip-w" style="flex-wrap:wrap;gap:2px"></div>
+  <button class="btn" id="go" onclick="analyze()">🔍 حلّل الصمت الآن</button>
+  <small style="color:var(--hint);display:block;margin-top:4px">
+    التحليل يعمل على جهازك تماماً — لا يُرفع ملفك لأي خادم (حتى 80MB)</small>
+  <div class="result" id="res"></div>
+  <button class="btn secondary" id="copyplan" style="display:none;margin-top:8px"
+          onclick="copyPlan()">📋 نسخ خطة القص للبوت</button>
 </div>
 """,
     js="""
-Boda.track('app_open',{detail:'landing'});
+const MAX_MB = 80;
+let PLAN = null;
+
+async function analyze(){
+  const f = document.getElementById('file').files[0];
+  if(!f) return Boda.toast('⚠️ اختر ملفاً أولاً');
+  if(f.size > MAX_MB*1e6) { Boda.toast('⚠️ الملف أكبر من 80MB — أرسله للبوت مباشرة'); return; }
+  Boda.toast('⏳ جاري تحليل '+ (f.size/1e6|0) + 'MB...');
+  Boda.haptic('light');
+  try{
+    const buf = await f.arrayBuffer();
+    const ac  = new (window.AudioContext||window.webkitAudioContext)();
+    const aud = await ac.decodeAudioData(buf);
+    const ch  = aud.getChannelData(0);
+    const sr  = aud.sampleRate;
+    const step = Math.max(1, sr/20|0);            // 20 قراءة/ثانية كافية لهذه المهمة
+    const fmt = s => { s=Math.round(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+    const peaks = [];
+    for(let i=0;i<ch.length;i+=step){
+      let m=0;
+      for(let j=i;j<Math.min(i+step,ch.length);j++) m=Math.max(m,Math.abs(ch[j]));
+      peaks.push(m);
+    }
+    const mx = Math.max.apply(null,peaks);
+    const th = Math.max(0.02, mx*0.03);           // عتبة 3% من الأعلى
+    // شريط الطاقة (48 خانة): لون مميز = صمت، والباقي صوت
+    const cols=48, box=document.getElementById('strip-w');
+    let strip='<span style="width:100%;color:var(--hint);font-size:11px">الطاقة الصوتية 0 → '+fmt(ch.length/sr)+' ث</span>';
+    for(let k=0;k<cols;k++){
+      const v=peaks[(k*peaks.length/cols)|0];
+      strip+='<span style="min-width:2%;height:8px;border-radius:4px;background:'+
+             (v<th?'var(--accent)':'var(--surface)')+'"></span>';
+    }
+    box.innerHTML=strip;
+    // بناء خطة الصمت
+    const runs=[]; let cur=null;
+    for(let i=0;i<peaks.length;i++){
+      const t=i*step/sr;
+      if(peaks[i]<th){ if(!cur) cur={a:t}; }
+      else if(cur){ cur.b=t; if(cur.b-cur.a>=0.15) runs.push(cur); cur=null; }
+    }
+    if(cur){ cur.b=ch.length/sr; if(cur.b-cur.a>=0.15) runs.push(cur); }
+    const total=runs.reduce((x,r)=>x+(r.b-r.a),0);
+    PLAN = runs.length? runs.map(r=>fmt(r.a)+'-'+fmt(r.b)).join(', ') : '';
+    const res=document.getElementById('res');
+    if(runs.length){
+      const shown=runs.slice(0,8).map(r=>r.a<60?fmt(r.a)+'s':fmt(r.a)).join(' · ');
+      res.className='result show';
+      res.innerHTML='<b>🔇 وجدنا '+runs.length+' مقطع صامت</b>'+
+        '<br><small style="color:var(--hint)">إجمالي الصمت: '+fmt(total)+
+        ' ('+Math.round(100*total/(ch.length/sr))+'% من الملف)</small>'+
+        '<br><span dir="ltr">'+shown+(runs.length>8?' …':'')+'</span>';
+      document.getElementById('copyplan').style.display='block';
+    }else{
+      res.className='result show';
+      res.innerHTML='✅ الملف مكثف الصوت — لا صمت يُذكر ليُقص';
+      document.getElementById('copyplan').style.display='none';
+    }
+    Boda.track('feature_use',{detail:'silence_analyze'});
+  }catch(e){
+    Boda.toast('⚠️ صيغة الملف غير مدعومة بالتحليل المحلي — أرسله للبوت');
+  }
+}
+function copyPlan(){
+  if(!PLAN) return;
+  Boda.copy('اقص الصمت عند: '+PLAN, '📋 خطة القص منسوخة — أرسلها للبوت');
+  setTimeout(()=>location.href='https://t.me/BodaSilentCutBot', 700);
+}
+Boda.track('app_open',{detail:'tool'});
 """,
 )
 
 APPS["cleantok"] = dict(
-    emoji="🎵", title="تيك توك بلا علامة", subtitle="أرسل الرابط للبوت واستلم الفيديو نظيفاً",
-    interactive=False,
+    emoji="🎵", title="تيك توك بلا علامة", subtitle="حدّد جودة التحميل وأرسل الرابط الجاهز للبوت",
+    interactive=True,
     body="""
 <div class="card">
   <label>رابط فيديو تيك توك</label>
   <input type="text" id="url" dir="ltr" placeholder="https://vm.tiktok.com/...">
-  <button class="btn" id="go" onclick="send()">🤖 أرسل للبوت</button>
+  <label>الجودة المطلوبة</label>
+  <div class="chips">
+    <span class="chip active" onclick="setQ('بدون علامة مائية', this)">✨ بلا علامة</span>
+    <span class="chip" onclick="setQ('1080p بلا علامة', this)">🎬 1080p</span>
+    <span class="chip" onclick="setQ('الصوت فقط MP3', this)">🎧 صوت فقط</span>
+  </div>
+  <button class="btn" id="go" onclick="send()">🤖 جهّز للبوت</button>
   <div class="result" id="res"></div>
 </div>
 """,
     js="""
+let QUAL='بدون علامة مائية';
+function setQ(v, el){
+  if(el){ el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+          el.classList.add('active'); }
+  QUAL=v; Boda.haptic('light');
+}
+
 function send(){
-  const u=document.getElementById('url').value.trim();
-  if(!/tiktok\\.com/i.test(u)) return Boda.toast('⚠️ أدخل رابط تيك توك صحيح');
-  Boda.haptic('light'); Boda.track('feature_use',{detail:'link_prepared'});
-  // الفيديو الثقيل يُعالج في البوت — ننقله إليه مع الرابط جاهزاً
-  Boda.copy(u, '📋 تم نسخ الرابط');
+  const val=document.getElementById('url').value.trim();
+  if(!/tiktok\\.com/i.test(val)) return Boda.toast('⚠️ أدخل رابط تيك توك صحيح');
+  // تحليل نوع الرابط
+  const short=/vm\\.tiktok\\.com\\/|v\\.tiktok/i.test(val);
+  const m=val.match(/video\\/(\\d+)/);
+  const dex=''+
+      '<b style="color:var(--accent)">'+QUAL+'</b>'+
+      '<br><small style="color:var(--hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
+      (m?'<br>ID الفيديو: '+m[1]:'')+'</small>';
+  Boda.haptic('light'); Boda.track('feature_use',{detail:'clean_link_ready'});
+  Boda.copy(val, '📋 تم نسخ الرابط');
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '✅ نُسخ الرابط! الآن:<br>1️⃣ افتح البوت<br>2️⃣ أرسل الرابط (لصق)'+
-    '<button class="btn" onclick="location.href=\\'https://t.me/BodaCleanTokBot\\'">🤖 فتح البوت</button>';
+    '✅ جاهز — افتح البوت وألصق الرابط'+dex+
+    '<button class="btn" style="margin-top:8px" onclick="location.href=\\'https://t.me/BodaCleanTokBot\\'">🤖 فتح البوت</button>';
 }
 """,
 )
 
 APPS["vidload"] = dict(
-    emoji="📥", title="محمل الفيديوهات", subtitle="يوتيوب وإنستغرام — عبر البوت بجودة عالية",
-    interactive=False,
+    emoji="📥", title="محمل الفيديوهات", subtitle="من يوتيوب وإنستغرام وتيك توك وX — اكتشف المنصة تلقائياً",
+    interactive=True,
     body="""
 <div class="card">
-  <label>رابط الفيديو</label>
-  <input type="text" id="url" dir="ltr" placeholder="https://youtube.com/...">
-  <button class="btn" id="go" onclick="send()">🤖 أرسل للبوت</button>
+  <label>رابط الفيديو (تُكتشف المنصة تلقائياً)</label>
+  <input type="text" id="url" dir="ltr" placeholder="الصق أي رابط...">
+  <div style="margin:8px 0;color:var(--hint)" id="platform">⬅️ أدخل رابطاً لرؤية المنصة</div>
+  <label>المخرجات</label>
+  <div class="chips">
+    <span class="chip active" onclick="setOut('فيديو 1080p', this)">🎬 1080p</span>
+    <span class="chip" onclick="setOut('فيديو 720p', this)">720p</span>
+    <span class="chip" onclick="setOut('الصوت فقط MP3', this)">🎧 صوت</span>
+  </div>
+  <button class="btn" id="go" onclick="send()">🤖 جهّز الطلب للبوت</button>
   <div class="result" id="res"></div>
 </div>
 """,
     js="""
+let OUT='فيديو 1080p';
+const PLATFORMS=[
+  ['YouTube',   /youtube\\.com|youtu\\.be/i,                                        '▶️'],
+  ['TikTok',    /tiktok\\.com/i,                                                      '🎵'],
+  ['Instagram', /instagram\\.com/i,                                                   '📸'],
+  ['X',         /(?:twitter|x)\\.com/i,                                               '🐦'],
+  ['Facebook',  /facebook\\.com|fb\\.watch/i,                                        '👥'],
+  ['Reddit',    /reddit\\.com/i,                                                      '🟠'],
+  ['Vimeo',     /vimeo\\.com/i,                                                       '🎬']
+];
+
+function setOut(v, el){
+  if(el){ el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+          el.classList.add('active'); }
+  OUT=v; Boda.haptic('light');
+}
+
+function detect(){
+  const u=document.getElementById('url').value.trim();
+  const pl=document.getElementById('platform');
+  if(!u){ pl.textContent='⬅️ أدخل رابطاً لرؤية المنصة'; return; }
+  const hit=PLATFORMS.find(p=>p[1].test(u));
+  pl.innerHTML= hit
+    ? '<span style="font-size:20px">'+hit[2]+'</span> المنصة: <b style="color:var(--accent)">'+hit[0]+'</b> ✅'
+    : '✨ نفسه سيتعرف البوت على المنصة — الصق الرابط وسنتولى الباقي';
+}
+
+document.getElementById('url').oninput=detect;
+
 function send(){
   const u=document.getElementById('url').value.trim();
-  if(!/youtube|youtu\\.be|instagram/i.test(u)) return Boda.toast('⚠️ أدخل رابط يوتيوب أو إنستغرام');
-  Boda.haptic('light'); Boda.track('feature_use',{detail:'link_prepared'});
-  Boda.copy(u, '📋 تم نسخ الرابط');
+  if(!/^(https?:\\/\\/)?[\\w.-]+\\.[a-z]{2,}/i.test(u))
+    return Boda.toast('⚠️ أدخل رابطاً صحيحاً يبدأ بـ https');
+  Boda.haptic('light'); Boda.track('feature_use',{detail:'download_ready'});
+  Boda.copy('حمّل: '+OUT+'\\n'+u, '📋 الطلب منسوخ — ألصقه في البوت');
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '✅ نُسخ الرابط! افتح البوت وألصقه ليصلك الفيديو'+
-    '<button class="btn" onclick="location.href=\\'https://t.me/BodaVidLoadBot\\'">🤖 فتح البوت</button>';
+    '✅ طلبك جاهز: <b style="color:var(--accent)">'+OUT+'</b>'+
+    '<button class="btn" style="margin-top:8px" onclick="location.href=\\'https://t.me/BodaVidLoadBot\\'">🤖 فتح البوت</button>';
 }
 """,
 )
 
 APPS["stickerx"] = dict(
-    emoji="🎨", title="صانع الملصقات", subtitle="حوّل صورك إلى ملصقات تيليجرام — عبر البوت",
-    interactive=False,
+    emoji="🎨", title="صانع الملصقات", subtitle="جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت",
+    interactive=True,
     body="""
-<div class="card" style="text-align:center">
-  <div style="font-size:64px">🎨</div>
-  <h2 style="margin:10px 0">صناعة الملصقات عبر البوت</h2>
-  <p style="color:var(--hint);line-height:2;font-size:14px">
-    أرسل أي صورة للبوت وسيحولها لملصق بحجم تيليجرام الرسمي (512px) ويفصل الخلفية تلقائياً</p>
-  <button class="btn" onclick="location.href='https://t.me/BodaStickerXBot'">🤖 فتح البوت</button>
+<div class="card">
+  <label>اختر صورة من جهازك</label>
+  <input type="file" id="img" accept="image/*" style="width:100%;color:var(--text)">
+  <label>الإطار</label>
+  <div class="chips">
+    <span class="chip active" onclick="setFrame('none', this)">بدون</span>
+    <span class="chip" onclick="setFrame('white', this)">أبيض</span>
+    <span class="chip" onclick="setFrame('black', this)">أسود</span>
+  </div>
+  <label>الاستدارة</label>
+  <div class="chips">
+    <span class="chip active" onclick="setRound(false, this)">مربّع</span>
+    <span class="chip" onclick="setRound(true, this)">دائرة</span>
+  </div>
+  <div style="text-align:center;margin:10px 0">
+    <canvas id="cv" width="512" height="512" style="max-width:230px;border-radius:12px;background:var(--surface)">
+    </canvas>
+  </div>
+  <button class="btn" id="dl" style="display:none" onclick="download()">⬇️ تنزيل الملصق (512px)</button>
+  <p style="color:var(--hint);font-size:12px;line-height:1.9;text-align:center">
+    بعد التنزيل: أرسل الملف للبوت وسيضيفه للعبوة ويفصل الخلفية إن رغبت</p>
+  <button class="btn secondary" onclick="location.href='https://t.me/BodaStickerXBot'">🤖 فتح البوت</button>
 </div>
 """,
     js="""
-Boda.track('app_open',{detail:'landing'});
+let frame='none', round=false, imgSrc=null;
+
+function setChip(el){
+  el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+function setFrame(v, el){ if(el) setChip(el); frame=v; Boda.haptic('light'); paint(); }
+function setRound(v, el){ if(el) setChip(el); round=v; Boda.haptic('light'); paint(); }
+
+function paint(){
+  if(!imgSrc) return;
+  const img=document.createElement('img');
+  img.onload=()=>{
+    const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,512,512);
+    ctx.save();
+    if(round){ ctx.beginPath(); ctx.arc(256,256,256,0,Math.PI*2); ctx.clip(); }
+    // احتواء الصورة داخل 512×512
+    const sc=Math.min(512/img.width, 512/img.height);
+    const w=img.width*sc, h=img.height*sc;
+    if(frame!=='none'){
+      ctx.fillStyle=(frame==='white')?'#ffffff':'#000000';
+      const pad=8;
+      if(round){ ctx.beginPath(); ctx.arc(256,256,252,0,Math.PI*2); ctx.fill(); }
+      else ctx.fillRect((512-w)/2-pad,(512-h)/2-pad,w+pad*2,h+pad*2);
+    }
+    ctx.drawImage(img,(512-w)/2,(512-h)/2,w,h);
+    ctx.restore();
+    document.getElementById('dl').style.display='block';
+  };
+  img.src=imgSrc;
+}
+
+function download(){
+  Boda.haptic('light');
+  const a=document.createElement('a');
+  a.href=document.getElementById('cv').toDataURL('image/png');
+  a.download='sticker-512.png';
+  a.click();
+  Boda.toast('✅ نُزّل الملصق — أرسله للبوت لإضافته للعبوة');
+  Boda.track('feature_use',{detail:'sticker_export'});
+}
+
+document.getElementById('img').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  imgSrc=URL.createObjectURL(f); paint();
+  Boda.track('app_open',{detail:'tool'});
+};
 """,
 )
 

@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="description" content="أرسل الرابط للبوت واستلم الفيديو نظيفاً">
+<meta name="description" content="حدّد جودة التحميل وأرسل الرابط الجاهز للبوت">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#17212b">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2032%2032%27%3E%3Ctext%20x=%270%27%20y=%2726%27%20font-size=%2726%27%3E📱%3C/text%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://abdalrhmenabdaalim1111-hub.github.io/Boda_Bot/cleantok/">
 <meta property="og:title" content="📱 تيك توك بلا علامة — Boda">
-<meta property="og:description" content="أرسل الرابط للبوت واستلم الفيديو نظيفاً">
+<meta property="og:description" content="حدّد جودة التحميل وأرسل الرابط الجاهز للبوت">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="📱 تيك توك بلا علامة — Boda">
-<meta name="twitter:description" content="أرسل الرابط للبوت واستلم الفيديو نظيفاً">
+<meta name="twitter:description" content="حدّد جودة التحميل وأرسل الرابط الجاهز للبوت">
 <title>📱 تيك توك بلا علامة — Boda</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -147,14 +147,20 @@ label { display: block; font-size: 12.5px; color: var(--hint); margin: 10px 0 5p
   <header class="app-header">
     <span class="emoji">📱</span>
     <h1>تيك توك بلا علامة</h1>
-    <p>أرسل الرابط للبوت واستلم الفيديو نظيفاً</p>
+    <p>حدّد جودة التحميل وأرسل الرابط الجاهز للبوت</p>
   </header>
 
 
 <div class="card">
   <label>رابط فيديو تيك توك</label>
   <input type="text" id="url" dir="ltr" placeholder="https://vm.tiktok.com/...">
-  <button class="btn" id="go" onclick="send()">🤖 أرسل للبوت</button>
+  <label>الجودة المطلوبة</label>
+  <div class="chips">
+    <span class="chip active" onclick="setQ('بدون علامة مائية', this)">✨ بلا علامة</span>
+    <span class="chip" onclick="setQ('1080p بلا علامة', this)">🎬 1080p</span>
+    <span class="chip" onclick="setQ('الصوت فقط MP3', this)">🎧 صوت فقط</span>
+  </div>
+  <button class="btn" id="go" onclick="send()">🤖 جهّز للبوت</button>
   <div class="result" id="res"></div>
 </div>
 
@@ -313,16 +319,29 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
 })();
 </script>
 <script>
+let QUAL='بدون علامة مائية';
+function setQ(v, el){
+  if(el){ el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+          el.classList.add('active'); }
+  QUAL=v; Boda.haptic('light');
+}
+
 function send(){
-  const u=document.getElementById('url').value.trim();
-  if(!/tiktok\.com/i.test(u)) return Boda.toast('⚠️ أدخل رابط تيك توك صحيح');
-  Boda.haptic('light'); Boda.track('feature_use',{detail:'link_prepared'});
-  // الفيديو الثقيل يُعالج في البوت — ننقله إليه مع الرابط جاهزاً
-  Boda.copy(u, '📋 تم نسخ الرابط');
+  const val=document.getElementById('url').value.trim();
+  if(!/tiktok\.com/i.test(val)) return Boda.toast('⚠️ أدخل رابط تيك توك صحيح');
+  // تحليل نوع الرابط
+  const short=/vm\.tiktok\.com\/|v\.tiktok/i.test(val);
+  const m=val.match(/video\/(\d+)/);
+  const dex=''+
+      '<b style="color:var(--accent)">'+QUAL+'</b>'+
+      '<br><small style="color:var(--hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
+      (m?'<br>ID الفيديو: '+m[1]:'')+'</small>';
+  Boda.haptic('light'); Boda.track('feature_use',{detail:'clean_link_ready'});
+  Boda.copy(val, '📋 تم نسخ الرابط');
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '✅ نُسخ الرابط! الآن:<br>1️⃣ افتح البوت<br>2️⃣ أرسل الرابط (لصق)'+
-    '<button class="btn" onclick="location.href=\'https://t.me/BodaCleanTokBot\'">🤖 فتح البوت</button>';
+    '✅ جاهز — افتح البوت وألصق الرابط'+dex+
+    '<button class="btn" style="margin-top:8px" onclick="location.href=\'https://t.me/BodaCleanTokBot\'">🤖 فتح البوت</button>';
 }
 </script>
 </body>
