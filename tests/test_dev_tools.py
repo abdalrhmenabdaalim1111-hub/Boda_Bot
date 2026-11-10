@@ -1,6 +1,7 @@
 """
 tests/test_dev_tools.py — اختبارات أداة المطور dev_tools.py
 """
+import os
 import pytest
 import sys
 import json
@@ -112,6 +113,10 @@ def test_dev_tools_bots_check_fake_env(tmp_path, monkeypatch, capsys):
     assert code == 1
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI", "").lower() in ("1", "true") or not dev_tools.ENV_FILE.exists(),
+    reason="يتطلب توكنات حقيقية واتصال شبكة — يُتخطى تلقائياً في CI",
+)
 def test_dev_tools_bots_check_real(capsys):
     """فحص الجودة الشامل على المشروع الحقيقي: 34 بوت × 7 فحوصات يجب أن تُنجز بالكامل"""
     code = dev_tools.cmd_bots_check()
