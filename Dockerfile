@@ -1,16 +1,14 @@
 # =============================================================================
-#  Dockerfile — Boda Bot System (v4.5)
-#  بيئة تشغيل خفيفة ومستقرة للبوتات وواجهة API
+#  Dockerfile — Boda Bot System (v5.1) — صورة إنتاجية بلا واجهة رسومية
+#  تشغّل server_runner.py (كل البوتات) + api_server + monitor_agent
 # =============================================================================
-FROM python:3.10-slim
+FROM python:3.12-slim
 
-# إعداد المتغيرات الأساسية لبايثون
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8 \
     TZ=UTC
 
-# تثبيت متطلبات النظام الأساسية
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
@@ -19,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# تثبيت مكتبات بايثون أولاً للاستفادة من كاش Docker
+# تثبيت المكتبات أولاً للاستفادة من كاش الطبقات
 COPY requirements.txt .
 RUN pip install --no-cache-dir -U pip setuptools && \
     pip install --no-cache-dir -r requirements.txt
@@ -27,16 +25,13 @@ RUN pip install --no-cache-dir -U pip setuptools && \
 # نسخ ملفات المشروع
 COPY . .
 
-# إنشاء المجلدات الضرورية مع الصلاحيات
 RUN mkdir -p Data Logs Backups
 
-# فتح المنافذ: 8080 (خادم API وفحص الصحة) و 8443 (Webhook)
-EXPOSE 8080 8443
+# منفذ Webhook المشترك + (اختياري) خادم API
+EXPOSE 8443 8080
 
-# فحص صحة الحاوية التلقائي عبر خادم API
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+# إيقاف نظيف عند docker stop
+STOPSIGNAL SIGTERM
 
-# أمر التشغيل الافتراضي
-CMD ["python", "StartManager.py"]
-
+# المشغّل الإنتاجي (Polling افتراضياً، Webhook عند USE_WEBHOOK=true)
+CMD ["python", "server_runner.py"]

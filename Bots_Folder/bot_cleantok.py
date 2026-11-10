@@ -1,6 +1,6 @@
 """
 bot_cleantok.py — CleanTok Bot | تيك توك بدون علامة مائية — تحميل فوري
-TOKEN : REDACTED-TELEGRAM-TOKEN
+التوكن يُقرأ من .env عبر get_token("BOT_CLEANTOK_TOKEN")
 @CleanTokVidBot
 """
 

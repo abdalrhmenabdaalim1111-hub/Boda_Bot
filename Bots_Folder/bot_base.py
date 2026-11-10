@@ -112,6 +112,35 @@ def record_error(bot_name: str, error: Exception, user_id: int = None):
         pass
 
 
+def prepare_bot(bot, bot_name: str, log=None):
+    """
+    تجهيز البوت بالأنظمة الموحدة (إعلانات + نمو فيروسي + طبقة وسيطة).
+    تُستدعى مرة واحدة من Polling أو Webhook أو المشغّل الإنتاجي.
+    """
+    log = log or get_logger(bot_name)
+
+    # ربط نظام الإعلانات الموحد
+    try:
+        from ad_manager import attach_unified_ads
+        attach_unified_ads(bot, bot_name)
+    except Exception as e:
+        log.debug(f"AdManager attach: {e}")
+
+    # محرك النمو الفيروسي
+    try:
+        from growth_engine import attach_growth_engine
+        attach_growth_engine(bot, bot_name)
+    except Exception as e:
+        log.debug(f"GrowthEngine attach: {e}")
+
+    # الطبقة الموحدة: تتبع المستخدمين + زر القائمة + بطاقة التطبيق
+    try:
+        from unified_middleware import install_unified_layer
+        install_unified_layer(bot, bot_name)
+    except Exception as e:
+        log.debug(f"UnifiedLayer install: {e}")
+
+
 def start_polling(bot, bot_name: str = "bot", allowed_updates=None):
     """
     تشغيل البوت بالشكل الصحيح مع معالجة الأخطاء وتسجيل الجلسة.
@@ -146,25 +175,8 @@ def start_polling(bot, bot_name: str = "bot", allowed_updates=None):
         except Exception:
             pass
 
-    # ربط أنظمة النمو الفيروسي والإعلانات الموحدة تلقائياً
-    try:
-        from ad_manager import attach_unified_ads
-        attach_unified_ads(bot, bot_name)
-    except Exception as e:
-        log.debug(f"AdManager attach: {e}")
-
-    try:
-        from growth_engine import attach_growth_engine
-        attach_growth_engine(bot, bot_name)
-    except Exception as e:
-        log.debug(f"GrowthEngine attach: {e}")
-
-    # الطبقة الموحدة: تتبع المستخدمين + زر القائمة + بطاقة التطبيق
-    try:
-        from unified_middleware import install_unified_layer
-        install_unified_layer(bot, bot_name)
-    except Exception as e:
-        log.debug(f"UnifiedLayer install: {e}")
+    # ربط الأنظمة الموحدة (إعلانات + نمو فيروسي + طبقة وسيطة)
+    prepare_bot(bot, bot_name, log)
 
     try:
         bot.delete_webhook(drop_pending_updates=True)
@@ -198,18 +210,27 @@ def start_polling(bot, bot_name: str = "bot", allowed_updates=None):
 
 def start_webhook(bot, bot_name: str, webhook_url: str,
                   host: str = "0.0.0.0", port: int = 8443,
-                  allowed_updates=None):
+                  allowed_updates=None, serve: bool = True):
     """
-    تشغيل البوت بنظام Webhook للإنتاج والنشر السحابي.
+    تشغيل بوت واحد بنظام Webhook مع خادم HTTP حقيقي يستقبل التحديثات.
+
+    ملاحظة: لتشغيل عدة بوتات معاً على منفذ واحد استخدم server_runner.py
+    (يشارك خادم Webhook واحداً بين كل البوتات بدل خادم لكل بوت).
 
     Args:
         bot: كائن البوت (telebot)
         bot_name: اسم البوت
-        webhook_url: رابط الـ Webhook العام (HTTPS)
+        webhook_url: الرابط العام الأساسي (HTTPS) — يُضاف إليه مسار البوت
         host: واجهة الاستماع المحلية
         port: المنفذ المحلي
         allowed_updates: قائمة أنواع التحديثات المطلوبة (اختياري)
+        serve: True = فتح الخادم وانتظار التحديثات (للتشغيل الفردي).
+               False = تسجيل الرابط وتفعيله ثم العودة فوراً دون فتح منفذ
+               (الاستماع على عاتق مشغّل خارجي أو اختبارات) — ولا يُلغى
+               الويب هوك هنا.
     """
+    from webhook_server import WebhookServer, webhook_path_for
+
     log = get_logger(bot_name)
     log.info(f"🚀 بدء التشغيل (Webhook على {webhook_url})...")
 
@@ -233,43 +254,51 @@ def start_webhook(bot, bot_name: str, webhook_url: str,
         except Exception:
             pass
 
-    # ربط أنظمة النمو الفيروسي والإعلانات الموحدة تلقائياً
-    try:
-        from ad_manager import attach_unified_ads
-        attach_unified_ads(bot, bot_name)
-    except Exception as e:
-        log.debug(f"AdManager attach: {e}")
+    prepare_bot(bot, bot_name, log)
 
+    secret = os.getenv("WEBHOOK_SECRET", "").strip()
+    server = None
     try:
-        from growth_engine import attach_growth_engine
-        attach_growth_engine(bot, bot_name)
-    except Exception as e:
-        log.debug(f"GrowthEngine attach: {e}")
+        if serve:
+            server = WebhookServer(host=host, port=port, secret=secret)
+            server.register(bot_name, bot)
+            server.start()
 
-    # الطبقة الموحدة: تتبع المستخدمين + زر القائمة + بطاقة التطبيق
-    try:
-        from unified_middleware import install_unified_layer
-        install_unified_layer(bot, bot_name)
-    except Exception as e:
-        log.debug(f"UnifiedLayer install: {e}")
-
-    try:
-        bot.remove_webhook()
-        time.sleep(1)
-        full_url = f"{webhook_url.rstrip('/')}/{bot_name}"
-        hook_kwargs = dict(url=full_url)
+        path = (server.webhook_path(bot_name) if server
+                else webhook_path_for(bot_name, secret))
+        full_url = f"{webhook_url.rstrip('/')}{path}"
+        hook_kwargs = dict(url=full_url, drop_pending_updates=True)
         if allowed_updates:
             hook_kwargs["allowed_updates"] = allowed_updates
+        if secret:
+            hook_kwargs["secret_token"] = secret
         bot.set_webhook(**hook_kwargs)
-        log.info(f"🌐 تم تفعيل Webhook: {full_url}")
-        # إذا كانت مكتبة الخادم مجهزة يتم تشغيلها
-        log.info(f"👂 الاستماع على {host}:{port}")
+        log.info(f"🌐 Webhook مفعّل: {full_url}")
+
+        if serve:
+            log.info(f"👂 خادم الاستماع يعمل على {host}:{server.actual_port}")
+            while True:
+                time.sleep(3600)
+        else:
+            log.info("ℹ️ serve=False — تم تفعيل الرابط دون انتظار تحديثات هنا.")
     except KeyboardInterrupt:
         log.info("⏹ تم إيقاف Webhook.")
     except Exception as e:
         log.error(f"❌ خطأ في Webhook: {e}")
+        try:
+            from error_tracker import track_exception
+            track_exception(bot_name, e, context="webhook_crash")
+        except Exception:
+            pass
         raise
     finally:
+        if serve:
+            try:
+                bot.remove_webhook()
+            except Exception:
+                pass
+            if server:
+                server.stop()
         if db and session_id:
             try:
                 db.record_bot_stop(session_id)
@@ -277,7 +306,8 @@ def start_webhook(bot, bot_name: str, webhook_url: str,
                 pass
 
 
-def start_bot(bot, bot_name: str = "bot", allowed_updates=None):
+def start_bot(bot, bot_name: str = "bot", allowed_updates=None,
+              serve: bool = True):
     """
     مشغّل ذكي موحد للبوت:
     يفحص تلقائياً متغيرات البيئة USE_WEBHOOK و WEBHOOK_URL
@@ -287,6 +317,7 @@ def start_bot(bot, bot_name: str = "bot", allowed_updates=None):
         bot: كائن البوت (telebot)
         bot_name: اسم البوت
         allowed_updates: قائمة أنواع التحديثات المطلوبة (اختياري)
+        serve: يُمرَّر إلى start_webhook (False = تسجيل الرابط فقط دون فتح منفذ)
     """
     use_webhook = os.getenv("USE_WEBHOOK", "false").lower() in ("true", "1", "yes")
     webhook_url = os.getenv("WEBHOOK_URL", "").strip()
@@ -294,7 +325,7 @@ def start_bot(bot, bot_name: str = "bot", allowed_updates=None):
     if use_webhook and webhook_url:
         port = int(os.getenv("WEBHOOK_PORT", "8443"))
         start_webhook(bot, bot_name, webhook_url, port=port,
-                      allowed_updates=allowed_updates)
+                      allowed_updates=allowed_updates, serve=serve)
     else:
         start_polling(bot, bot_name, allowed_updates=allowed_updates)
 

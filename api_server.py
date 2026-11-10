@@ -67,9 +67,22 @@ def _get_db():
         return None
 
 
+def _env_configured() -> bool:
+    """
+    هل البيئة مضبوطة؟
+    محليًا: وجود .env — داخل Docker: .env غير منسوخ (env_file يحقن المتغيرات)
+    لذلك نعتبر وجود أي توكن بوت صالح دليلًا كافيًا.
+    """
+    if (BASE_DIR / ".env").exists():
+        return True
+    return any(
+        k.startswith("BOT_") and k.endswith("_TOKEN") and str(v).strip()
+        for k, v in os.environ.items()
+    )
+
+
 def get_system_health() -> dict:
     """جمع بيانات الفحص الصحي للنظام"""
-    env_file = BASE_DIR / ".env"
     db_file = DATA_DIR / "boda_bot.db"
 
     return {
@@ -78,12 +91,33 @@ def get_system_health() -> dict:
         "version": SERVER_VERSION,
         "python": sys.version.split()[0],
         "platform": sys.platform,
-        "env_configured": env_file.exists(),
+        "env_configured": _env_configured(),
         "database_ready": db_file.exists(),
         "uptime_seconds": int(time.time() - getattr(get_system_health, "_start_time", time.time()))
     }
 
 get_system_health._start_time = time.time()
+
+
+def get_readiness() -> dict:
+    """
+    فحص الجاهزية (Readiness) للمراقبة الخارجية:
+    يعيد ready=False وخادم HTTP 503 إذا كانت البيئة أو قاعدة البيانات غير جاهزة.
+    """
+    env_file = BASE_DIR / ".env"
+    db_file = DATA_DIR / "boda_bot.db"
+    checks = {
+        "env_configured": _env_configured(),
+        "database_ready": db_file.exists(),
+    }
+    ready = all(checks.values())
+    return {
+        "status": "ready" if ready else "not_ready",
+        "ready": ready,
+        "checks": checks,
+        "timestamp": datetime.now().isoformat(),
+        "version": SERVER_VERSION,
+    }
 
 
 def get_bots_list() -> list:
@@ -169,6 +203,11 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, get_system_health())
             return
 
+        if path == "/ready":
+            payload = get_readiness()
+            self._send_json(200 if payload.get("ready") else 503, payload)
+            return
+
         if not self._is_authorized():
             self._send_json(403, {"error": "Forbidden — أدخل X-API-Key صحيحاً"})
             return
@@ -204,7 +243,7 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {
                 "error": "Not Found",
-                "endpoints": ["/health", "/api/stats", "/api/bots",
+                "endpoints": ["/health", "/ready", "/api/stats", "/api/bots",
                               "/api/logs", "/api/events", "POST /api/track"]
             })
 

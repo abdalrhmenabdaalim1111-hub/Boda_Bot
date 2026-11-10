@@ -7,11 +7,16 @@ __pycache__
 .git
 .gitignore
 *.docx
+# أسرار وبيانات محلية — تُمرَّر عبر volumes و env_file وليس داخل الصورة
+.env
+.env.*
+Data/
 Backups/*
 !Backups/.gitkeep
+Logs/
+webapps/
 Data/*.db-journal
 Data/*.tmp
-Logs/*.log
 *.bat
 tests
 
