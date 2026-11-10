@@ -25,7 +25,7 @@ import threading
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-from datetime import datetime
+from datetime import datetime, timedelta
 
 BASE_DIR    = Path(__file__).parent.resolve()
 BOTS_DIR    = BASE_DIR / "Bots_Folder"
@@ -120,6 +120,87 @@ def get_readiness() -> dict:
         "timestamp": datetime.now().isoformat(),
         "version": SERVER_VERSION,
     }
+
+
+def get_engagement_overview() -> dict:
+    """
+    بيانات لوحة التحليلات (/api/overview) — تُبنى من قاعدة البيانات المشتركة:
+    • نشاط المستخدمين: الإجمالي + يوم/7 أيام/30 يوماً (آخر ظهور) ونسبة الالتصاق DAU/MAU
+    • قمع بوابة الشبكة: مستخدمون → معيّنون على بوتات الخمسة → فعّلوا الشبكة
+    • الإحالات الفيروسية، أعلى 10 بوتات، ولمحة سريعة من اختبار A/B للإعلانات
+    """
+    db = _get_db()
+    if db is None:
+        return {"error": "قاعدة البيانات غير متاحة"}
+
+    now = datetime.now()
+
+    def _cutoff(days: int) -> str:
+        return (now - timedelta(days=days)).strftime("%Y-%m-%d") + " 00:00:00"
+
+    with db._get_conn() as conn:
+        total = int(conn.execute("SELECT COUNT(*) FROM users").fetchone()[0])
+        distinct_users = int(conn.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM users").fetchone()[0])
+
+        def _active(cutoff: str) -> int:
+            return int(conn.execute(
+                "SELECT COUNT(DISTINCT user_id) FROM users WHERE last_seen >= ?",
+                (cutoff,)).fetchone()[0])
+
+        dau, wau, mau = _active(_cutoff(0)), _active(_cutoff(7)), _active(_cutoff(30))
+
+        assigned = int(conn.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM network_assignments").fetchone()[0])
+        activated = int(conn.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM network_activations "
+            "WHERE is_active = 1").fetchone()[0])
+        referrals_total = int(conn.execute(
+            "SELECT COUNT(*) FROM referrals").fetchone()[0])
+        referrers = int(conn.execute(
+            "SELECT COUNT(DISTINCT referrer_id) FROM referrals").fetchone()[0])
+        top_rows = conn.execute(
+            "SELECT bot_name, COUNT(*) AS users, "
+            "SUM(CASE WHEN last_seen >= ? THEN 1 ELSE 0 END) AS active30 "
+            "FROM users GROUP BY bot_name ORDER BY users DESC LIMIT 10",
+            (_cutoff(30),)).fetchall()
+
+    top_bots = [{"bot_name": r["bot_name"], "users": int(r["users"]),
+                 "active_30d": int(r["active30"] or 0)} for r in top_rows]
+
+    def _pct(part: int, whole: int) -> float:
+        return round(part * 100.0 / whole, 1) if whole else 0.0
+
+    overview = {
+        "generated_at": datetime.now().isoformat(),
+        "users": {
+            "total": total,
+            "distinct_users": distinct_users,
+            "dau": dau,
+            "wau": wau,
+            "mau": mau,
+        },
+        "retention_dau_mau_percent": _pct(dau, mau),
+        "funnel": {
+            "users": distinct_users,
+            "assigned": assigned,
+            "assigned_percent": _pct(assigned, distinct_users),
+            "activated": activated,
+            "activated_percent": _pct(activated, distinct_users),
+        },
+        "referrals": {
+            "total": referrals_total,
+            "unique_referrers": referrers,
+        },
+        "top_bots": top_bots,
+    }
+
+    try:
+        overview["ab_testing"] = db.get_ab_report()
+        overview["ab_testing"]["ok"] = True
+    except Exception as e:  # لوحة الإعلانات لا تُعطّل اللوحة الأساسية
+        overview["ab_testing"] = {"ok": False, "error": str(e)[:120]}
+    return overview
 
 
 def get_bots_list() -> list:
@@ -250,11 +331,28 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
                 self._send_bytes(404, b"<!DOCTYPE html><html><body><h2>MiniApp Not Found</h2></body></html>")
                 return
 
+        # لوحة التحليلات — صفحة عامة (بياناتها نفسها محمية بمفتاح /api/overview)
+        if path == "/dashboard":
+            target_file = WEBROOT_DIR / "dashboard" / "index.html"
+            if target_file.exists():
+                try:
+                    self._send_bytes(200, target_file.read_bytes())
+                except Exception as e:
+                    self._send_json(500, {"error": f"Failed reading dashboard: {e}"})
+            else:
+                self._send_bytes(404, b"<!DOCTYPE html><html><body><h2>Dashboard Not Found</h2></body></html>")
+            return
+
         if not self._is_authorized():
             self._send_json(403, {"error": "Forbidden — أدخل X-API-Key صحيحاً"})
             return
 
-        if path == "/api/stats":
+        if path == "/api/overview":
+            # لوحة النمو: نشطون/احتفاظ/قمع/إحالات/أعلى بوتات/A-B
+            overview = get_engagement_overview()
+            self._send_json(200 if overview.get("error") is None else 503, overview)
+
+        elif path == "/api/stats":
             self._send_json(200, get_db_stats())
 
         elif path == "/api/bots":
@@ -294,9 +392,9 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {
                 "error": "Not Found",
-                "endpoints": ["/health", "/ready", "GET /apps/<bot_id>", "/api/stats",
-                              "/api/bots", "/api/ads/status", "/api/logs", "/api/events",
-                              "POST /api/track", "POST /api/ads/set"]
+                "endpoints": ["/health", "/ready", "GET /apps/<bot_id>", "/dashboard",
+                              "/api/stats", "/api/overview", "/api/bots", "/api/ads/status",
+                              "/api/logs", "/api/events", "POST /api/track", "POST /api/ads/set"]
             })
 
     def do_POST(self):

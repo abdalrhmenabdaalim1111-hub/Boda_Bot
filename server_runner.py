@@ -158,6 +158,20 @@ def start_backup_scheduler(stop_event: threading.Event,
     return t
 
 
+# ── مزامنة استباقية لتطبيقات الويب وإعلانات Monetag ─────────────────────────
+def preflight_sync_mini_apps():
+    """فحص ومزامنة استباقية لملفات تطبيقات الويب وحقن شفرات الإعلانات قبل الانطلاق."""
+    try:
+        from ad_watcher import sync_mini_apps
+        res = sync_mini_apps()
+        if res.get("ok"):
+            log.info("📢 المزامنة الاستباقية: تم تجهيز ملفات تطبيقات الويب وحقن شفرات Monetag.")
+        else:
+            log.warning(f"⚠ تعذر إكمال مزامنة تطبيقات الويب: {res.get('error')}")
+    except Exception as e:
+        log.warning(f"⚠ خطأ في المزامنة الاستباقية: {e}")
+
+
 # ── وضع Polling ──────────────────────────────────────────────────────────────
 def polling_worker(bot_id: str, module, stop_event: threading.Event):
     """تشغيل بوت واحد عبر Polling مع إعادة تشغيل تلقائية عند الانهيار."""
@@ -253,6 +267,8 @@ def run_webhook(modules: dict, stop_event: threading.Event,
     server.start()
     log.info(f"✅ Webhook server يعمل على {host}:{server.actual_port} "
              f"لـ {len(started)} بوتاً — بانتظار التحديثات")
+    log.info(f"📱 خادم تطبيقات الويب المصغرة متاح على: http://{host}:{server.actual_port}/apps/<bot_id>")
+    log.info(f"📢 واجهة التحكم بالإعلانات متاحة على: http://{host}:{server.actual_port}/api/ads/status")
     while not stop_event.wait(1):
         pass
 
@@ -349,6 +365,16 @@ def main(argv=None) -> int:
                 signal.signal(sig, _handle_signal)
             except (ValueError, OSError):
                 pass
+
+    # مزامنة استباقية لتطبيقات الويب وإعلانات Monetag قبل الانطلاق
+    preflight_sync_mini_apps()
+
+    # تشغيل مراقب ملفات الإعلانات التلقائي لمزامنة أي تعديل فورياً بدون إعادة تشغيل
+    try:
+        from ad_watcher import start_ad_watcher
+        start_ad_watcher(stop_event, check_interval=2.0, custom_logger=log)
+    except Exception as e:
+        log.warning(f"⚠ تعذر بدء مراقب الإعلانات التلقائي: {e}")
 
     # النسخ الاحتياطي المجدول (يعمل في الوضعين)
     start_backup_scheduler(stop_event)
