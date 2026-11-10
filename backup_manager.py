@@ -58,6 +58,10 @@ def create_backup(compress: bool = True) -> Path:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     sub_ms = f"{int(time.time() * 1000) % 1000:03d}"
     backup_name = f"backup_{ts}_{sub_ms}"
+    # ضمان فريدة الاسم (النسخ المتتالية العوادة جداً قد تصطدمان بنفس الميلي ثانية)
+    while (BACKUP_DIR / f"{backup_name}.zip").exists() or (BACKUP_DIR / backup_name).exists():
+        sub_ms = f"{(int(sub_ms) + 1) % 1000:03d}"
+        backup_name = f"backup_{ts}_{sub_ms}"
 
     if compress:
         zip_path = BACKUP_DIR / f"{backup_name}.zip"
