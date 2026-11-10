@@ -80,6 +80,32 @@ def test_secret_box_without_key_is_unavailable():
     assert box.encrypt_or_none(SAMPLE_TOKEN) is None
 
 
+def test_secret_box_auto_generates_and_persists_a_key(tmp_path, monkeypatch):
+    """عند غياب المفتاح يُولَّد مفتاح جديد ويُحفظ خارج المستودع"""
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError:
+        pytest.skip("cryptography not installed")
+
+    from control_center import config
+    key_file = tmp_path / ".secret_key"
+    monkeypatch.setattr(config, "SECRET_KEY_FILE", key_file)
+    monkeypatch.delenv("BODA_SECRET_KEY", raising=False)
+    crypto.reset_secret_box()
+    try:
+        box = crypto.SecretBox()
+        assert box.available is True
+        assert key_file.exists()
+        blob = box.encrypt(SAMPLE_TOKEN)
+        assert box.decrypt(blob) == SAMPLE_TOKEN
+
+        # A second instance must reuse the persisted key.
+        other = crypto.SecretBox()
+        assert other.decrypt(blob) == SAMPLE_TOKEN
+    finally:
+        crypto.reset_secret_box()
+
+
 def test_secret_box_rejects_plain_values():
     """فك التشفير يرفض القيم غير المشفّرة"""
     try:

@@ -35,7 +35,12 @@ class SecretBox:
     def __init__(self, key: str | None = None):
         self._fernet = None
         self.error = ""
-        raw = key if key is not None else config.secret_key()
+        if key is None:
+            # No explicit key: use the configured one, generating and
+            # persisting a fresh key on first use.
+            raw = config.ensure_secret_key()
+        else:
+            raw = key
         if not raw:
             self.error = "no encryption key configured"
             return
