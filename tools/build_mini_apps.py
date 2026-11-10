@@ -43,6 +43,10 @@ try:
 except Exception:
     pass
 
+# قاعدة الموقع الرئيسي لملفات SEO (sitemap/robots) — نفس نطاق الصفحات الموحدة
+PAGES_BASE = (MINIAPPS_BASE or
+              "https://abdalrhmenabdaalim1111-hub.github.io/Boda_Bot").rstrip("/")
+
 
 # ── الإعلانات من ads_config.json و monetag_config.json ─────────────────────────
 def build_ads_cfg(bot_id: str = None) -> dict:
@@ -320,6 +324,34 @@ def render_store(apps: list, ads_cfg: dict, api_base: str) -> str:
         + json.dumps(catalog, ensure_ascii=False))
 
 
+def write_seo_files(out_dir: Path, apps: list) -> None:
+    """توليد sitemap.xml و robots.txt لفهرسة أفضل في محركات البحث."""
+    from xml.sax.saxutils import escape
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    urls = [(f"{PAGES_BASE}/", "1.0", "daily"),
+            (f"{PAGES_BASE}/store/", "0.9", "daily")]
+    for a in apps:
+        if a.get("id") and not a.get("hidden") and a["id"] != "store":
+            urls.append((f"{PAGES_BASE}/{a['id']}/", "0.8", "weekly"))
+
+    sitemap = ['<?xml version="1.0" encoding="UTF-8"?>',
+               '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for loc, prio, freq in urls:
+        sitemap.append("  <url>")
+        sitemap.append(f"    <loc>{escape(loc)}</loc>")
+        sitemap.append(f"    <lastmod>{today}</lastmod>")
+        sitemap.append(f"    <changefreq>{freq}</changefreq>")
+        sitemap.append(f"    <priority>{prio}</priority>")
+        sitemap.append("  </url>")
+    sitemap.append("</urlset>")
+    (out_dir / "sitemap.xml").write_text("\n".join(sitemap), encoding="utf-8")
+
+    robots = ("User-agent: *\nAllow: /\n\n"
+              f"Sitemap: {PAGES_BASE}/sitemap.xml\n")
+    (out_dir / "robots.txt").write_text(robots, encoding="utf-8")
+
+
 def main():
     out_dir = ROOT / "webroot"
     api_base = os.getenv("BODA_API_BASE", "").strip().rstrip("/")
@@ -385,9 +417,13 @@ def main():
     # .nojekyll لـ GitHub Pages
     (out_dir / ".nojekyll").write_text("", encoding="utf-8")
 
+    # SEO: sitemap.xml + robots.txt
+    write_seo_files(out_dir, apps)
+
     print(f"✅ تم البناء في {out_dir.name}/")
     print(f"   📱 تطبيقات تفاعلية: {n_interactive}")
     print(f"   📄 صفحات بوتات: {sum(1 for a in apps if not a.get('hidden'))}")
+    print(f"   🔍 خريطة الموقع: {1 + sum(1 for a in apps if not a.get('hidden'))} رابطًا")
     print(f"   👥 إجمالي المستخدمين المكتشفين: {stats['total_users']}")
     return 0
 

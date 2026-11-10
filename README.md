@@ -5,7 +5,8 @@
 ![Version](https://img.shields.io/badge/version-5.1-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-brightgreen)
 ![Bots](https://img.shields.io/badge/bots-34-orange)
-![Tests](https://img.shields.io/badge/tests-165%2B%20passed-success)
+![Tests](https://img.shields.io/badge/tests-212%2B-success)
+![CI](https://github.com/abdalrhmenabdaalim1111-hub/Boda_Bot/actions/workflows/ci.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Docker-lightgrey)
 
 **نظام إدارة وتشغيل 34 بوت تيليجرام — واجهة رسومية محليًا، وتشغيل إنتاجي بلا واجهة على السيرفر**
@@ -244,6 +245,9 @@ python dev_tools.py test
 
 # فحص كود المشروع والتأكد من خلوه من أي أخطاء syntax
 python dev_tools.py lint
+
+# فحص الأسرار: لا توكنات حقيقية في الملفات المتتبعة (حاجز CI الأول)
+python dev_tools.py secret-scan
 
 # فحص صحة وتكامل البوتات المسجلة وملفاتها
 python dev_tools.py health

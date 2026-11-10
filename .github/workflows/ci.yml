@@ -1,3 +1,9 @@
+# =============================================================================
+#  CI — Boda Bot System (نسخة مدموجة من الجلستين الموازيتين)
+#  ترتيب الحاجزات: أسرار → صياغة → اختبارات مع تغطية → فحص السجل → أرشفة
+#  ملاحظة: bots-check الحقيقي (اتصال بـ 34 توكن) يعمل محلياً فقط.
+# =============================================================================
+
 name: CI
 
 on:
@@ -8,6 +14,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -25,11 +32,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Secret scan (tracked files) — fails on real tokens
+        run: python tools/secret_scan.py
+
       - name: Syntax check (dev_tools lint)
         run: python dev_tools.py lint
 
-      - name: Run test suite
-        run: pytest -q
+      - name: Test suite with coverage
+        run: pytest -q --cov=Bots_Folder --cov-report=xml --cov-report=term
 
       - name: Registry health check
         run: python dev_tools.py health
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-py${{ matrix.python-version }}
+          path: coverage.xml
