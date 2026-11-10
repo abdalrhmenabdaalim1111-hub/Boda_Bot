@@ -1,6 +1,6 @@
 """
 bot_cleantok.py — CleanTok Bot | تيك توك بدون علامة مائية — تحميل فوري
-TOKEN : 8647572005:AAF3YAYFLHbHBbT-CEy_sG_v6lPt8Hn-sIU
+التوكن يُقرأ من .env عبر get_token("BOT_CLEANTOK_TOKEN")
 @CleanTokVidBot
 """
 

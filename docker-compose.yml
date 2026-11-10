@@ -1,45 +1,111 @@
+# =============================================================================
+#  docker-compose.yml — نشر إنتاجي كامل (VPS / سحابة)
+#
+#  الخدمات:
+#    boda-bots    → عملية واحدة تدير كل البوتات (Polling أو Webhook)
+#    boda-api     → /health و /api/stats للمراقبة الخارجية
+#    boda-monitor → فحص دوري + تنبيهات Telegram عند العطل/التعافي
+#
+#  التشغيل:
+#    docker compose up -d --build
+#    docker compose ps
+#    docker compose logs -f boda-bots
+#
+#  ملاحظة المجموعات: لتقسيم البوتات على عدة حاويات، انسخ خدمة boda-bots
+#  وحدد لكل نسخة BODA_BOTS (مثال: BODA_BOTS=currency,qrgen,formatfix).
+#  لا تشغّل بوتاً في حاويتين معاً إلا عند استخدام Webhook (خادم مشترك).
+# =============================================================================
 services:
-  # مشغل البوتات المركزي
   boda-bots:
     build: .
-    container_name: boda_bot_runner
-    restart: unless-stopped
-    command: python StartManager.py
+    image: boda-bot-system:latest
+    container_name: boda_bots
+    restart: always
+    init: true
+    command: ["python", "server_runner.py"]
     env_file:
       - .env
+    environment:
+      TZ: ${TZ:-UTC}
+      BODA_BOTS: ${BODA_BOTS:-}
+      USE_WEBHOOK: ${USE_WEBHOOK:-false}
+      WEBHOOK_PORT: "8443"
     volumes:
       - ./Data:/app/Data
       - ./Logs:/app/Logs
       - ./Backups:/app/Backups
     ports:
-      # منفذ الوِبهُوك (يُستخدم فقط عند ضبط USE_WEBHOOK=true في .env)
-      - "8443:8443"
-    networks:
-      - boda-network
+      - "${WEBHOOK_PORT:-8443}:8443"
     healthcheck:
-      test: ["CMD", "python", "-c", "import psutil,sys; sys.exit(0 if any('StartManager' in ' '.join(p.info.get('cmdline') or []) for p in psutil.process_iter(['cmdline']) if p.pid != 1) else 1)"]
+      test: ["CMD", "python", "-c", "import psutil,sys; sys.exit(0 if any(p.info.get('cmdline') and 'server_runner.py' in ' '.join(p.info['cmdline']) for p in psutil.process_iter(['cmdline'])) else 1)"]
       interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 30s
-
-  # خادم المراقبة وواجهة API وفحص الصحة
-  boda-api:
-    build: .
-    container_name: boda_bot_api
-    restart: unless-stopped
-    command: python api_server.py --host 0.0.0.0 --port 8080
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./Data:/app/Data
-      - ./Logs:/app/Logs
-      - ./bots_registry.json:/app/bots_registry.json:ro
-      - ./webroot:/app/webroot:ro
+      start_period: 40s
     networks:
       - boda-network
+
+  boda-api:
+    build: .
+    image: boda-bot-system:latest
+    container_name: boda_api
+    restart: always
+    init: true
+    command: ["python", "api_server.py", "--host", "0.0.0.0", "--port", "8080"]
+    env_file:
+      - .env
+    volumes:
+      - ./Data:/app/Data
+      - ./Logs:/app/Logs:ro
+      - ./bots_registry.json:/app/bots_registry.json:ro
+      - ./webroot:/app/webroot:ro
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - boda-network
+
+  boda-monitor:
+    build: .
+    image: boda-bot-system:latest
+    container_name: boda_monitor
+    restart: always
+    init: true
+    command: ["python", "monitor_agent.py"]
+    env_file:
+      - .env
+    environment:
+      BODA_MONITOR_URL: http://boda-api:8080/health
+      BODA_MONITOR_INTERVAL: ${BODA_MONITOR_INTERVAL:-60}
+    depends_on:
+      boda-api:
+        condition: service_healthy
+      boda-bots:
+        condition: service_started
+    networks:
+      - boda-network
+
+  # ── نموذج تقسيم اختياري: حاوية ثانية لمجموعة "أدوات" ─────────────────────
+  # أزل التعليق وحدد BODA_BOTS لإدارتها منفصلة (مع إزالة نفس البوتات من boda-bots).
+  # boda-bots-tools:
+  #   build: .
+  #   image: boda-bot-system:latest
+  #   container_name: boda_bots_tools
+  #   restart: always
+  #   init: true
+  #   command: ["python", "server_runner.py", "--bots", "currency,qrgen,formatfix,shortlink"]
+  #   env_file: [.env]
+  #   volumes:
+  #     - ./Data:/app/Data
+  #     - ./Logs:/app/Logs
+  #     - ./Backups:/app/Backups
+  #   networks: [boda-network]
 
 networks:
   boda-network:
     driver: bridge
-

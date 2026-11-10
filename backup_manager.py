@@ -12,6 +12,8 @@ import os
 import sys
 import json
 import shutil
+import sqlite3
+import tempfile
 import zipfile
 import threading
 import time
@@ -40,9 +42,34 @@ def should_exclude(file_path: Path) -> bool:
     parts = file_path.parts
     if "__pycache__" in parts or ".pytest_cache" in parts:
         return True
-    if file_path.name.endswith((".pyc", ".pyo", ".pyd", ".tmp", "-journal")):
+    if file_path.name.endswith((".pyc", ".pyo", ".pyd", ".tmp",
+                                "-journal", "-wal", "-shm")):
         return True
     return False
+
+
+def snapshot_sqlite(db_path: Path, dest_path: Path) -> bool:
+    """
+    إنشاء لقطة متسقة لقاعدة SQLite أثناء عمل النظام عبر Backup API.
+    (نسخ الملف مباشرة أثناء الكتابة قد ينتج قاعدة تالفة.)
+    """
+    try:
+        src = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=10)
+        dst = sqlite3.connect(str(dest_path))
+        try:
+            with dst:
+                src.backup(dst)
+        finally:
+            src.close()
+            dst.close()
+        return True
+    except Exception as e:
+        _log(f"⚠ تعذر إنشاء لقطة SQLite ({e}) — سيُنسخ الملف كما هو")
+        try:
+            shutil.copy2(db_path, dest_path)
+            return True
+        except Exception:
+            return False
 
 
 def create_backup(compress: bool = True) -> Path:
@@ -77,11 +104,19 @@ def create_backup(compress: bool = True) -> Path:
                 zf.write(CONFIG, arcname="manager_config.json")
                 _log("  ✅ manager_config.json")
 
-            # 3. Data/ folder
+            # 3. Data/ folder — مع لقطة متسقة لقاعدة SQLite الحية
             if DATA_DIR.exists():
                 data_count = 0
+                live_db = DATA_DIR / "boda_bot.db"
+                if live_db.exists():
+                    with tempfile.TemporaryDirectory() as td:
+                        snap = Path(td) / "boda_bot.db"
+                        if snapshot_sqlite(live_db, snap):
+                            zf.write(snap, arcname="Data/boda_bot.db")
+                            data_count += 1
                 for item in DATA_DIR.rglob("*"):
-                    if item.is_file() and not should_exclude(item):
+                    if (item.is_file() and not should_exclude(item)
+                            and item.name != "boda_bot.db"):
                         rel_path = item.relative_to(BASE_DIR)
                         zf.write(item, arcname=str(rel_path).replace("\\", "/"))
                         data_count += 1
@@ -120,8 +155,15 @@ def create_backup(compress: bool = True) -> Path:
             DATA_DIR,
             dest / "Data",
             dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*-journal")
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc",
+                                          "*-journal", "*-wal", "*-shm",
+                                          "boda_bot.db")
         )
+        # لقطة متسقة لقاعدة البيانات الحية
+        live_db = DATA_DIR / "boda_bot.db"
+        if live_db.exists():
+            (dest / "Data").mkdir(parents=True, exist_ok=True)
+            snapshot_sqlite(live_db, dest / "Data" / "boda_bot.db")
         _log(f"  ✅ Data/")
 
     if LOGS_DIR.exists():
@@ -231,12 +273,113 @@ def restore_backup(backup_path: Path) -> bool:
     return False
 
 
+# ── اختبار الاستعادة الفعلي ─────────────────────────────────────────────────
+KEY_TABLES = ("users", "usage_stats", "bot_sessions", "error_events",
+              "referrals", "network_activations", "monetag_ad_stats")
+
+
+def _pick_db_member(names: list) -> str:
+    """اختيار ملف قاعدة البيانات من أعضاء الأرشيف (يفضّل Data/boda_bot.db)."""
+    files = [n for n in names if not n.endswith("/")]
+    for n in files:
+        if n.replace("\\", "/").endswith("Data/boda_bot.db"):
+            return n
+    for n in files:
+        if n.lower().endswith((".db", ".sqlite", ".sqlite3")):
+            return n
+    return ""
+
+
+def verify_backup(backup_path: Optional[Path] = None) -> dict:
+    """
+    اختبار استعادة فعلي للنسخة الاحتياطية:
+      1) استخراج قاعدة البيانات إلى مجلد مؤقت (استعادة حقيقية)
+      2) PRAGMA integrity_check للتأكد من سلامتها
+      3) قراءة عدد السجلات في الجداول الأساسية
+
+    Returns:
+        dict: {"ok", "backup", "integrity", "tables", "db_size_kb", "error"?}
+    """
+    if backup_path is None:
+        backups = list_backups()
+        if not backups:
+            return {"ok": False, "error": "لا توجد نسخ احتياطية للفحص"}
+        backup_path = backups[0]
+
+    backup_path = Path(backup_path)
+    report = {
+        "ok": False,
+        "backup": backup_path.name,
+        "checked_at": datetime.now().isoformat(),
+    }
+    if not backup_path.exists():
+        report["error"] = "النسخة غير موجودة"
+        return report
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="boda_verify_") as td:
+            tmp_db = Path(td) / "restore_test.db"
+
+            if backup_path.suffix == ".zip":
+                with zipfile.ZipFile(backup_path, "r") as zf:
+                    member = _pick_db_member(zf.namelist())
+                    if not member:
+                        report["error"] = "قاعدة البيانات غير موجودة داخل الأرشيف"
+                        return report
+                    with zf.open(member) as src, open(tmp_db, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+            elif backup_path.is_dir():
+                candidates = (list(backup_path.rglob("boda_bot.db"))
+                              or list(backup_path.rglob("*.db"))
+                              or list(backup_path.rglob("*.sqlite")))
+                if not candidates:
+                    report["error"] = "قاعدة البيانات غير موجودة في المجلد"
+                    return report
+                shutil.copy2(candidates[0], tmp_db)
+            else:
+                report["error"] = "صيغة النسخة غير مدعومة"
+                return report
+
+            conn = sqlite3.connect(str(tmp_db))
+            try:
+                integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+                existing = {r[0] for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")}
+                tables = {}
+                for table in KEY_TABLES:
+                    if table in existing:
+                        tables[table] = conn.execute(
+                            f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            finally:
+                conn.close()
+
+            healthy = str(integrity).strip().lower() == "ok"
+            report.update({
+                "ok": bool(healthy and tables),
+                "integrity": integrity,
+                "tables": tables,
+                "db_size_kb": round(tmp_db.stat().st_size / 1024, 1),
+            })
+            if not report["ok"]:
+                report["error"] = ("فحص السلامة لم ينجح" if not healthy
+                                   else "لا توجد جداول معروفة في القاعدة")
+    except Exception as e:
+        report["error"] = f"فشل اختبار الاستعادة: {e}"
+
+    return report
+
+
 def auto_backup_loop():
-    """حلقة النسخ الاحتياطي التلقائي الدوري"""
+    """حلقة النسخ الاحتياطي التلقائي الدوري مع تحقق فوري من الاستعادة"""
     _log(f"🔄 تفعيل النسخ الاحتياطي التلقائي كل {INTERVAL_H} ساعة")
     while True:
         try:
-            create_backup(compress=True)
+            path = create_backup(compress=True)
+            report = verify_backup(path)
+            if report.get("ok"):
+                _log(f"✅ اختبار الاستعادة ناجح: {report['tables']}")
+            else:
+                _log(f"❌ اختبار الاستعادة فشل: {report.get('error')}")
         except Exception as e:
             _log(f"⚠️ خطأ أثناء النسخ التلقائي: {e}")
         time.sleep(INTERVAL_H * 3600)
@@ -252,6 +395,20 @@ def start_auto_backup_thread() -> threading.Thread:
 if __name__ == "__main__":
     if "--auto" in sys.argv:
         auto_backup_loop()
+    elif "--verify" in sys.argv:
+        idx = sys.argv.index("--verify")
+        target = None
+        if len(sys.argv) > idx + 1 and not sys.argv[idx + 1].startswith("-"):
+            target = Path(sys.argv[idx + 1])
+        report = verify_backup(target)
+        print(f"\n🔎 اختبار استعادة: {report.get('backup', '?')}")
+        if report.get("ok"):
+            print(f"  ✅ سليمة — integrity={report['integrity']}")
+            print(f"  📊 الجداول: {report['tables']}")
+            print(f"  💾 الحجم بعد الاستعادة: {report['db_size_kb']} KB")
+        else:
+            print(f"  ❌ فشل: {report.get('error')}")
+        sys.exit(0 if report.get("ok") else 1)
     elif "--list" in sys.argv:
         backups = list_backups()
         if backups:

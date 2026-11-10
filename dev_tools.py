@@ -1235,6 +1235,23 @@ def cmd_interactive_menu():
             break
 
 
+def cmd_backup_verify(path: Optional[str] = None) -> int:
+    """اختبار استعادة فعلي لنسخة احتياطية (الأحدث افتراضياً)."""
+    print_banner()
+    import backup_manager
+    report = backup_manager.verify_backup(Path(path) if path else None)
+
+    print(f"\n🔎 اختبار الاستعادة: {report.get('backup', '?')}")
+    if report.get("ok"):
+        print(f"   ✅ قاعدة البيانات سليمة (integrity: {report.get('integrity')})")
+        print(f"   📊 الجداول: {report.get('tables')}")
+        print(f"   💾 الحجم بعد الاستعادة: {report.get('db_size_kb')} KB")
+        print("   ✅ النسخة صالحة للاستعادة فعلياً.")
+        return 0
+    print(f"   ❌ فشل: {report.get('error')}")
+    return 1
+
+
 def main():
     if len(sys.argv) < 2:
         if sys.stdin.isatty():
@@ -1263,6 +1280,7 @@ def main():
         print("  bots-check                   - فحص جودة شامل (7 فحوصات لكل بوت، بلا إنترنت)")
         print("  repos-sync                   - رفع صفحات البوتات لكل مستودعاتها + تفعيل Pages + تحقق حي")
         print("  backup [--no-zip]            - إنشاء نسخة احتياطية فورية")
+        print("  backup-verify [file]         - اختبار استعادة فعلي للنسخة (الأحدث افتراضياً)")
         return
 
     cmd = sys.argv[1].lower()
@@ -1325,6 +1343,8 @@ def main():
         compress = "--no-zip" not in sys.argv
         p = backup_manager.create_backup(compress=compress)
         print(f"✅ تم النسخ الاحتياطي: {p.name}")
+    elif cmd in ("backup-verify", "verify-backup"):
+        sys.exit(cmd_backup_verify(sys.argv[2] if len(sys.argv) > 2 else None))
     elif cmd == "new-bot":
         if len(sys.argv) < 4:
             print("❌ الاستخدام: python dev_tools.py new-bot <bot_id> <bot_name> [category]")

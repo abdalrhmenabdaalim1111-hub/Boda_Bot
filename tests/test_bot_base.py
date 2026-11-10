@@ -106,14 +106,18 @@ class TestBotBase:
         mock_bot.delete_webhook.assert_called_once()
 
     def test_start_webhook_calls_set_webhook(self):
-        """start_webhook يضبط الـ webhook بالرابط المطلوب"""
+        """start_webhook يسجّل مسار البوت الصحيح (serve=False دون خادم)"""
         from bot_base import start_webhook
         mock_bot = MagicMock()
         mock_bot.get_me.return_value = MagicMock(username="TestBot")
 
-        start_webhook(mock_bot, "test_bot", "https://example.com/hook")
-        mock_bot.remove_webhook.assert_called_once()
-        mock_bot.set_webhook.assert_called_once_with(url="https://example.com/hook/test_bot")
+        with patch.dict(os.environ, {"WEBHOOK_SECRET": ""}):
+            start_webhook(mock_bot, "test_bot", "https://example.com/hook", serve=False)
+        mock_bot.set_webhook.assert_called_once_with(
+            url="https://example.com/hook/webhook/test_bot",
+            drop_pending_updates=True)
+        # serve=False: لا يُلغى الويب هوك — الإيقاف على عاتق المنادي
+        mock_bot.remove_webhook.assert_not_called()
 
     def test_start_bot_defaults_to_polling(self):
         """start_bot يختار polling تلقائياً عندما لا يكون webhook مفعلاً"""
@@ -132,9 +136,13 @@ class TestBotBase:
         mock_bot = MagicMock()
         mock_bot.get_me.return_value = MagicMock(username="TestBot")
 
-        with patch.dict(os.environ, {"USE_WEBHOOK": "true", "WEBHOOK_URL": "https://boda.dev"}):
-            start_bot(mock_bot, "test_bot")
-            mock_bot.set_webhook.assert_called_once_with(url="https://boda.dev/test_bot")
+        with patch.dict(os.environ, {"USE_WEBHOOK": "true",
+                                     "WEBHOOK_URL": "https://boda.dev",
+                                     "WEBHOOK_SECRET": ""}):
+            start_bot(mock_bot, "test_bot", serve=False)
+            mock_bot.set_webhook.assert_called_once_with(
+                url="https://boda.dev/webhook/test_bot",
+                drop_pending_updates=True)
 
 
 class TestAllowedUpdates:
@@ -181,11 +189,13 @@ class TestAllowedUpdates:
         mock_bot = MagicMock()
         mock_bot.get_me.return_value = MagicMock(username="TestBot")
 
-        start_webhook(mock_bot, "test_bot", "https://example.com/hook",
-                      allowed_updates=self.UPDATES)
+        with patch.dict(os.environ, {"WEBHOOK_SECRET": ""}):
+            start_webhook(mock_bot, "test_bot", "https://example.com/hook",
+                          allowed_updates=self.UPDATES, serve=False)
         mock_bot.set_webhook.assert_called_once_with(
-            url="https://example.com/hook/test_bot",
-            allowed_updates=self.UPDATES)
+            url="https://example.com/hook/webhook/test_bot",
+            allowed_updates=self.UPDATES,
+            drop_pending_updates=True)
 
     def test_start_bot_forwards_allowed_updates_to_webhook(self):
         """start_bot يمرر allowed_updates للـ webhook عند تفعيله"""
@@ -193,11 +203,14 @@ class TestAllowedUpdates:
         mock_bot = MagicMock()
         mock_bot.get_me.return_value = MagicMock(username="TestBot")
 
-        with patch.dict(os.environ, {"USE_WEBHOOK": "true", "WEBHOOK_URL": "https://boda.dev"}):
-            start_bot(mock_bot, "test_bot", allowed_updates=["poll"])
+        with patch.dict(os.environ, {"USE_WEBHOOK": "true",
+                                     "WEBHOOK_URL": "https://boda.dev",
+                                     "WEBHOOK_SECRET": ""}):
+            start_bot(mock_bot, "test_bot", allowed_updates=["poll"], serve=False)
             mock_bot.set_webhook.assert_called_once_with(
-                url="https://boda.dev/test_bot",
-                allowed_updates=["poll"])
+                url="https://boda.dev/webhook/test_bot",
+                allowed_updates=["poll"],
+                drop_pending_updates=True)
 
 
 if __name__ == "__main__":

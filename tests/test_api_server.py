@@ -61,3 +61,19 @@ def test_not_found_endpoint(live_server):
     except urllib.error.HTTPError as e:
         assert e.code == 404
 
+
+def test_readiness_endpoint(live_server):
+    """فحص /ready: 200 عند الجاهزية و503 عند غياب البيئة/قاعدة البيانات"""
+    url = f"{live_server}/ready"
+    try:
+        with urllib.request.urlopen(url) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["ready"] is True
+    except urllib.error.HTTPError as e:
+        assert e.code == 503
+        data = json.loads(e.read().decode("utf-8"))
+        assert data["ready"] is False
+    assert "checks" in data
+    assert "database_ready" in data["checks"]
+
