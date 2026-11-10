@@ -34,13 +34,17 @@ def get_miniapps_url(bot_id: str) -> str:
 
 
 def webapp_keyboard(bot_id: str) -> InlineKeyboardMarkup:
-    """لوحة أزرار التطبيق: افتح التطبيق + المتجر + مشاركة"""
+    """لوحة أزرار التطبيق: افتح التطبيق + الموقع بالمتصفح + المتجر"""
     kb = InlineKeyboardMarkup(row_width=1)
     url = get_miniapps_url(bot_id)
     if url:
         kb.add(InlineKeyboardButton(
             "📱  افتح التطبيق",
             web_app=WebAppInfo(url=url)))
+        # رابط الموقع مباشرة بالمتصفح — يعمل دائماً حتى قبل توثيق النطاق من BotFather
+        kb.add(InlineKeyboardButton(
+            "🌐  الموقع بالمتصفح",
+            url=url))
     kb.add(InlineKeyboardButton("🏪  متجر تطبيقات بودة",
                                 url="https://t.me/BodaStoreeBot"))
     return kb
