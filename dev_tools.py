@@ -1105,6 +1105,7 @@ def main():
         print("  clean                        - مسح ملفات الكاش والملفات المؤقتة")
         print("  health                       - فحص صحة وتكامل البوتات المسجلة")
         print("  bots-check                   - فحص جودة شامل (7 فحوصات لكل بوت، بلا إنترنت)")
+        print("  repos-sync                   - رفع صفحات البوتات لكل مستودعاتها + تفعيل Pages + تحقق حي")
         print("  backup [--no-zip]            - إنشاء نسخة احتياطية فورية")
         return
 
@@ -1156,6 +1157,11 @@ def main():
         sys.exit(cmd_health())
     elif cmd in ("bots-check", "quality", "audit"):
         sys.exit(cmd_bots_check())
+    elif cmd in ("repos-sync", "repo-sync"):
+        # مزامنة مستودعات البوتات (رفع القالب الجديد + Pages + تحقق حي) عبر tools/sync_bot_repos.py
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        rc = subprocess.call([sys.executable, str(BASE_DIR / "tools" / "sync_bot_repos.py")], env=env)
+        sys.exit(rc)
     elif cmd == "backup":
         import backup_manager
         compress = "--no-zip" not in sys.argv
