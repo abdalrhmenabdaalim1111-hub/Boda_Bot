@@ -1281,6 +1281,7 @@ def main():
         print("  repos-sync                   - رفع صفحات البوتات لكل مستودعاتها + تفعيل Pages + تحقق حي")
         print("  backup [--no-zip]            - إنشاء نسخة احتياطية فورية")
         print("  backup-verify [file]         - اختبار استعادة فعلي للنسخة (الأحدث افتراضياً)")
+        print("  secret-scan [--cached|--history N] - فحص أسرار المستودع (توكِنات/مفاتيح)")
         return
 
     cmd = sys.argv[1].lower()
@@ -1345,6 +1346,10 @@ def main():
         print(f"✅ تم النسخ الاحتياطي: {p.name}")
     elif cmd in ("backup-verify", "verify-backup"):
         sys.exit(cmd_backup_verify(sys.argv[2] if len(sys.argv) > 2 else None))
+    elif cmd in ("secret-scan", "secrets"):
+        sys.path.insert(0, str(BASE_DIR / "tools"))
+        import secret_scan
+        sys.exit(secret_scan.main(sys.argv[2:]))
     elif cmd == "new-bot":
         if len(sys.argv) < 4:
             print("❌ الاستخدام: python dev_tools.py new-bot <bot_id> <bot_name> [category]")
