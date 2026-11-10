@@ -35,9 +35,13 @@ class BodaDatabase:
 
     def __init__(self, db_path: str = None):
         if db_path is None:
-            base = Path(__file__).parent.parent / "Data"
-            base.mkdir(exist_ok=True)
-            db_path = str(base / "boda_bot.db")
+            # قراءة متغير البيئة كل مرة للسماح بالاختبارات المعزولة
+            import os
+            db_path = os.getenv("BODA_DB_PATH")
+            if not db_path:
+                base = Path(__file__).parent.parent / "Data"
+                base.mkdir(exist_ok=True)
+                db_path = str(base / "boda_bot.db")
 
         self.db_path = db_path
         self._conn_lock = threading.Lock()
@@ -46,12 +50,18 @@ class BodaDatabase:
 
     @classmethod
     def get_instance(cls) -> "BodaDatabase":
-        """Singleton — نسخة واحدة مشتركة."""
+        """Singleton — نسخة واحدة مشتركة (تحترم BODA_DB_PATH للاختبارات)."""
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = cls()
         return cls._instance
+
+    @classmethod
+    def reset_instance(cls):
+        """إعادة تعيين النسخة المشتركة — للاستخدام في الاختبارات فقط."""
+        with cls._lock:
+            cls._instance = None
 
     # ── تهيئة المخطط ──────────────────────────────────────────────────────────
     def _init_db(self):
