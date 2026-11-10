@@ -408,6 +408,15 @@ def main():
     (out_dir / "store" / "index.html").write_text(
         render_store(apps, ads_cfg, api_base), encoding="utf-8")
 
+    # لوحة التحليلات (Control Center dashboard) — صفحة مستقلة
+    try:
+        from dashboard_template import build_dashboard
+        (out_dir / "dashboard").mkdir(exist_ok=True)
+        (out_dir / "dashboard" / "index.html").write_text(
+            build_dashboard(api_base), encoding="utf-8")
+    except Exception as e:
+        print(f"⚠️  تعذر توليد لوحة التحليلات: {e}")
+
     # index الرئيسي → المتجر
     (out_dir / "index.html").write_text(
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
