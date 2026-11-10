@@ -2,10 +2,10 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-4.5-blue)
+![Version](https://img.shields.io/badge/version-5.0-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-brightgreen)
-![Bots](https://img.shields.io/badge/bots-36-orange)
-![Tests](https://img.shields.io/badge/tests-66%20passed-success)
+![Bots](https://img.shields.io/badge/bots-34-orange)
+![Tests](https://img.shields.io/badge/tests-95%20passed-success)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Docker-lightgrey)
 
 **نظام إدارة بوتات تيليجرام متعدد مع واجهة رسومية احترافية ونظام نمو فيروسي**
@@ -16,7 +16,7 @@
 
 ## 📋 نظرة عامة
 
-**Boda Bot System** هو نظام متكامل لإدارة وتشغيل **36 بوت تيليجرام** بواجهة رسومية مبنية بـ Python/Tkinter مع تحكم كامل دون الحاجة لكتابة كود:
+**Boda Bot System** هو نظام متكامل لإدارة وتشغيل **34 بوت تيليجرام** بواجهة رسومية مبنية بـ Python/Tkinter مع تحكم كامل دون الحاجة لكتابة كود:
 
 - 🎛️ **لوحة تحكم مركزية** — تشغيل/إيقاف/مراقبة كل البوتات من مكان واحد
 - 🔑 **إدارة التوكنات المرئية** — وضع وتحديث توكنات البوتات غير المفعلة بضغطة زر مع فحص تيليجرام التلقائي
@@ -39,7 +39,7 @@
 ├── StartManager.py         # 🚀 مشغّل موحد مع فحص البيئة
 ├── StartManager.bat        # ⚡ تشغيل سريع لـ Windows
 ├── config.py               # ⚙️ إعدادات مركزية
-├── bots_registry.json      # 📋 سجل البوتات (35+ بوت)
+├── bots_registry.json      # 📋 سجل البوتات (34 بوت)
 ├── manager_config.json     # 🔧 إعدادات auto-restart
 ├── backup_manager.py       # 💾 إدارة النسخ الاحتياطية
 ├── requirements.txt        # 📦 المكتبات المطلوبة
@@ -60,9 +60,13 @@
 │   ├── monitor.py          #    مراقبة الأداء
 │   ├── rate_limiter.py     #    حد معدل الطلبات
 │   ├── error_handler.py    #    معالج الأخطاء
+│   ├── error_tracker.py    #    تشخيص وتصنيف وتتبع الأخطاء
+│   ├── unified_middleware.py #  الطبقة الموحدة (تتبع + زر WebApp + بطاقة)
+│   ├── growth_engine.py    #    محرك النمو (شبكة الخمسة — توزيع عشوائي متوازن)
+│   ├── ad_manager.py       #    نظام الإعلانات الموحد
 │   ├── notification_system.py  نظام الإشعارات
 │   ├── logger_config.py    #    إعداد السجلات
-│   └── bot_*.py            #    35+ بوت
+│   └── bot_*.py            #    34 بوت
 │
 ├── tests/                  # 🧪 الاختبارات التلقائية
 │   ├── test_registry.py    #    اختبارات bots_registry.json
@@ -120,6 +124,15 @@ docker-compose up -d
 # تقرير شامل لحالة النظام والتوكنات وقاعدة البيانات
 python dev_tools.py status
 
+# جدول حالة التوكنات واليوزرنيم المخطط لكل بوت
+python dev_tools.py tokens
+
+# إدخال توكنات بالجملة من new_tokens.txt مع فحص تيليجرام التلقائي
+python dev_tools.py import-tokens
+
+# فحص صلاحية كل التوكنات الحالية عبر خوادم تيليجرام
+python dev_tools.py tokens-verify
+
 # تشغيل كافة الاختبارات التلقائية
 python dev_tools.py test
 
@@ -168,8 +181,8 @@ python api_server.py --port 8080
 | 📝 اختبارات | iqtest, personalityanalyzer, cvbuilder |
 | 💰 مالية | cryptorate |
 | 💪 صحة | fitcheck, caltrack |
-| ⏰ إنتاجية | alarmbot, memoryvault, pollmaster |
-| 🌦️ معلومات | weathernow, termgloss |
+| ⏰ إنتاجية | alarmbot, memoryvault |
+| 🌦️ معلومات | weathernow |
 | 🏪 متجر | store |
 
 ---
