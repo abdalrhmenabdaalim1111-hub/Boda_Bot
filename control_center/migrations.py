@@ -18,7 +18,6 @@ Rules
   created — so a rollback never leaves half a schema behind.
 """
 
-import shutil
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -186,23 +185,54 @@ def _checksum(migration: Migration) -> str:
     return hashlib.sha256(raw).hexdigest()[:16]
 
 
-def backup_database(db_file: str | None = None) -> str:
-    """
-    Take a timestamped copy of the SQLite file before a schema change.
-
-    Returns the path of the backup, or an empty string when it could not be
-    created (the caller decides whether that is fatal).
-    """
-    source = Path(db_file or config.db_path())
-    if not source.exists():
-        return ""
+def _db_file_of(conn: sqlite3.Connection) -> str:
+    """The file backing a connection (empty string for in-memory databases)."""
     try:
-        config.BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+        row = conn.execute("PRAGMA database_list").fetchone()
+        return str(row[2]) if row and row[2] else ""
+    except Exception:
+        return ""
+
+
+def backup_database(db_file: str | None = None,
+                    conn: sqlite3.Connection | None = None) -> str:
+    """
+    Take a timestamped snapshot of the SQLite database before a schema change.
+
+    The copy is made with the SQLite **backup API**, not a plain file copy:
+    in WAL mode the committed data still lives in the ``-wal`` sidecar, so
+    copying the ``.db`` file alone would produce an incomplete snapshot.
+
+    The snapshot lands in ``Backups/`` for the production database and next
+    to the database itself for any other path (tests, throw-away copies).
+
+    Returns the path of the snapshot, or an empty string on failure.
+    """
+    source = db_file or _db_file_of(conn) or config.db_path()
+    source_path = Path(source)
+    if not source_path.exists():
+        return ""
+
+    try:
+        production = Path(config.db_path()).resolve()
+        target_dir = (config.BACKUPS_DIR
+                      if source_path.resolve() == production
+                      else source_path.parent)
+        target_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        target = config.BACKUPS_DIR / f"pre_migration_{stamp}.db"
-        shutil.copy2(source, target)
+        target = target_dir / f"pre_migration_{stamp}.db"
+
+        src = sqlite3.connect(str(source_path))
+        try:
+            dst = sqlite3.connect(str(target))
+            try:
+                src.backup(dst)          # consistent snapshot (WAL included)
+            finally:
+                dst.close()
+        finally:
+            src.close()
         return str(target)
-    except OSError:
+    except Exception:
         return ""
 
 
@@ -231,7 +261,7 @@ def apply_migrations(conn: sqlite3.Connection | None = None,
         if not pending:
             return []
 
-        backup_path = backup_database() if backup else ""
+        backup_path = backup_database(conn=conn) if backup else ""
         if backup_path and logger:
             logger.info(f"💾 نسخة احتياطية قبل الترحيل: {Path(backup_path).name}")
 
