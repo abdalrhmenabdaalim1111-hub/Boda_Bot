@@ -23,6 +23,7 @@ import py_compile
 import subprocess
 from pathlib import Path
 from datetime import datetime
+from typing import Optional, List, Dict, Any, Tuple
 
 # حماية الترميز على Windows (cp1252 يفشل مع الإيموجي في المخرجات)
 if sys.platform == "win32":
@@ -34,6 +35,8 @@ if sys.platform == "win32":
 
 BASE_DIR    = Path(__file__).parent.resolve()
 BOTS_DIR    = BASE_DIR / "Bots_Folder"
+if str(BOTS_DIR) not in sys.path:
+    sys.path.insert(0, str(BOTS_DIR))
 DATA_DIR    = BASE_DIR / "Data"
 LOGS_DIR    = BASE_DIR / "Logs"
 REGISTRY    = BASE_DIR / "bots_registry.json"
@@ -269,6 +272,132 @@ def cmd_health() -> int:
         print("  ✅ جميع البوتات لها مفاتيح توكن في .env.")
 
     return 0 if not missing_files else 1
+
+
+def cmd_bots_check() -> int:
+    """فحص جودة شامل لكل البوتات (7 فحوصات لكل بوت) — بلا إنترنت ومناسب لـ CI
+
+    الفحوصات: الملف | الصياغة | النظام الموحد | التوكن | السجل | صفحة الويب | تطبيق تيليجرام
+    لا يطبع التوكنات أبداً ويعيد 0 فقط إذا نجحت كل الفحوصات.
+    """
+    import ast
+
+    print("🔬 فحص الجودة الشامل — 7 فحوصات لكل بوت...")
+    if not REGISTRY.exists():
+        print("❌ bots_registry.json غير موجود!")
+        return 1
+
+    with open(REGISTRY, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    bots = data if isinstance(data, list) else data.get("bots", [])
+
+    # قراءة .env يدوياً (فحص فقط — لا تُطبع القيم أبداً)
+    env_lines: Dict[str, str] = {}
+    if ENV_FILE.exists():
+        for ln in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            if "=" in ln and not ln.strip().startswith("#"):
+                k, _, v = ln.partition("=")
+                env_lines[k.strip()] = v.strip()
+
+    webroot = BASE_DIR / "webroot"
+    checks = ["ملف", "صياغة", "نظام_موحد", "توكن", "سجل", "صفحة", "web.app"]
+    token_re = re.compile(r"^\d{5,}:[\w-]{20,}$")
+    problems: List[Tuple[str, str]] = []
+    rows: List[Tuple[str, List[bool]]] = []
+
+    for b in bots:
+        b_id = str(b.get("id") or "?")
+        fname = b.get("file", f"bot_{b_id}.py")
+        fpath = BOTS_DIR / fname
+        src = ""
+
+        # 1) الملف موجود ومقروء بترميز UTF-8
+        exists = fpath.exists()
+        if exists:
+            try:
+                src = fpath.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                problems.append((b_id, f"الملف {fname} بترميز غير UTF-8"))
+        else:
+            problems.append((b_id, f"ملف البوت مفقود: {fname}"))
+        row = [exists]
+
+        # 2) الصياغة سليمة (تحليل ast — دون تنفيذ أي كود)
+        syntax_ok = False
+        if src:
+            try:
+                ast.parse(src, filename=str(fpath))
+                syntax_ok = True
+            except SyntaxError as e:
+                problems.append((b_id, f"خطأ صياغة {fname} سطر {getattr(e, 'lineno', '?')}"))
+        row.append(bool(src) and syntax_ok)
+
+        # 3) يتبع النظام الموحد (get_token / start_bot / unified_middleware)
+        unified_ok = bool(src) and ("get_token" in src or "start_bot" in src
+                                    or "unified_middleware" in src)
+        if src and not unified_ok:
+            problems.append((b_id, "لا يستخدم النظام الموحد (get_token/start_bot)"))
+        row.append(unified_ok)
+
+        # 4) التوكن موجود بصيغة تيليجرام الصحيحة داخل .env (لا يُطبع)
+        token_key = f"BOT_{b_id.upper()}_TOKEN"
+        token_ok = bool(token_re.match(env_lines.get(token_key, "")))
+        if not token_ok:
+            problems.append((b_id, f"توكن مفقود أو بصيغة خاطئة ({token_key}) في .env"))
+        row.append(token_ok)
+
+        # 5) السجل مكتمل (اسم + يوزرنيم)
+        reg_ok = bool(b.get("name")) and bool(b.get("username"))
+        if not reg_ok:
+            problems.append((b_id, "سجل ناقص: name أو username فارغ"))
+        row.append(reg_ok)
+
+        # 6) صفحة الويب موجودة في webroot
+        page = webroot / b_id / "index.html"
+        page_ok = page.exists()
+        if not page_ok:
+            problems.append((b_id, f"صفحة العرض مفقودة: webroot/{b_id}/index.html"))
+        row.append(page_ok)
+
+        # 7) الصفحة تطبيق تيليجرام حقيقي (سكربت telegram-web-app.js)
+        webapp_ok = False
+        if page_ok:
+            try:
+                webapp_ok = "telegram.org/js/telegram-web-app.js" in page.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                pass
+        if page_ok and not webapp_ok:
+            problems.append((b_id, "الصفحة لا تحمّل telegram-web-app.js"))
+        row.append(webapp_ok)
+
+        rows.append((b_id, row))
+
+    # الطباعة: مصفوفة علامات لكل بوت + نسبة الجودة
+    header = "  " + f"{'البوت':<24}" + " | ".join(checks) + " | النتيجة"
+    print(header)
+    print("  " + "-" * max(len(header) - 2, 40))
+    total = 0
+    passed = 0
+    for b_id, row in rows:
+        marks = " ".join("✅" if ok else "❌" for ok in row)
+        n_ok = sum(1 for ok in row if ok)
+        total += len(row)
+        passed += n_ok
+        print(f"  {b_id:<24} {marks}  {n_ok}/{len(row)}")
+
+    perfect = sum(1 for _, row in rows if all(row))
+    pct = int(100 * passed / total) if total else 0
+    print()
+    print(f"📊 الجودة الإجمالية: {passed}/{total} فحص ناجح ({pct}%)  ·  بوتات مثالية: {perfect}/{len(rows)}")
+    if problems:
+        print(f"\n⚠️ تفاصيل الملاحظات (أول {min(len(problems), 30)}):")
+        for bid, msg in problems[:30]:
+            print(f"   - {bid}: {msg}")
+    if rows and passed == total:
+        print("✅ جودة ممتازة — كل الفحوصات ناجحة")
+        return 0
+    print("❌ فشل فحص الجودة — عالج الملاحظات أعلاه")
+    return 1
 
 
 def cmd_new_bot(bot_id: str, bot_title: str, category: str = "أدوات") -> bool:
@@ -771,6 +900,121 @@ def cmd_list_bots():
     print(f"إجمالي البوتات: {len(bots)}")
 
 
+def cmd_ads() -> int:
+    """عرض جدول شامل بحالة شفرات إعلانات Monetag لجميع البوتات والتطبيقات"""
+    print_banner()
+    from ad_manager import get_ad_manager
+    mgr = get_ad_manager()
+    statuses = mgr.get_all_monetag_statuses()
+
+    print(f"\n📢 حالة شفرات إعلانات Monetag لجميع التطبيقات الـ {len(statuses)}:")
+    print("=" * 85)
+    print(f"{'#':<3} | {'المعرف (ID)':<15} | {'حالة الإعلان':<14} | {'الصيغة':<12} | {'مشاهدات':<8} | {'نقرات':<6} | {'CTR %':<7} | {'اسم التطبيق'}")
+    print("─" * 85)
+
+    has_count = 0
+    missing_count = 0
+    for i, (bid, st) in enumerate(statuses.items(), 1):
+        if st["has_ad"]:
+            has_count += 1
+            status_txt = "🟢 مخصّص" if st["is_custom"] else "🟢 عام"
+        else:
+            missing_count += 1
+            status_txt = "⚠️ غير مركّب"
+
+        fmt = st["format"]
+        imp = st["impressions"]
+        clk = st["clicks"]
+        ctr = f"{st['ctr_percent']}%"
+        title = st["bot_name"]
+        print(f"{i:<3} | {bid:<15} | {status_txt:<14} | {fmt:<12} | {imp:<8} | {clk:<6} | {ctr:<7} | {title}")
+
+    print("─" * 85)
+    print(f"📊 الخلاصة: {has_count} تطبيق مجهّز بإعلانات Monetag  |  {missing_count} تطبيق ينقصه شفرات إعلانية.")
+    return 0
+
+
+def cmd_set_ad(bot_id: str, direct_link_or_zone: str, format_type: str = "direct_link") -> bool:
+    """ضبط شفرة إعلانات Monetag لبوت معين وحقنها فوراً"""
+    from ad_manager import get_ad_manager
+    mgr = get_ad_manager()
+    clean_id = bot_id.lower().strip().replace("bot_", "")
+
+    val = direct_link_or_zone.strip()
+    direct_link = val if val.startswith("http") else ""
+    zone_id = val if val.isdigit() else ""
+    script_url = val if (val.startswith("http") and "thubanoa" in val) else ""
+
+    mgr.set_monetag_config(clean_id, direct_link=direct_link, zone_id=zone_id,
+                           script_url=script_url, format_type=format_type, active=True)
+    try:
+        import subprocess
+        subprocess.run([sys.executable, "tools/build_mini_apps.py"], capture_output=True)
+    except Exception:
+        pass
+
+    print(f"✅ تم ضبط شفرة Monetag للبوت [{clean_id}] وحقنها في تطبيق الويب بنجاح!")
+    return True
+
+
+def cmd_errors(bot_id: Optional[str] = None) -> int:
+    """استعراض سجل وتقرير الأخطاء الحديثة والتشخيص الذكي"""
+    print_banner()
+    from database import get_db
+    db = get_db()
+    if not db:
+        print("❌ تعذر الاتصال بقاعدة البيانات.")
+        return 1
+
+    clean_bot = bot_id.replace("bot_", "") if bot_id else None
+    errors = db.get_recent_errors(bot_name=clean_bot, limit=40)
+    summary = db.get_error_summary(days=7)
+
+    target_str = f"للبوت [{clean_bot}]" if clean_bot else "لجميع البوتات"
+    print(f"\n🚨 مركز الأخطاء والتشخيص الذكي {target_str} (إجمالي أخطاء الأسبوع: {summary.get('total_errors', 0)}):")
+    print("=" * 85)
+    if not errors:
+        print("🎉 رائع! لا توجد أخطاء مسجلة حالياً.")
+        return 0
+
+    print(f"{'الوقت':<19} | {'البوت':<12} | {'فئة الخطأ':<20} | {'رسالة الخطأ'}")
+    print("─" * 85)
+    for e in errors:
+        t = e.get("occurred_at", "")[:19].replace("T", " ")
+        b = e.get("bot_name", "")
+        cat = e.get("error_type", "")
+        msg = e.get("error_message", "")[:40].replace("\n", " ")
+        print(f"{t:<19} | {b:<12} | {cat:<20} | {msg}")
+    print("─" * 85)
+    return 0
+
+
+def cmd_apm_stats() -> int:
+    """عرض إحصائيات الأداء والمستخدمين والإعلانات الشاملة"""
+    print_banner()
+    from database import get_db
+    from ad_manager import get_ad_manager
+    db = get_db()
+    mgr = get_ad_manager()
+
+    user_counts = db.get_all_users_count() if db else {}
+    err_summary = db.get_error_summary(days=7) if db else {}
+    ad_summary = db.get_ad_summary() if db else {}
+    ad_statuses = mgr.get_all_monetag_statuses()
+
+    print("\n📊 تقرير مؤشرات الأداء الحيوية (Boda APM Analytics):")
+    print("=" * 65)
+    print(f"  🤖 إجمالي البوتات المسجلة:       {len(ad_statuses)}")
+    print(f"  👥 إجمالي المستخدمين المسجلين:   {sum(user_counts.values())}")
+    print(f"  📢 تطبيقات مجهزة بـ Monetag:     {sum(1 for s in ad_statuses.values() if s['has_ad'])}")
+    print(f"  ⚠️ تطبيقات بدون إعلانات:         {sum(1 for s in ad_statuses.values() if not s['has_ad'])}")
+    print(f"  👁️ مشاهدات إعلانات Monetag:     {ad_summary.get('total_impressions', 0)}")
+    print(f"  🎯 نقرات إعلانات Monetag:       {ad_summary.get('total_clicks', 0)} (CTR: {ad_summary.get('overall_ctr', 0.0)}%)")
+    print(f"  🚨 أخطاء مسجلة آخر 7 أيام:       {err_summary.get('total_errors', 0)}")
+    print("=" * 65)
+    return 0
+
+
 def cmd_interactive_menu():
     """لوحة تحكم تفاعلية للمطور لإدارة البوتات دون الحاجة لكتابة أوامر كل مرة"""
     while True:
@@ -778,9 +1022,9 @@ def cmd_interactive_menu():
         print("📌 القائمة التفاعلية لإدارة النظام:")
         print("  [1] 📋 استعراض جدول البوتات وحالة التوكنات")
         print("  [2] 🔑 إدخال أو تحديث توكن بوت والتحقق منه فوراً")
-        print("  [3] 🏷️ تحديث معرف (يوزر) البوت في السجل")
-        print("  [4] ➕ إنشاء وتوليد بوت جديد في ثوانٍ")
-        print("  [5] 📊 فحص شامل لحالة النظام وقاعدة البيانات")
+        print("  [3] 📢 استعراض وضبط إعلانات Monetag (شفرات الإعلانات)")
+        print("  [4] 🚨 مركز الأخطاء والتشخيص الذكي (Error Center)")
+        print("  [5] 📊 تقرير مؤشرات الأداء والإحصائيات الشاملة")
         print("  [6] 🏥 فحص صحة وتكامل ملفات البوتات على القرص")
         print("  [7] 🧪 تشغيل الاختبارات التلقائية (pytest)")
         print("  [8] 💾 إنشاء نسخة احتياطية مضغوطة (ZIP)")
@@ -804,23 +1048,17 @@ def cmd_interactive_menu():
             else:
                 print("❌ لم يتم إدخال المعرف أو التوكن!")
         elif choice == "3":
-            bid = input("🔹 أدخل معرّف البوت (ID): ").strip()
-            usr = input("🔹 أدخل اليوزر الجديد (مثال: @MyNewBot): ").strip()
-            if bid and usr:
-                cmd_set_username(bid, usr)
+            cmd_ads()
+            ask = input("\n🔹 هل تريد ضبط شفرة إعلان لبوت الآن؟ (y/n): ").strip().lower()
+            if ask == "y":
+                bid = input("🔹 معرّف البوت: ").strip()
+                code = input("🔹 رابط Monetag Smartlink أو معرف الزون Zone ID: ").strip()
+                if bid and code:
+                    cmd_set_ad(bid, code)
         elif choice == "4":
-            bid = input("🔹 معرّف البوت الجديد (ID بالإنجليزية): ").strip()
-            title = input("🔹 اسم البوت بالعربي: ").strip()
-            cat = input("🔹 التصنيف (أدوات/ترفيه/تحميل/ترجمة/صحة): ").strip() or "أدوات"
-            if bid and title:
-                cmd_new_bot(bid, title, cat)
-                ask_tok = input("🔹 هل تريد إضافة التوكن الآن؟ (y/n): ").strip().lower()
-                if ask_tok == "y":
-                    tok = input("🔹 الصق التوكن: ").strip()
-                    if tok:
-                        cmd_set_token(bid, tok)
+            cmd_errors()
         elif choice == "5":
-            cmd_status()
+            cmd_apm_stats()
         elif choice == "6":
             cmd_health()
         elif choice == "7":
@@ -852,6 +1090,10 @@ def main():
         print("الخيارات المتاحة:")
         print("  menu                         - فتح اللوحة التفاعلية لإدارة البوتات")
         print("  status                       - عرض تقرير شامل لحالة النظام")
+        print("  stats                        - تقرير مؤشرات الأداء والقياس عن بُعد (APM)")
+        print("  ads                          - جدول حالة شفرات إعلانات Monetag لجميع التطبيقات")
+        print("  set-ad <id> <link|zone>      - ضبط شفرة Monetag لتطبيق معين وحقنها فوراً")
+        print("  errors [bot_id]              - مركز تشخيص وسجل الأخطاء الحديثة")
         print("  list-bots                    - جدول بجميع البوتات ومعرفاتها وحالة توكناتها")
         print("  set-token <id> <token>       - إعداد توكن البوت والتحقق منه تلقائياً")
         print("  set-username <id> <username> - تحديث يوزر البوت في السجل")
@@ -862,16 +1104,29 @@ def main():
         print("  lint                         - فحص ملفات بايثون للتأكد من خلوها من الأخطاء")
         print("  clean                        - مسح ملفات الكاش والملفات المؤقتة")
         print("  health                       - فحص صحة وتكامل البوتات المسجلة")
+        print("  bots-check                   - فحص جودة شامل (7 فحوصات لكل بوت، بلا إنترنت)")
         print("  backup [--no-zip]            - إنشاء نسخة احتياطية فورية")
-        print("  new-bot <id> <name> [cat]    - توليد قالب بوت جديد")
         return
 
     cmd = sys.argv[1].lower()
 
     if cmd == "menu":
         cmd_interactive_menu()
-    elif cmd == "status":
+    elif cmd in ("status", "sys"):
         cmd_status()
+    elif cmd in ("stats", "apm", "analytics"):
+        sys.exit(cmd_apm_stats())
+    elif cmd in ("ads", "monetag", "ads-status"):
+        sys.exit(cmd_ads())
+    elif cmd == "set-ad":
+        if len(sys.argv) < 4:
+            print("❌ الاستخدام: python dev_tools.py set-ad <bot_id> <direct_link_or_zone_id> [format]")
+            sys.exit(1)
+        fmt = sys.argv[4] if len(sys.argv) > 4 else "direct_link"
+        cmd_set_ad(sys.argv[2], sys.argv[3], fmt)
+    elif cmd in ("errors", "err", "error-center"):
+        bid = sys.argv[2] if len(sys.argv) > 2 else None
+        sys.exit(cmd_errors(bid))
     elif cmd in ("list-bots", "list", "bots"):
         cmd_list_bots()
     elif cmd == "set-token":
@@ -899,6 +1154,8 @@ def main():
         sys.exit(cmd_clean())
     elif cmd == "health":
         sys.exit(cmd_health())
+    elif cmd in ("bots-check", "quality", "audit"):
+        sys.exit(cmd_bots_check())
     elif cmd == "backup":
         import backup_manager
         compress = "--no-zip" not in sys.argv
