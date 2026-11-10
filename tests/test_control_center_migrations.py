@@ -9,6 +9,9 @@ tests/test_control_center_migrations.py — اختبارات الترحيلات 
 • حالة الترحيلات (status)
 """
 
+import sqlite3
+from pathlib import Path
+
 import pytest
 
 from tests.cc_fixtures import ROOT, BOTS_DIR  # noqa: F401  (path bootstrap)
@@ -108,7 +111,47 @@ def test_backup_created_before_migration(tmp_path, monkeypatch):
     path = migrations.backup_database(str(db_file))
     assert path
     assert "pre_migration_" in path
-    assert (tmp_path / "backups").exists()
+    assert Path(path).exists()
+
+
+def test_backup_is_a_complete_snapshot(tmp_path):
+    """
+    النسخة الاحتياطية تحتوي كل البيانات — لا مجرد ترويسة الملف.
+
+    في وضع WAL تبقى البيانات الملتزمة في ملف ‎-wal‎، فنسخ ملف ‎.db‎
+    مباشرةً ينتج نسخة **ناقصة**. لذلك نستخدم واجهة SQLite الاحتياطية.
+    """
+    db_file = tmp_path / "wal.db"
+    conn = connect(str(db_file))
+    conn.execute("CREATE TABLE demo (id INTEGER, name TEXT)")
+    conn.execute("INSERT INTO demo (id, name) VALUES (1, 'kept')")
+    conn.commit()
+
+    path = migrations.backup_database(conn=conn)
+    conn.close()
+
+    assert path
+    backup = sqlite3.connect(path)
+    try:
+        rows = backup.execute("SELECT id, name FROM demo").fetchall()
+        tables = [r[0] for r in backup.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")]
+    finally:
+        backup.close()
+
+    assert "demo" in tables
+    assert rows == [(1, "kept")]
+
+
+def test_backup_lands_next_to_a_non_production_database(tmp_path):
+    """قاعدة غير إنتاجية تأخذ نسختها بجانبها لا في مجلد Backups"""
+    db_file = tmp_path / "isolated.db"
+    conn = connect(str(db_file))
+    path = migrations.backup_database(conn=conn)
+    conn.close()
+
+    assert path
+    assert Path(path).parent == tmp_path
 
 
 def test_ensure_ready_never_raises(empty_db, monkeypatch):
