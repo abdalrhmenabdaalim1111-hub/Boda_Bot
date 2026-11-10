@@ -196,6 +196,44 @@ class AdManager:
         except Exception as e:
             logger.debug(f"record_ad_click error: {e}")
 
+    # ── A/B Testing: تعيين ثابت لكل مستخدم + تسجيل بُعد المجموعة ─────────────
+    @staticmethod
+    def compute_ab_variant(user_id: int) -> str:
+        """
+        تعيين A/B ثابت للمستخدم — نفس المستخدم = نفس المجموعة دائماً.
+        تجزئة md5 على "boda:<user_id>" → توزيع متوازن تقريباً 50/50
+        ومستقل عن ترتيب التسجيل أو حفظ أي شيء.
+        """
+        import hashlib
+        digest = hashlib.md5(f"boda:{user_id}".encode()).hexdigest()
+        return "A" if int(digest[:8], 16) % 2 == 0 else "B"
+
+    def record_ab_view(self, bot_id: str, user_id: int,
+                       format_type: str = "direct_link") -> str:
+        """تسجيل ظهور إعلان مع مجموعة A/B للمستخدم — يعيد المجموعة."""
+        variant = self.compute_ab_variant(user_id)
+        try:
+            from database import get_db
+            db = get_db()
+            if db:
+                db.record_ab_event(bot_id, format_type, variant, is_click=False)
+        except Exception as e:
+            logger.debug(f"record_ab_view error: {e}")
+        return variant
+
+    def record_ab_click(self, bot_id: str, user_id: int,
+                        format_type: str = "direct_link") -> str:
+        """تسجيل نقرة إعلان مع مجموعة A/B للمستخدم — يعيد المجموعة."""
+        variant = self.compute_ab_variant(user_id)
+        try:
+            from database import get_db
+            db = get_db()
+            if db:
+                db.record_ab_event(bot_id, format_type, variant, is_click=True)
+        except Exception as e:
+            logger.debug(f"record_ab_click error: {e}")
+        return variant
+
     def get_all_monetag_statuses(self) -> Dict[str, dict]:
         """إرجاع تقرير شامل بحالة إعلانات Monetag لجميع البوتات الـ 36."""
         statuses = {}

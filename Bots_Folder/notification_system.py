@@ -57,9 +57,10 @@ class NotificationSystem:
         """
         if storage_path is None:
             data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Data")
-            os.makedirs(data_dir, exist_ok=True)
             storage_path = os.path.join(data_dir, "notifications.json")
 
+        # تأكد من وجودвен المجلد المخزن
+        os.makedirs(os.path.dirname(os.path.abspath(storage_path)), exist_ok=True)
         self.storage_path = storage_path
         self.notifications: List[Notification] = []
         self.subscribers: Dict[str, List[Callable]] = {}

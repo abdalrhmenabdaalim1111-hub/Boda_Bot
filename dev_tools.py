@@ -1282,6 +1282,7 @@ def main():
         print("  backup [--no-zip]            - إنشاء نسخة احتياطية فورية")
         print("  backup-verify [file]         - اختبار استعادة فعلي للنسخة (الأحدث افتراضياً)")
         print("  secret-scan [--cached|--history N] - فحص أسرار المستودع (توكِنات/مفاتيح)")
+        print("  ab-report                    - تقرير اختبار A/B للإعلانات (مجموعات A/B وCTR)")
         return
 
     cmd = sys.argv[1].lower()
@@ -1350,6 +1351,16 @@ def main():
         sys.path.insert(0, str(BASE_DIR / "tools"))
         import secret_scan
         sys.exit(secret_scan.main(sys.argv[2:]))
+    elif cmd in ("ab-report", "ab"):
+        sys.path.insert(0, str(BASE_DIR / "Bots_Folder"))
+        from database import get_db
+        try:
+            report = get_db().get_ab_report()
+        except Exception as e:
+            print(f"❌ تعذر توليد تقرير A/B: {e}")
+            sys.exit(1)
+        print("🧪 تقرير اختبار A/B للإعلانات — آخر 30 يوماً")
+        print(json.dumps(report, ensure_ascii=False, indent=2))
     elif cmd == "new-bot":
         if len(sys.argv) < 4:
             print("❌ الاستخدام: python dev_tools.py new-bot <bot_id> <bot_name> [category]")
