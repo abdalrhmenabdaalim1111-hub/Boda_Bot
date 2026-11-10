@@ -42,6 +42,17 @@
 ├── server_runner.py           # 🏭 المشغّل الإنتاجي بلا واجهة (Polling/Webhook)
 ├── monitor_agent.py           # 👁️ مراقبة /health + تنبيهات Telegram
 ├── api_server.py              # 🌐 خادم المراقبة وواجهة API
+├── control_center/            # 🧭 مركز التحكم (backend)
+│   ├── config.py              #    المسارات والإعدادات (مصدر حقيقة واحد)
+│   ├── db.py                  #    الوصول لنفس قاعدة بيانات البوتات
+│   ├── migrations.py          #    ترحيلات مرقّمة قابلة للتراجع
+│   ├── audit.py               #    سجل التدقيق (من/ماذا/متى)
+│   ├── crypto.py              #    تشفير التوكنات عند الحفظ + القناع
+│   ├── botconfig.py           #    إعداداتruntime لكل بوت
+│   ├── supervisor.py          #    مشرف العمليات (تشغيل/إيقاف/backoff)
+│   ├── http.py                #    موجّه بسيط + OpenAPI + SSE
+│   ├── auth.py                #    الصلاحيات (تُوسَّع في Phase 5)
+│   └── api.py                 #    جدول مسارات /api/v1
 ├── backup_manager.py          # 💾 نسخ احتياطي + اختبار استعادة فعلي
 ├── Dockerfile                 # 🐳 صورة إنتاجية (CMD = server_runner)
 ├── docker-compose.yml         # 🧩 بوتات + API + مراقب (restart: always)
@@ -49,6 +60,7 @@
 ├── bots_registry.json         # 📋 سجل البوتات (34 بوت)
 ├── manager_config.json        # 🔧 إعدادات auto-restart
 ├── pytest.ini                 # 🧪 إعدادات الاختبارات
+├── docs/                      # 📚 توثيق المشروع (PROJECT_PROFILE)
 │
 ├── ui/                        # 🎨 مكونات الواجهة الرسومية
 │   ├── theme.py               #    الألوان والأنماط
@@ -76,6 +88,11 @@
 │
 ├── tests/                     # 🧪 الاختبارات (165+)
 ├── tools/                     # 🛠️ بناء التطبيقات ومزامنة المستودعات
+│   ├── build_mini_apps.py      #    مولّد التطبيقات المصغّرة والمتجر واللوحة
+│   ├── dashboard_template.py   #    قالب لوحة التحليلات
+│   ├── app_template.py         #    هيكل صفحة التطبيق + AdSDK + التتبع
+│   ├── app_defs.py             #    تعريفات 33 تطبيق تفاعلي
+│   └── secret_scan.py          #    بوابة كشف الأسرار
 ├── webroot/                   # 🌍 موقع GitHub Pages الموحد
 ├── Logs/                      # 📝 السجلات
 ├── Data/                      # 🗄️ قاعدة البيانات والإعدادات (غير مرفوع)
@@ -295,6 +312,69 @@ python api_server.py --host 0.0.0.0 --port 8080
 - `POST /api/track` — تسجيل حدث من التطبيقات
 
 إن ضبطت `API_SERVER_KEY` في `.env` فلن تعمل مسارات `/api/*` إلا بترويسة `X-API-Key`.
+
+---
+
+## 🧭 مركز التحكم — Control Center API v1
+
+مركز التحكم طبقة إدارة **فوق** النظام القائم: نفس قاعدة البيانات، نفس سجل
+البوتات، نفس نظام الإعلانات — بلا استبدال أي منها.
+
+```bash
+python api_server.py --port 8080     # يشغّل الـ API القديم + مركز التحكم
+```
+
+| المسار | الوصف |
+|--------|-------|
+| `GET /openapi.json` | وثيقة OpenAPI 3.1 مولّدة تلقائياً |
+| `GET /docs` | واجهة Swagger UI |
+| `GET /api/v1/system/health` | صحة مركز التحكم |
+| `GET /api/v1/system/migrations` | حالة ترحيلات قاعدة البيانات |
+| `POST /api/v1/system/migrations` | تطبيق الترحيلات المعلّقة (admin) |
+| `GET /api/v1/system/config` | إعدادات مركز التحكم (بدون أي سر) |
+| `GET /api/v1/overview` | ملخص المؤشرات (KPIs) |
+| `GET /api/v1/bots` | البوتات مع الحالة ومدة التشغيل |
+| `GET /api/v1/bots/{id}` | تفاصيل بوت + إعداداته + آخر أخطائه |
+| `POST /api/v1/bots/{id}/start` | تشغيل بوت |
+| `POST /api/v1/bots/{id}/stop` | إيقاف بوت |
+| `POST /api/v1/bots/{id}/restart` | إعادة تشغيل (تحمّل آخر الكود) |
+| `POST /api/v1/bots/{id}/enable` | تفعيل / تعطيل بوت |
+| `POST /api/v1/bots/{id}/config` | تحديث إعدادات البوت (admin) |
+| `GET /api/v1/bots/{id}/logs` | آخر أسطر السجل (`?limit=`, `?level=`) |
+| `GET /api/v1/bots/{id}/logs/stream` | بثّ حيّ للسجلات (SSE) |
+| `POST /api/v1/bots/actions/start-all` | تشغيل كل البوتات المفعّلة |
+| `POST /api/v1/bots/actions/stop-all` | إيقاف كل البوتات |
+| `GET /api/v1/audit` | سجل التدقيق (`?limit=`, `?action=`, `?actor=`) |
+
+كل عملية تغيير تُسجَّل تلقائياً في `audit_log` (من فعل ماذا ومتى).
+
+### سطر الأوامر (CLI parity)
+
+```bash
+python dev_tools.py cc-status          # حالة مركز التحكم
+python dev_tools.py cc-bots            # جدول البوتات مع الحالة
+python dev_tools.py cc-start currency  # تشغيل بوت
+python dev_tools.py cc-stop currency   # إيقاف بوت
+python dev_tools.py cc-restart currency
+python dev_tools.py cc-logs currency 50
+python dev_tools.py cc-migrate         # حالة الترحيلات
+python dev_tools.py cc-audit 30        # سجل التدقيق
+```
+
+> 🛡️ مركز التحكم يرفض تشغيل بوت يسيطر عليه `server_runner.py` آخر — لتفادي
+> تعارض الـ polling على نفس التوكن (409 من تيليجرام).
+
+### قاعدة البيانات والترحيلات
+
+مركز التحكم يستخدم **نفس** ملف SQLite (`Data/boda_bot.db`) ويضيف جداوله عبر
+ترحيلات مرقّمة قابلة للتراجع مع نسخة احتياطية مؤرّخة قبل كل تغيير:
+
+```bash
+python dev_tools.py cc-migrate     # عرض الحالة
+python -c "from control_center import migrations; migrations.rollback(steps=1)"
+```
+
+التفاصيل الكاملة في [`docs/PROJECT_PROFILE.md`](docs/PROJECT_PROFILE.md).
 
 ---
 

@@ -142,6 +142,14 @@ def scan_history(depth: int = 20):
 
 
 def main(argv=None) -> int:
+    # The report contains Arabic text and symbols; a Windows console defaults
+    # to cp1252 and would raise UnicodeEncodeError while printing it.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     p = argparse.ArgumentParser(description="كاسح أسرار Boda Bot System")
     p.add_argument("--cached", action="store_true",
                    help="فحص سطور الالتزام المسرّح فقط")
