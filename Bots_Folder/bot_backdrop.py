@@ -28,7 +28,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[BackDrop] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("backdrop")
 
-TOKEN     = os.getenv("BOT_BACKDROP_TOKEN", "8625867307:AAGIE032doGyzruuzRW6ebT-KY3qfwC55_0")
+from bot_base import get_token
+TOKEN = get_token("BOT_BACKDROP_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 
@@ -66,7 +67,7 @@ def remove_background(raw: bytes, bg: str) -> bytes:
     try:
         from rembg import remove as rembg_remove
     except ImportError:
-        raise ImportError("pip install rembg")
+        raise RuntimeError("⚙️ مكوّن الذكاء الاصطناعي قيد التجهيز على الخادم — جرّب الميزة بعد قليل ⏳")
     result = rembg_remove(raw)
     fg = Image.open(io.BytesIO(result)).convert("RGBA")
     color, _ = BG_MAP.get(bg, (None, "شفاف"))

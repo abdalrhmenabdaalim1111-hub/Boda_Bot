@@ -10,8 +10,12 @@ dev_tools.py — أداة المطور والصيانة الشاملة لنظا�
     python dev_tools.py backup             ← إنشاء نسخة احتياطية مضغوطة فوراً
     python dev_tools.py health             ← فحص صحة وتكامل البوتات المسجلة
     python dev_tools.py new-bot <id> <name> [category] ← إنشاء وتوليد بوت جديد وتسجيله تلقائياً
+    python dev_tools.py tokens             ← جدول حالة التوكنات + اليوزرنيم المخطط لكل بوت
+    python dev_tools.py import-tokens [file] ← إدخال توكنات بالجملة (new_tokens.txt أو stdin) مع فحص getMe
+    python dev_tools.py tokens-verify      ← فحص صلاحية كل التوكنات الحالية عبر تيليجرام
 """
 import os
+import re
 import sys
 import json
 import shutil
@@ -442,6 +446,258 @@ def cmd_set_token(bot_id: str, token: str) -> bool:
     return True
 
 
+# ── أدوات مساعدة للتعامل مع التوكنات بالجملة ──────────────────────────────────
+
+# نمط توكن تيليجرام القياسي: 123456789:AAHxxx...
+_TOKEN_RE = re.compile(r"(\d{6,}:[A-Za-z0-9_-]{15,})")
+_USERNAME_RE = re.compile(r"@([A-Za-z0-9_]{4,})")
+_PLACEHOLDER = "ضع_التوكن_هنا"
+
+
+def _is_token_format(value: str) -> bool:
+    """التأكد أن القيمة تبدو توكن تيليجرام صالح الشكل"""
+    v = (value or "").strip().strip("'\"")
+    return bool(v) and v != _PLACEHOLDER and ":" in v and len(v) > 20
+
+
+def _load_registry_bots() -> list:
+    """قراءة قائمة البوتات من bots_registry.json (قائمة أو dict.bots)"""
+    if not REGISTRY.exists():
+        return []
+    try:
+        with open(REGISTRY, "r", encoding="utf-8") as f:
+            reg_data = json.load(f)
+        return reg_data if isinstance(reg_data, list) else reg_data.get("bots", [])
+    except Exception:
+        return []
+
+
+def _read_env_tokens() -> dict:
+    """قراءة كل توكنات البوتات الفعّالة من .env بصيغة {BOT_X_TOKEN: token}"""
+    tokens = {}
+    if not ENV_FILE.exists():
+        return tokens
+    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        v = v.strip().strip("'\"")
+        if k.upper().startswith("BOT_") and k.upper().endswith("_TOKEN") and _is_token_format(v):
+            tokens[k] = v
+    return tokens
+
+
+def _verify_token_telegram(token: str, timeout: int = 8):
+    """التحقق من التوكن عبر getMe — يعيد (ok, username, title)"""
+    import urllib.request
+    try:
+        req = urllib.request.Request(f"https://api.telegram.org/bot{token}/getMe")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("ok"):
+                result = data.get("result", {})
+                return True, result.get("username"), result.get("first_name")
+    except Exception:
+        pass
+    return False, None, None
+
+
+def parse_token_entries(text: str, known_ids=None, username_map=None) -> list:
+    """
+    تحويل نص أسطر إلى قائمة (bot_id أو None, token أو None, السطر الأصلي).
+
+    الصيغ المدعومة لكل سطر:
+        @CryptoRateXBot 123456:ABC...        ← يوزرنيم + توكن
+        BOT_CRYPTORATE_TOKEN=123456:ABC...   ← مفتاح env كامل
+        cryptorate=123456:ABC...             ← معرف البوت مباشرة
+        123456:ABC...                        ← توكن مجرد (يُعرَّف لاحقاً عبر getMe)
+    """
+    known_ids = known_ids or set()
+    username_map = username_map or {}
+    entries = []
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        m = _TOKEN_RE.search(line)
+        if not m:
+            entries.append((None, None, line))
+            continue
+
+        token = m.group(1)
+        bot_id = None
+
+        # صيغة key=value
+        kv = re.match(r"^([A-Za-z0-9_]+)\s*=", line)
+        if kv:
+            key = kv.group(1)
+            key_upper = key.upper()
+            if key_upper.startswith("BOT_") and key_upper.endswith("_TOKEN"):
+                bot_id = key[4:-6].lower()
+            elif key.lower() in known_ids:
+                bot_id = key.lower()
+        else:
+            # صيغة @username token
+            rest = line.replace(token, " ", 1)
+            um = _USERNAME_RE.search(rest)
+            if um:
+                bot_id = username_map.get(um.group(1).lower())
+
+        entries.append((bot_id, token, line))
+
+    return entries
+
+
+def cmd_tokens() -> int:
+    """جدول حالة التوكنات لكل بوت مع اليوزرنيم المخطط من الريجستري"""
+    print_banner()
+    bots = _load_registry_bots()
+    if not bots:
+        print("❌ bots_registry.json غير موجود أو فارغ!")
+        return 1
+
+    env_tokens = _read_env_tokens()
+
+    print(f"{'#':<3} | {'المعرف':<18} | {'اليوزرنيم المخطط':<22} | {'الحالة':<12} | التوكن")
+    print("─" * 85)
+
+    active = 0
+    missing = []
+    for i, b in enumerate(bots, start=1):
+        bid = b.get("id", "?")
+        planned = (b.get("username") or "—").lstrip("@") or "—"
+        key = f"BOT_{bid.upper()}_TOKEN"
+        tok = env_tokens.get(key)
+        if tok:
+            hint = f"{tok.split(':')[0]}:…"
+            status = "🟢 فعّال"
+            active += 1
+        else:
+            hint = ""
+            status = "🟡 بدون توكن"
+            missing.append((bid, planned))
+        print(f"{i:<3} | {bid:<18} | @{planned:<21} | {status:<12} | {hint}")
+
+    print("─" * 85)
+    print(f"الإجمالي: {len(bots)} بوت  |  🟢 فعّال: {active}  |  🟡 ينتظر توكن: {len(missing)}")
+
+    if missing:
+        print(f"\n💡 لتفعيل البوتات الناقصة:")
+        print(f"  1. أنشئ كل بوت في @BotFather بنفس اليوزرنيم المخطط أعلاه (أو أي اسم ثم عدّل السجل)")
+        print(f"  2. ضع التوكنات في ملف new_tokens.txt بالبيت واليوزرنيم أو المعرّف، سطر لكل بوت")
+        print(f"  3. شغّل: python dev_tools.py import-tokens")
+    return 0
+
+
+def cmd_tokens_verify() -> int:
+    """فحص صلاحية كل التوكنات الفعّالة في .env عبر getMe"""
+    print_banner()
+    tokens = _read_env_tokens()
+    if not tokens:
+        print("ℹ️ لا توجد توكنات فعّالة في .env بعد.")
+        return 0
+
+    bots = _load_registry_bots()
+    expected = {b.get("id"): (b.get("username") or "").lstrip("@").lower()
+                for b in bots if b.get("id")}
+
+    print(f"🔎 جاري فحص {len(tokens)} توكن عبر خوادم تيليجرام...\n")
+    valid = invalid = mismatched = 0
+    for key, tok in tokens.items():
+        bid = key[4:-6].lower()
+        ok, username, title = _verify_token_telegram(tok)
+        if not ok:
+            print(f"  ❌ {bid:<18} التوكن مرفوض من تيليجرام (محجوب أو محذوف)")
+            invalid += 1
+            continue
+        valid += 1
+        note = ""
+        exp = expected.get(bid)
+        if exp and username and username.lower() != exp:
+            note = f"  ⚠️ اليوزر الفعلي مختلف عن المخطط ({exp})"
+            mismatched += 1
+        print(f"  ✅ {bid:<18} @{username} — {title}{note}")
+
+    print("─" * 60)
+    print(f"النتيجة: ✅ {valid} سليم  |  ❌ {invalid} مرفوض  |  ⚠️ {mismatched} يوزر مختلف")
+    return 0 if invalid == 0 else 1
+
+
+def cmd_import_tokens(source: str = None) -> int:
+    """
+    إدخال توكنات بالجملة من ملف (new_tokens.txt افتراضياً) أو stdin.
+    كل سطر: @username token  أو  BOT_X_TOKEN=token  أو  x=token  أو  token فقط.
+    """
+    print_banner()
+    bots = _load_registry_bots()
+    known_ids = {b.get("id") for b in bots if b.get("id")}
+    username_map = {(b.get("username") or "").lstrip("@").lower(): b.get("id")
+                    for b in bots if b.get("username")}
+
+    # قراءة المصدر
+    if source and source != "-":
+        path = Path(source)
+        if not path.exists():
+            print(f"❌ الملف غير موجود: {path}")
+            return 1
+        text = path.read_text(encoding="utf-8")
+        print(f"📂 تمت قراءة {path.name} ({len(text.splitlines())} سطر)")
+    else:
+        default = BASE_DIR / "new_tokens.txt"
+        if default.exists():
+            text = default.read_text(encoding="utf-8")
+            print(f"📂 تمت قراءة {default.name} ({len(text.splitlines())} سطر)")
+        else:
+            print("📥 الصق أسطر التوكنات (سطر لكل بوت) واختم بـ Ctrl+Z ثم Enter في Windows أو Ctrl+D في Linux:")
+            text = sys.stdin.read()
+
+    entries = parse_token_entries(text, known_ids, username_map)
+    if not entries:
+        print("ℹ️ لا توجد أسطر للمعالجة.")
+        return 0
+
+    imported = skipped = 0
+    print(f"\n🔑 معالجة {len(entries)} سطر...\n")
+    for bot_id, token, line in entries:
+        if token is None:
+            print(f"  ⚠️ سطر بدون توكن صالح — تم تخطيه: {line[:60]}")
+            skipped += 1
+            continue
+
+        # توكن مجرد بدون معرف → التعرف عليه عبر getMe ثم مطابقته بالريجستري
+        if bot_id is None:
+            ok, username, _ = _verify_token_telegram(token)
+            if ok and username:
+                bot_id = username_map.get(username.lower())
+                if bot_id is None:
+                    print(f"  ⚠️ التوكن يعود للبوت @{username} وهو غير مسجل في الريجستري — تم تخطيه")
+                    skipped += 1
+                    continue
+            else:
+                print(f"  ❌ تعذر التحقق من توكن مجرد (سطر: {line[:40]}…) — تم تخطيه")
+                skipped += 1
+                continue
+
+        if bot_id not in known_ids:
+            print(f"  ⚠️ معرف غير معروف في الريجستري: {bot_id} — تم تخطيه")
+            skipped += 1
+            continue
+
+        print(f"\n▶ [{bot_id}]")
+        cmd_set_token(bot_id, token)
+        imported += 1
+
+    print("─" * 60)
+    print(f"النتيجة: ✅ تم إدخال {imported} توكن  |  ⚠️ تم تخطي {skipped} سطر")
+    if imported:
+        print("\n📋 خطوتك التالية: python dev_tools.py tokens  لعرض الحالة المحدثة، ثم شغّل البوتات من Manager.")
+    return 0 if imported or not skipped else 1
+
+
 def cmd_set_username(bot_id: str, username: str) -> bool:
     """تحديث معرف البوت (يوزر تيليجرام) في السجل"""
     bot_id = bot_id.lower().strip().replace("bot_", "")
@@ -591,6 +847,9 @@ def main():
         print("  list-bots                    - جدول بجميع البوتات ومعرفاتها وحالة توكناتها")
         print("  set-token <id> <token>       - إعداد توكن البوت والتحقق منه تلقائياً")
         print("  set-username <id> <username> - تحديث يوزر البوت في السجل")
+        print("  tokens                       - جدول حالة التوكنات واليوزرنيم المخطط لكل بوت")
+        print("  import-tokens [file|-]       - إدخال توكنات بالجملة مع الفحص (افتراضياً new_tokens.txt)")
+        print("  tokens-verify                - فحص صلاحية كل التوكنات الحالية عبر تيليجرام")
         print("  test [args...]               - تشغيل الاختبارات التلقائية")
         print("  lint                         - فحص ملفات بايثون للتأكد من خلوها من الأخطاء")
         print("  clean                        - مسح ملفات الكاش والملفات المؤقتة")
@@ -617,6 +876,13 @@ def main():
             print("❌ الاستخدام: python dev_tools.py set-username <bot_id> <username>")
             sys.exit(1)
         cmd_set_username(sys.argv[2], sys.argv[3])
+    elif cmd == "tokens":
+        sys.exit(cmd_tokens())
+    elif cmd == "import-tokens":
+        src = sys.argv[2] if len(sys.argv) > 2 else None
+        sys.exit(cmd_import_tokens(src))
+    elif cmd == "tokens-verify":
+        sys.exit(cmd_tokens_verify())
     elif cmd == "test":
         sys.exit(cmd_test(sys.argv[2:]))
     elif cmd == "lint":

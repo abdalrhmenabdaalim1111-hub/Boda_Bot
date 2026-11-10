@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🏪 متجر تطبيقات بودة — Boda</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  --bg:      var(--tg-theme-bg-color,              #17212b);
+  --surface: var(--tg-theme-secondary-bg-color,  #232e3c);
+  --text:    var(--tg-theme-text-color,            #ffffff);
+  --hint:    var(--tg-theme-hint-color,            #aaaaaa);
+  --accent:  var(--tg-theme-button-color,          #5288c1);
+  --btn-txt: var(--tg-theme-button-text-color,    #ffffff);
+  --link:    var(--tg-theme-link-color,            #62bcf9);
+  --danger:  #e0554d; --ok: #4dae4e; --warn: #e8a33d;
+  --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; padding: 14px 14px 90px;
+  transition: background .25s, color .25s;
+}
+.container { max-width: 520px; margin: 0 auto; }
+
+/* ── Header ── */
+.app-header { text-align: center; padding: 18px 0 14px; }
+.app-header .emoji { font-size: 44px; display: block; margin-bottom: 6px;
+  filter: drop-shadow(0 4px 14px rgba(82,136,193,.45)); }
+.app-header h1 { font-size: 22px; font-weight: 700; letter-spacing: .3px; }
+.app-header p  { color: var(--hint); font-size: 13px; margin-top: 4px; }
+
+/* ── Card ── */
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.14);
+}
+.card h2 { font-size: 15px; margin-bottom: 12px; color: var(--text); }
+
+/* ── Inputs ── */
+input[type=text], input[type=number], input[type=date], textarea, select {
+  width: 100%; padding: 12px 14px; border: 1.5px solid transparent;
+  border-radius: 10px; background: var(--bg); color: var(--text);
+  font-size: 15px; font-family: inherit; outline: none; transition: border .2s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+textarea { min-height: 90px; resize: vertical; }
+label { display: block; font-size: 12.5px; color: var(--hint); margin: 10px 0 5px; }
+
+/* ── Buttons ── */
+.btn {
+  display: block; width: 100%; border: none; cursor: pointer;
+  background: var(--accent); color: var(--btn-txt);
+  padding: 13px; border-radius: 11px; font-size: 15.5px; font-weight: 700;
+  font-family: inherit; margin-top: 12px; transition: transform .12s, opacity .2s;
+}
+.btn:active { transform: scale(.97); opacity: .85; }
+.btn.secondary { background: var(--bg); color: var(--link); border: 1.5px solid var(--link); }
+.btn:disabled { opacity: .45; cursor: wait; }
+
+/* ── Result box ── */
+.result {
+  margin-top: 14px; padding: 14px; border-radius: 11px;
+  background: var(--bg); border: 1.5px dashed var(--accent);
+  font-size: 15px; line-height: 1.9; display: none; word-break: break-word;
+}
+.result.show { display: block; animation: pop .25s ease; }
+@keyframes pop { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+
+/* ── Chips (اختيارات سريعة) ── */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chip {
+  padding: 8px 14px; border-radius: 999px; font-size: 13.5px; cursor: pointer;
+  background: var(--bg); color: var(--text); border: 1.5px solid var(--hint);
+  transition: all .15s; user-select: none;
+}
+.chip.active { background: var(--accent); color: var(--btn-txt); border-color: var(--accent); }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--accent); color: var(--btn-txt); padding: 10px 20px;
+  border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none;
+  transition: all .3s; z-index: 99; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ══ AdSDK ══ */
+.ad-banner {
+  margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(232,163,61,.16), rgba(232,163,61,.07));
+  border: 1px solid rgba(232,163,61,.4); font-size: 13px; line-height: 1.7;
+  display: none; align-items: center; gap: 8px;
+}
+.ad-banner.show { display: flex; }
+.ad-banner .ad-icon { font-size: 18px; }
+.ad-banner a { color: var(--link); font-weight: 700; text-decoration: none; }
+
+#sponsor-overlay {
+  position: fixed; inset: 0; z-index: 200; display: none;
+  background: rgba(0,0,0,.72); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+#sponsor-overlay.show { display: flex; }
+.sponsor-card {
+  background: var(--surface); border-radius: 18px; padding: 24px 20px;
+  max-width: 340px; width: 100%; text-align: center;
+  animation: pop .3s ease; border: 1.5px solid rgba(232,163,61,.5);
+}
+.sponsor-card .sp-badge {
+  display: inline-block; font-size: 11px; letter-spacing: 1.5px;
+  color: var(--warn); border: 1px solid var(--warn);
+  padding: 3px 12px; border-radius: 999px; margin-bottom: 12px;
+}
+.sponsor-card h3 { font-size: 18px; margin-bottom: 8px; }
+.sponsor-card p  { color: var(--hint); font-size: 13.5px; line-height: 1.8; margin-bottom: 16px; }
+.sponsor-card .skip {
+  display: block; margin-top: 10px; color: var(--hint);
+  font-size: 12.5px; cursor: pointer; text-decoration: underline;
+}
+
+/* ── Footer ── */
+.app-footer { text-align: center; color: var(--hint); font-size: 11.5px;
+  margin-top: 22px; line-height: 2; }
+.app-footer a { color: var(--link); text-decoration: none; }
+
+
+.cats { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; }
+.cats::-webkit-scrollbar { display:none; }
+.cat { flex-shrink:0; padding:8px 14px; border-radius:999px; font-size:13.5px;
+  cursor:pointer; background:var(--surface); border:1.5px solid var(--hint); }
+.cat.active { background:var(--accent); color:var(--btn-txt); border-color:var(--accent); }
+.search { width:100%; padding:12px 16px; border-radius:999px; border:1.5px solid transparent;
+  background:var(--surface); color:var(--text); font-size:15px; outline:none; margin-bottom:4px; }
+.search:focus { border-color:var(--accent); }
+.app-card { display:flex; gap:12px; align-items:center; background:var(--surface);
+  border-radius:14px; padding:14px; margin-bottom:10px; cursor:pointer;
+  transition:transform .15s; border:1.5px solid transparent; }
+.app-card:active { transform:scale(.98); border-color:var(--accent); }
+.app-card .ic { font-size:34px; width:56px; height:56px; display:flex; align-items:center;
+  justify-content:center; background:var(--bg); border-radius:13px; flex-shrink:0; }
+.app-card .info { flex:1; min-width:0; }
+.app-card h3 { font-size:15px; margin-bottom:3px; }
+.app-card p { color:var(--hint); font-size:12.5px; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }
+.app-card .meta { color:var(--link); font-size:11.5px; margin-top:4px; }
+.badge-new { background:var(--warn); color:#111; font-size:10px; font-weight:800;
+  padding:2px 8px; border-radius:999px; margin-inline-start:6px; vertical-align:middle; }
+.badge-soon { background:var(--hint); color:var(--bg); font-size:10px; font-weight:800;
+  padding:2px 8px; border-radius:999px; margin-inline-start:6px; vertical-align:middle; }
+.app-card.soon { opacity:.55; }
+.hero { background:linear-gradient(135deg,rgba(82,136,193,.25),rgba(82,136,193,.08));
+  border:1px solid rgba(82,136,193,.4); border-radius:16px; padding:18px;
+  text-align:center; margin-bottom:14px; }
+.hero .big { font-size:34px; }
+.hero h2 { margin:6px 0 2px; }
+.hero p { color:var(--hint); font-size:13px; }
+.stat-row { display:flex; gap:8px; margin-top:12px; }
+.stat { flex:1; background:var(--bg); border-radius:11px; padding:10px 6px; }
+.stat b { font-size:17px; display:block; }
+.stat span { font-size:11px; color:var(--hint); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="app-header">
+    <span class="emoji">🏪</span>
+    <h1>متجر تطبيقات بودة</h1>
+    <p>تصفح كل البوتات والتطبيقات المصغّرة</p>
+  </header>
+
+
+<div class="hero">
+  <p>كل بوتاتك وتطبيقاتك — في مكان واحد ✨</p>
+  <div class="stat-row">
+    <div class="stat"><b id="s-apps">—</b><span>تطبيق</span></div>
+    <div class="stat"><b id="s-users">—</b><span>مستخدم</span></div>
+    <div class="stat"><b id="s-opens">—</b><span>فتح تطبيق</span></div>
+  </div>
+</div>
+<input class="search" placeholder="🔍 ابحث عن بوت...">
+<div class="cats" id="cats"></div>
+<div id="list"></div>
+
+  <footer class="app-footer">
+    <a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>
+    Powered by Boda Bot System
+  </footer>
+</div>
+<div id="toast"></div>
+<script>
+window.__BODA_BOT_ID__   = "store";
+window.__BODA_CATALOG__ = [{"id": "currency", "emoji": "💱", "name": "محول العملات الذكي", "short_desc": "أسعار الصرف المباشرة 💵", "tag": "أدوات 🛠️", "description": "حول بين جميع العملات العالمية بدقة وسرعة وبأحدث أسعار الصرف — USD، EUR، SAR، EGP وأكثر من 100 عملة.", "username": "@BodaCurrencyBot", "url": "https://t.me/BodaCurrencyBot", "web": "currency/", "added_date": "", "hidden": false}, {"id": "fun_name", "emoji": "🎭", "name": "مولّد الأسماء الموازية", "short_desc": "اسمك في العوالم الموازية 🤣", "tag": "ترفيه 🎪", "description": "اكتشف اسمك في عوالم الأنمي والفضاء والسيارات والخيال العلمي! ترفيه ممتع لا يُنسى.", "username": "@FunNameGenBot", "url": "https://t.me/FunNameGenBot", "web": "fun_name/", "added_date": "", "hidden": false}, {"id": "random_suggest", "emoji": "🎲", "name": "المقترح العشوائي", "short_desc": "خلّي الحظ يختار عنك 🚀", "tag": "ترفيه 🎲", "description": "دع الحظ يختار عنك! أكل، فيلم، موسيقى أو وجهة سفر بضغطة واحدة.", "username": "@RandomSuggestMixBot", "url": "https://t.me/RandomSuggestMixBot", "web": "random_suggest/", "added_date": "", "hidden": false}, {"id": "vidload", "emoji": "🎬", "name": "VidLoad — تحميل الفيديوهات", "short_desc": "حمّل من أي موقع بسهولة 📥", "tag": "تحميل 📥", "description": "حمّل أي فيديو من يوتيوب وفيسبوك وإنستجرام وأكثر من 1000 موقع بجودة عالية وبشكل سريع.", "username": "@VidLoadXBot", "url": "https://t.me/VidLoadXBot", "web": "vidload/", "added_date": "", "hidden": false}, {"id": "cleantok", "emoji": "📱", "name": "CleanTok — تيك توك بلا علامة", "short_desc": "تيك توك نظيف بلا علامة ✨", "tag": "تيك توك 🎵", "description": "حمّل فيديوهات تيك توك بأعلى جودة ممكنة وبدون العلامة المائية المزعجة.", "username": "@CleanTokVidBot", "url": "https://t.me/CleanTokVidBot", "web": "cleantok/", "added_date": "", "hidden": false}, {"id": "stickerx", "emoji": "🖼️", "name": "StickerX — صانع الملصقات", "short_desc": "اصنع ملصقاتك الخاصة 🎨", "tag": "تصميم 🎨", "description": "حوّل أي صورة إلى ملصق تيليجرام احترافي بدون خلفية وبجودة عالية في ثواني.", "username": "@StickerXMakerBot", "url": "https://t.me/StickerXMakerBot", "web": "stickerx/", "added_date": "", "hidden": false}, {"id": "backdrop", "emoji": "✂️", "name": "BackDrop — محرر الخلفيات", "short_desc": "أزل الخلفية بالذكاء الاصطناعي ✂️", "tag": "ذكاء اصطناعي 🤖", "description": "يزيل خلفية أي صورة بدقة عالية باستخدام الذكاء الاصطناعي ويتيح استبدالها بخلفيات متنوعة.", "username": "@BackDropAI_Bot", "url": "https://t.me/BackDropAI_Bot", "web": "backdrop/", "added_date": "", "hidden": false}, {"id": "qrgen", "emoji": "📊", "name": "QRGen — صانع الباركود", "short_desc": "حوّل أي نص إلى QR Code 📊", "tag": "أدوات 🛠️", "description": "حوّل أي نص أو رابط أو رقم هاتف إلى كود QR ملوّن بجودة عالية جاهز للطباعة فوراً.", "username": "@QRGenProBot", "url": "https://t.me/QRGenProBot", "web": "qrgen/", "added_date": "", "hidden": false}, {"id": "transbot", "emoji": "🌍", "name": "TransBot — المترجم الفوري", "short_desc": "ترجمة فورية لأي لغة 🌍", "tag": "ترجمة 🌐", "description": "يترجم أي نص بين العربية والإنجليزية والفرنسية والتركية والألمانية والإسبانية والروسية والصينية.", "username": "@TransXNowBot", "url": "https://t.me/TransXNowBot", "web": "transbot/", "added_date": "", "hidden": false}, {"id": "formatfix", "emoji": "🔄", "name": "FormatFix — محوّل الملفات", "short_desc": "حوّل صورك لأي صيغة 🔄", "tag": "أدوات 🛠️", "description": "يحول صورك بين صيغ PDF و JPG و WEBP و PNG بدقة وجودة عالية ببضع ثوانٍ فقط.", "username": "@FormatFix1Bot", "url": "https://t.me/FormatFix1Bot", "web": "formatfix/", "added_date": "", "hidden": false}, {"id": "birth_age", "emoji": "📅", "name": "حساب العمر وتفاصيله", "short_desc": "احسب عمرك بالتفصيل 🎂", "tag": "أدوات 🛠️", "description": "احسب عمرك بكل التفاصيل الدقيقة — سنوات وأشهر وأيام وساعات ودقائق وثواني من تاريخ ميلادك.", "username": "@CalcMyAge_Bot", "url": "https://t.me/CalcMyAge_Bot", "web": "birth_age/", "added_date": "", "hidden": false}, {"id": "store", "emoji": "🏪", "name": "متجر تطبيقات Boda", "short_desc": "كل البوتات في مكان واحد 🏪", "tag": "دليل 🌟", "description": "المكان الذي يجمع كل بوتاتنا المختبرة والموثوقة في مكان واحد — اختر ما تحتاجه بضغطة زر.", "username": "@BodaStoreeBot", "url": "https://t.me/BodaStoreeBot", "web": "store/", "added_date": "", "hidden": false}, {"id": "iqtest", "emoji": "🧠", "name": "مقياس العبقرية", "short_desc": "اختبر نسبة ذكائك 🧠", "tag": "اختبارات 📝", "description": "اختبر نسبة ذكائك IQ بأسئلة علمية مُعتمدة مع نتيجة تفصيلية وتصنيف دقيق لمستواك.", "username": "@GeniusCheck1Bot", "url": "https://t.me/GeniusCheck1Bot", "web": "iqtest/", "added_date": "", "hidden": false}, {"id": "lovecalculator", "emoji": "❤️", "name": "رادار القلوب", "short_desc": "احسب نسبة الحب ❤️", "tag": "ترفيه 🎪", "description": "احسب نسبة التوافق بين اسمين وتعرّف على مدى انسجامك مع شريكك — ترفيه رومانسي ممتع!", "username": "@LoveMatchRBot", "url": "https://t.me/LoveMatchRBot", "web": "lovecalculator/", "added_date": "", "hidden": false}, {"id": "mentalage", "emoji": "🎭", "name": "مرآة العقل", "short_desc": "اكتشف عمرك العقلي 🎭", "tag": "ترفيه 🎪", "description": "اكتشف عمرك العقلي الحقيقي من خلال أسئلة علم نفسية ممتعة — هل عقلك أكبر أم أصغر من عمرك؟", "username": "@MentalAgeBot", "url": "https://t.me/MentalAgeBot", "web": "mentalage/", "added_date": "", "hidden": false}, {"id": "personalityanalyzer", "emoji": "🧩", "name": "المحلل النفسي", "short_desc": "غص في أعماق شخصيتك 🧩", "tag": "اختبارات 📝", "description": "غُص في أعماق شخصيتك من خلال تحليل نفسي متكامل يكشف سماتك الشخصية وطريقة تفكيرك.", "username": "@PsycheAnalyzeBot", "url": "https://t.me/PsycheAnalyzeBot", "web": "personalityanalyzer/", "added_date": "", "hidden": false}, {"id": "cashier", "emoji": "🧮", "name": "حاسبة الكاشير", "short_desc": "حاسبة الكاشير الذكية 🧮", "tag": "أدوات 🛠️", "description": "آلة حاسبة ذكية متكاملة للحسابات اليومية — جمع، طرح، ضرب، قسمة، فاتورة، خصم، ونسبة مئوية.", "username": "@CashierCalcBot", "url": "https://t.me/CashierCalcBot", "web": "cashier/", "added_date": "", "hidden": false}, {"id": "safepass", "emoji": "🔐", "name": "مولّد الباسورد", "short_desc": "كلمات مرور قوية وآمنة 🔐", "tag": "أمان 🔒", "description": "ينشئ كلمات مرور قوية وآمنة بطول وتعقيد تختاره أنت — مع تقييم قوة الكلمة ونصائح الحماية.", "username": "@SafePassXBot", "url": "https://t.me/SafePassXBot", "web": "safepass/", "added_date": "", "hidden": false}, {"id": "doctrans", "emoji": "🌍", "name": "مترجم الملفات", "short_desc": "ترجمة فورية متعددة اللغات 🌍", "tag": "ترجمة 🌐", "description": "يترجم أي نص فورياً بين العربية والإنجليزية والفرنسية والتركية والألمانية والإسبانية والروسية والصينية.", "username": "@DocTransNowBot", "url": "https://t.me/DocTransNowBot", "web": "doctrans/", "added_date": "", "hidden": false}, {"id": "shortlink", "emoji": "🔗", "name": "مختصر الروابط", "short_desc": "اختصر أي رابط في ثانية 🔗", "tag": "أدوات 🛠️", "description": "يختصر أي رابط طويل ويُنشئ رابطاً قصيراً نظيفاً في ثانية واحدة — جاهز للمشاركة فوراً.", "username": "@ShortLinkXXBot", "url": "https://t.me/ShortLinkXXBot", "web": "shortlink/", "added_date": "", "hidden": false}, {"id": "fitcheck", "emoji": "💪", "name": "حاسبة BMI", "short_desc": "احسب مؤشر كتلة جسمك 💪", "tag": "صحة 💪", "description": "يحسب مؤشر كتلة جسمك ويعطيك توصيات صحية متخصصة للوصول لوزنك المثالي وحياة أصح.", "username": "@FitCheckXBot", "url": "https://t.me/FitCheckXBot", "web": "fitcheck/", "added_date": "", "hidden": false}, {"id": "logotext", "emoji": "🎨", "name": "مُنشئ الشعار", "short_desc": "شعار نصي فني لاسمك 🎨", "tag": "تصميم 🎨", "description": "حوّل اسمك أو أي نص لشعار نصي فني بأساليب متنوعة — جاهز للنشر في البايو والمجموعات.", "username": "@LogoTextArtBot", "url": "https://t.me/LogoTextArtBot", "web": "logotext/", "added_date": "", "hidden": false}, {"id": "silentcut", "emoji": "✂️", "name": "مزيل صمت الفيديو", "short_desc": "أزل الصمت من فيديوهاتك ✂️", "tag": "فيديو 🎬", "description": "يزيل الأجزاء الصامتة من مقاطع الصوت والفيديو ويُسرّع المحتوى التعليمي في ثواني.", "username": "@SilentCutXBot", "url": "https://t.me/SilentCutXBot", "web": "silentcut/", "added_date": "", "hidden": false}, {"id": "weathernow", "emoji": "🌦️", "name": "بوت الطقس", "short_desc": "طقس أي مدينة في العالم 🌦️", "tag": "معلومات 🌦️", "description": "احصل على حالة الطقس الفورية لأي مدينة في العالم مع درجة الحرارة والرطوبة وسرعة الريح.", "username": "@WeatherNow1XBot", "url": "https://t.me/WeatherNow1XBot", "web": "weathernow/", "added_date": "", "hidden": false}, {"id": "textspeak", "emoji": "🔊", "name": "محوّل النص لصوت", "short_desc": "حوّل نصك لملف صوتي 🔊", "tag": "صوت 🔊", "description": "حوّل أي نص عربي أو إنجليزي لملف صوتي مجاناً باستخدام تقنية القراءة الذكية TTS.", "username": "@TextSpeakXBot", "url": "https://t.me/TextSpeakXBot", "web": "textspeak/", "added_date": "", "hidden": false}, {"id": "braintwist", "emoji": "🧠", "name": "بوت الألغاز", "short_desc": "ألغاز ومسابقات يومية 🧠", "tag": "ترفيه 🎪", "description": "تحدّ عقلك يومياً بألغاز مسلّية ومسابقات معلومات عامة — العب مع أصدقائك وتنافس!", "username": "@BrainTwistXBot", "url": "https://t.me/BrainTwistXBot", "web": "braintwist/", "added_date": "", "hidden": false}, {"id": "colorpick", "emoji": "🎨", "name": "محلل الألوان", "short_desc": "استخرج ألوان أي صورة 🎨", "tag": "تصميم 🎨", "description": "أرسل أي صورة وسيستخرج البوت أبرز الألوان منها مع أكواد HEX وRGB جاهزة للاستخدام.", "username": "@ColorPickXBot", "url": "https://t.me/ColorPickXBot", "web": "colorpick/", "added_date": "", "hidden": false}, {"id": "cvbuilder", "emoji": "💼", "name": "بوت السيرة الذاتية", "short_desc": "سيرة ذاتية احترافية في دقائق 💼", "tag": "مهني 💼", "description": "أنشئ سيرة ذاتية احترافية خطوة بخطوة وأرسلها لك جاهزة بتنسيق نصي أنيق وجاهز للإرسال.", "username": "@CVBuilderXBot", "url": "https://t.me/CVBuilderXBot", "web": "cvbuilder/", "added_date": "", "hidden": false}, {"id": "caltrack", "emoji": "🥗", "name": "عداد السعرات", "short_desc": "تابع سعراتك اليومية 🥗", "tag": "صحة 💪", "description": "تعرّف على السعرات الحرارية في وجباتك وأطعمتك اليومية وتابع هدفك الغذائي بسهولة وفعّالية.", "username": "@CalTrackXBot", "url": "https://t.me/CalTrackXBot", "web": "caltrack/", "added_date": "", "hidden": false}, {"id": "luckybox", "emoji": "🎁", "name": "مربّع الحظ", "short_desc": "مفاجأتك اليومية في صندوق 🎁", "tag": "ترفيه 🎲", "description": "افتح صندوق مفاجآتك اليومي — اقتباسات ملهمة، نصائح ذهبية، وأرقام الحظ كل يوم!", "username": "@LuckyBoxX1Bot", "url": "https://t.me/LuckyBoxX1Bot", "web": "luckybox/", "added_date": "", "hidden": false}, {"id": "memoryvault", "emoji": "📔", "name": "بوت الذكريات", "short_desc": "خزّن أفكارك وملاحظاتك 📔", "tag": "إنتاجية 📋", "description": "احفظ ملاحظاتك وأفكارك المهمة في خزّان رقمي آمن وادرج قائمتك في أي وقت تشاء.", "username": "@MemoryVaultXBot", "url": "https://t.me/MemoryVaultXBot", "web": "memoryvault/", "added_date": "", "hidden": false}, {"id": "cryptorate", "emoji": "💰", "name": "محوّل العملة الرقمية", "short_desc": "أسعار العملات الرقمية لحظياً 💰", "tag": "مالية 💰", "description": "تابع أسعار البيتكوين والإيثيريوم وأشهر العملات الرقمية لحظياً بالدولار والريال مع نسبة التغيير.", "username": "@CryptoRateX1Bot", "url": "https://t.me/CryptoRateX1Bot", "web": "cryptorate/", "added_date": "", "hidden": false}, {"id": "photoboost", "emoji": "📸", "name": "محسّن الصور", "short_desc": "حسّن صورك بلمسة واحدة 📸", "tag": "صور 📸", "description": "حسّن صورك تلقائياً — زيادة الحدة والإضاءة والتباين، أبيض وأسود، تأثيرات فنية في ثواني.", "username": "@PhotoBoostX1Bot", "url": "https://t.me/PhotoBoostX1Bot", "web": "photoboost/", "added_date": "", "hidden": false}, {"id": "alarmbot", "emoji": "⏰", "name": "بوت المنبّه", "short_desc": "تذكيرات ذكية في وقتها ⏰", "tag": "إنتاجية ⏰", "description": "اضبط تذكيرات ومنبهات بأوقات محددة وسيُرسل البوت لك رسالة تنبيه في وقتها بالضبط.", "username": "@AlarmXProBot", "url": "https://t.me/AlarmXProBot", "web": "alarmbot/", "added_date": "", "hidden": false}]
+window.__BODA_API__      = "";
+window.__BODA_SHARE__    = "https://t.me/BodaStoreeBot";
+window.__BODA_ADS__      = {"banner": null, "sponsor": {"title": "🌟 قناة الراعي الرسمي", "text": "أقوى البوتات والتطبيقات مجاناً — جرّب المتجر الآن!", "url": "https://t.me/BodaStoreeBot", "button": "🏪 زيارة المتجر"}, "every": 99};
+</script>
+<script>
+/* ═════════ Boda MiniApp Core ═════════
+   توكن البوت لا يوضع هنا أبداً — التكامل عبر Telegram WebApp الرسمي فقط.
+   الإعلانات والتتبع يعملان حتى بدون خادم (fallback صامت). */
+(function(){
+  const API_BASE = window.__BODA_API__ || '';      // يُحقن من المولّد أو '' محلياً
+  const BOT_ID   = window.__BODA_BOT_ID__ || 'unknown';
+  const tg       = window.Telegram && window.Telegram.WebApp;
+
+  /* ── Telegram init ── */
+  function initTelegram(){
+    if (!tg) return;
+    try {
+      tg.ready(); tg.expand();
+      tg.setHeaderColor('secondary_bg_color');
+      tg.setBackgroundColor('secondary_bg_color');
+      if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+    } catch(e){}
+  }
+
+  /* ── User (بدون أي بيانات حساسة — اسم وid فقط للعرض) ── */
+  function getUser(){
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+      const u = tg.initDataUnsafe.user;
+      return { id: u.id, name: [u.first_name,u.last_name].filter(Boolean).join(' ') };
+    }
+    return null;
+  }
+
+  /* ── Track: إرسال حدث للـ API (best-effort) ── */
+  function track(event, extra){
+    try {
+      const u = getUser();
+      const payload = Object.assign({ bot: BOT_ID, event: event, user_id: u ? u.id : 0 }, extra||{});
+      if (API_BASE) {
+        fetch(API_BASE + '/api/track', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        }).catch(function(){});
+      }
+      // نسخة محلية للتطوير
+      try {
+        const k='boda_events'; const arr=JSON.parse(localStorage.getItem(k)||'[]');
+        arr.push(Object.assign({t:Date.now()},payload));
+        localStorage.setItem(k, JSON.stringify(arr.slice(-50)));
+      } catch(e){}
+    } catch(e){}
+  }
+
+  /* ═════════ AdSDK ═════════ */
+  const Ad = {
+    cfg: (window.__BODA_ADS__ || { banner:null, sponsor:null, every:5 }),
+
+    /** بانر سفلي داخل الصفحة — يظهر حسب التكرار */
+    mountBanner(){
+      const b = this.cfg.banner; if (!b) return;
+      let count = +(localStorage.getItem('boda_ad_n_'+BOT_ID)||0) + 1;
+      localStorage.setItem('boda_ad_n_'+BOT_ID, count);
+      if (count % (this.cfg.every||3) !== 0) return;      // التكرار المضبوط
+      const el = document.createElement('div');
+      el.className='ad-banner';
+      el.innerHTML = '<span class="ad-icon">'+(b.icon||'📢')+'</span><div>'+ b.html +'</div>';
+      el.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>track('ad_click',{placement:'banner'})));
+      document.querySelector('.container').appendChild(el);
+      el.classList.add('show');
+      track('ad_view',{placement:'banner'});
+    },
+
+    /** شاشة Sponsored كل N استخدامات — مع تخطٍ بعد ثوانٍ */
+    maybeSponsor(){
+      const s = this.cfg.sponsor; if (!s) return;
+      let uses = +(localStorage.getItem('boda_uses_'+BOT_ID)||0) + 1;
+      localStorage.setItem('boda_uses_'+BOT_ID, uses);
+      if (uses % (this.cfg.every||5) !== 1) return;       // أول استخدام + كل N
+      const ov = document.createElement('div');
+      ov.id='sponsor-overlay';
+      ov.innerHTML =
+        '<div class="sponsor-card">'+
+        '<span class="sp-badge">✦ SPONSORED</span>'+
+        '<h3>'+ s.title +'</h3><p>'+ s.text +'</p>'+
+        '<button class="btn" id="sp-go">'+ (s.button||'زيارة الراعي') +' ↗</button>'+
+        '<span class="skip">متابعة للتطبيق</span></div>';
+      document.body.appendChild(ov);
+      requestAnimationFrame(()=>ov.classList.add('show'));
+      track('ad_view',{placement:'sponsor'});
+      ov.querySelector('#sp-go').onclick = function(){
+        track('ad_click',{placement:'sponsor'});
+        try { if (tg) tg.openLink(s.url); else window.open(s.url,'_blank'); } catch(e){}
+        close();
+      };
+      const close = ()=>{ ov.classList.remove('show'); setTimeout(()=>ov.remove(), 250); };
+      ov.querySelector('.skip').onclick = close;
+    }
+  };
+
+  /* ── أدوات ── */
+  function toast(msg){
+    let t = document.getElementById('toast');
+    if (!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+  function haptic(type){
+    try { if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(type||'light'); } catch(e){}
+  }
+  function copy(text, okMsg){
+    const done = ()=>{ toast(okMsg||'✅ تم النسخ'); haptic('success'); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(()=>fallback());
+    else fallback();
+    function fallback(){
+      const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+      ta.select(); try{document.execCommand('copy');}catch(e){} ta.remove(); done();
+    }
+  }
+  function share(text, url){
+    const link = url || window.__BODA_SHARE__ || 'https://t.me/BodaStoreeBot';
+    const full = text + '\n\n' + link;
+    try {
+      if (tg && tg.openTelegramLink) {
+        tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(link)+'&text='+encodeURIComponent(text));
+      } else if (navigator.share) { navigator.share({text: full}); }
+      else { copy(full, '📋 انسخه وشاركه'); }
+    } catch(e){ copy(full, '📋 انسخه وشاركه'); }
+    track('share');
+  }
+
+  /* ── Boot ── */
+  function boot(){
+    initTelegram();
+    document.addEventListener('DOMContentLoaded', function(){
+      Ad.maybeSponsor();
+      Ad.mountBanner();
+      track('app_open');
+    });
+  }
+  boot();
+
+  window.Boda = { track: track, toast: toast, haptic: haptic, copy: copy, share: share,
+                  getUser: getUser, tg: tg, Ad: Ad };
+})();
+</script>
+<script>
+let APPS=[], CATS={}, stats={}, cat='الكل', q='';
+const urlp=new URLSearchParams(location.search);
+const CATEGORIZED = urlp.get('web')==='1';   // فتح كصفحة ويب يعرض كل التطبيقات
+
+async function boot(){
+  try { const r=await fetch('../data/stats.json'); stats=await r.json(); } catch(e){}
+  try {
+    const r=await fetch('../data/catalog.json');
+    APPS=await r.json();
+  } catch(e) { APPS=[]; }
+  buildCats(); render();
+  document.getElementById('s-users').textContent = fmt((stats.total_users||0));
+  document.getElementById('s-apps').textContent  = APPS.length;
+  const ev=stats.events||{};
+  document.getElementById('s-opens').textContent = fmt(Object.entries(ev)
+    .filter(([k])=>k.startsWith('app_open:')).reduce((s,[,v])=>s+v,0));
+}
+function fmt(n){ n=+n||0; return n>=1000?(n/1000).toFixed(1)+'K':n; }
+function buildCats(){
+  const box=document.getElementById('cats'); const set=new Set(APPS.map(a=>a.tag||'أخرى'));
+  CATS=['الكل',...[...set].sort()];
+  box.innerHTML=CATS.map(c=>'<span class="cat'+(c===cat?' active':'')+'" onclick="setCat(\''+c+'\',this)">'+c+'</span>').join('');
+}
+function setCat(c,el){ cat=c; document.querySelectorAll('.cat').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active'); render(); }
+function render(){
+  const list=APPS.filter(a=>(cat==='الكل'||a.tag===cat)&&
+    (!q||(a.name+' '+a.short_desc+' '+(a.username||'')).toLowerCase().includes(q.toLowerCase())));
+  // الظاهر أولاً، والمخفي (قريباً) آخراً
+  list.sort((x,y)=>(x.hidden?1:0)-(y.hidden?1:0));
+  document.getElementById('list').innerHTML = list.length? list.map(a=>{
+    const st=(stats.bots||{})[a.id]||{};
+    const isNew=a.added_date && !a.hidden && (Date.now()-new Date(a.added_date))<30*864e5;
+    return '<div class="app-card'+(a.hidden?' soon':'')+'" onclick="openApp(\''+a.url+'\',\''+a.web+'\')">'+
+      '<div class="ic">'+a.emoji+'</div>'+
+      '<div class="info"><h3>'+a.name+(isNew?'<span class="badge-new">جديد</span>':'')+
+        (a.hidden?'<span class="badge-soon">قريباً</span>':'')+'</h3>'+
+      '<p>'+(a.description||a.short_desc)+'</p>'+
+      '<div class="meta">'+(a.username?'<b dir="ltr">'+a.username+'</b> · ':'')+'👥 '+
+        (st.users?st.users+' مستخدم':'جديد على المنصة')+
+        (st.active_30d?' · 🔥 '+st.active_30d+' نشط هذا الشهر':'')+'</div></div>'+
+      '<div style="color:var(--hint);font-size:20px">‹</div></div>';
+  }).join('') : '<p style="text-align:center;color:var(--hint);padding:30px 0">🔍 لا نتائج</p>';
+}
+function openApp(url, web){
+  Boda.haptic('light'); Boda.track('store_open',{detail:web||url});
+  try{ Boda.tg.openTelegramLink(url); }catch(e){ location.href=url; }
+}
+document.querySelector('.search').addEventListener('input',e=>{ q=e.target.value; render(); });
+boot();
+</script>
+</body>
+</html>

@@ -28,7 +28,8 @@ except ImportError:
     log = logging.getLogger("fun_name")
 
 STORE_URL = "https://t.me/BodaStoreeBot"
-TOKEN     = os.getenv("BOT_FUN_NAME_TOKEN", "8596390483:AAGN-JvyqZ7yEhMJHPp9cKpkUvyyjZhR1y0")
+from bot_base import get_token
+TOKEN = get_token("BOT_FUN_NAME_TOKEN")
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
 def generate_fun_name(real_name):
@@ -41,7 +42,22 @@ def send_welcome(message):
     if not is_subscribed(bot, message.from_user.id):
         send_subscription_prompt(bot, message.chat.id)
         return
-    bot.reply_to(message, "مرحباً! أرسل اسمك وسأقوم بتوليد اسم مضحك لك!")
+    try:
+        uname = bot.get_me().username
+    except Exception:
+        uname = "FunNameGenBot"
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        InlineKeyboardButton("🏪 متجر تطبيقات Boda", url="https://t.me/BodaStoreeBot"),
+        InlineKeyboardButton("🚀 شارك البوت مع أصدقائك",
+                             url=f"https://t.me/share/url?url=https://t.me/{uname}"),
+    )
+    bot.reply_to(message,
+                 "🎭 <b>أهلاً بك في مولّد الأسماء الموازية!</b>\n\n"
+                 "اكتشف اسمك في عوالم الأنمي والفضاء والسيارات والخيال العلمي — "
+                 "ترفيه ممتع لا يُنسى!\n\n"
+                 "✍️ <b>أرسل اسمك الآن وسأولّد لك أسماء مضحكة من عوالم متعددة!</b>",
+                 parse_mode="HTML", reply_markup=kb)
 
 @bot.message_handler(func=lambda message: True)
 def handle_text_message(message):

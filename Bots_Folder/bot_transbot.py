@@ -28,7 +28,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[Trans] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("transbot")
 
-TOKEN     = os.getenv("BOT_TRANSBOT_TOKEN", "8679408503:AAEGTZzQhHfr0kuZakmXjkkjzn6uavFLbrM")
+from bot_base import get_token
+TOKEN = get_token("BOT_TRANSBOT_TOKEN")
 STORE_URL = "https://t.me/BodaStoreBot"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 

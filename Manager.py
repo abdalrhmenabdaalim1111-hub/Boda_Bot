@@ -263,7 +263,8 @@ class BodaBotManager:
                "bot_template", "bot_template_enhanced", "data_manager",
                "monitor", "rate_limiter", "error_handler",
                "notification_system", "logger_config", "utils",
-               "database", "bot_integration", "ad_manager", "growth_engine"):
+               "database", "bot_integration", "ad_manager", "growth_engine",
+               "unified_middleware"):
                 continue
 
             token = self._get_token_for_bot(name, str(f))

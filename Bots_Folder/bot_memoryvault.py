@@ -19,7 +19,8 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, format="[MemoryVault] %(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("memoryvault")
 
-TOKEN     = "ضع_التوكن_هنا"
+from bot_base import get_token
+TOKEN = get_token("BOT_MEMORYVAULT_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 BOT_NAME  = "بوت الذكريات"
 bot       = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)

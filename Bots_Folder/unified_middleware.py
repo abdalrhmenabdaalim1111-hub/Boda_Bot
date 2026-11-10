@@ -14,6 +14,7 @@
 # =============================================================================
 import os
 import re
+import time
 import threading
 
 from telebot.handler_backends import BaseMiddleware
@@ -77,6 +78,9 @@ class UnifiedBotMiddleware(BaseMiddleware):
 
     def pre_process(self, message, data: dict):
         """تُستدعى قبل أي معالج رسائل في البوت"""
+        if data is not None:
+            data["_t0"] = time.time()
+
         try:
             user = getattr(message, "from_user", None)
             if not user or not getattr(user, "id", None):
@@ -110,8 +114,22 @@ class UnifiedBotMiddleware(BaseMiddleware):
             self.log.debug(f"middleware: {e}")
 
     def post_process(self, message, data: dict, exception):
-        """مطلوب من الواجهة — لا شيء بعد المعالجة"""
-        pass
+        """تُستدعى بعد انتهاء معالجة التحديث لالتقاط الأخطاء وتتبع الأداء تلقائياً."""
+        try:
+            if exception is not None:
+                user = getattr(message, "from_user", None)
+                uid = getattr(user, "id", None) if user else None
+                text = getattr(message, "text", "") or ""
+                from error_tracker import track_exception
+                track_exception(self.bot_name, exception, user_id=uid, context=text)
+
+            # قياس زمن الاستجابة (Latency)
+            if data and "_t0" in data:
+                latency_ms = (time.time() - data["_t0"]) * 1000
+                if latency_ms > 3000:
+                    self.log.warning(f"⚠️ استجابة بطيئة في {self.bot_name}: {latency_ms:.0f}ms")
+        except Exception as e:
+            self.log.debug(f"post_process error: {e}")
 
     def _send_promo(self, chat_id: int):
         """إرسال بطاقة التطبيق المصغّر"""

@@ -27,7 +27,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[Personality] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("personality")
 
-TOKEN     = os.getenv("BOT_PERSONALITYANALYZER_TOKEN", "8753720745:AAH4WUywdSaW-BYp5A60CzaIhdHEYLUhnn0")
+from bot_base import get_token
+TOKEN = get_token("BOT_PERSONALITYANALYZER_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 

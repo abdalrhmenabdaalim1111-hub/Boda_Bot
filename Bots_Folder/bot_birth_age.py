@@ -28,7 +28,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[BirthAge] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("birthage")
 
-TOKEN     = os.getenv("BOT_BIRTH_AGE_TOKEN", "8545366580:AAGG1jmW4NTN8D9u_CIq7szpni69fRY8iwQ")
+from bot_base import get_token
+TOKEN = get_token("BOT_BIRTH_AGE_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 

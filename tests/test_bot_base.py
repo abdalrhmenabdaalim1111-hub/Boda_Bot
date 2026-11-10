@@ -137,5 +137,68 @@ class TestBotBase:
             mock_bot.set_webhook.assert_called_once_with(url="https://boda.dev/test_bot")
 
 
+class TestAllowedUpdates:
+    """اختبارات دعم allowed_updates في دوال التشغيل"""
+
+    UPDATES = ["message", "callback_query"]
+
+    def test_start_bot_accepts_allowed_updates(self):
+        """start_bot لا يرفع TypeError عند تمرير allowed_updates (polling)"""
+        from bot_base import start_bot
+        mock_bot = MagicMock()
+        mock_bot.get_me.return_value = MagicMock(username="TestBot")
+        mock_bot.infinity_polling.side_effect = KeyboardInterrupt()
+
+        with patch.dict(os.environ, {"USE_WEBHOOK": "false"}):
+            start_bot(mock_bot, "test_bot", allowed_updates=self.UPDATES)
+            kwargs = mock_bot.infinity_polling.call_args.kwargs
+            assert kwargs.get("allowed_updates") == self.UPDATES
+
+    def test_start_polling_forwards_allowed_updates(self):
+        """start_polling يمرر allowed_updates إلى infinity_polling"""
+        from bot_base import start_polling
+        mock_bot = MagicMock()
+        mock_bot.get_me.return_value = MagicMock(username="TestBot")
+        mock_bot.infinity_polling.side_effect = KeyboardInterrupt()
+
+        start_polling(mock_bot, "test_bot", allowed_updates=self.UPDATES)
+        kwargs = mock_bot.infinity_polling.call_args.kwargs
+        assert kwargs["allowed_updates"] == self.UPDATES
+
+    def test_start_polling_omits_allowed_updates_when_none(self):
+        """start_polling لا يمرر allowed_updates إن لم تُحدد"""
+        from bot_base import start_polling
+        mock_bot = MagicMock()
+        mock_bot.get_me.return_value = MagicMock(username="TestBot")
+        mock_bot.infinity_polling.side_effect = KeyboardInterrupt()
+
+        start_polling(mock_bot, "test_bot")
+        assert "allowed_updates" not in mock_bot.infinity_polling.call_args.kwargs
+
+    def test_start_webhook_forwards_allowed_updates(self):
+        """start_webhook يمرر allowed_updates إلى set_webhook"""
+        from bot_base import start_webhook
+        mock_bot = MagicMock()
+        mock_bot.get_me.return_value = MagicMock(username="TestBot")
+
+        start_webhook(mock_bot, "test_bot", "https://example.com/hook",
+                      allowed_updates=self.UPDATES)
+        mock_bot.set_webhook.assert_called_once_with(
+            url="https://example.com/hook/test_bot",
+            allowed_updates=self.UPDATES)
+
+    def test_start_bot_forwards_allowed_updates_to_webhook(self):
+        """start_bot يمرر allowed_updates للـ webhook عند تفعيله"""
+        from bot_base import start_bot
+        mock_bot = MagicMock()
+        mock_bot.get_me.return_value = MagicMock(username="TestBot")
+
+        with patch.dict(os.environ, {"USE_WEBHOOK": "true", "WEBHOOK_URL": "https://boda.dev"}):
+            start_bot(mock_bot, "test_bot", allowed_updates=["poll"])
+            mock_bot.set_webhook.assert_called_once_with(
+                url="https://boda.dev/test_bot",
+                allowed_updates=["poll"])
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

@@ -1,3 +1,11 @@
+"""
+bot_currency.py — محول العملات الذكي | Smart Currency Converter
+الاسم العربي: محول العملات الذكي
+Username: @BodaCurrencyBot
+الوصف: حوّل بين جميع العملات العالمية بدقة وسرعة وبأحدث أسعار الصرف —
+       USD، EUR، SAR، EGP وأكثر من 100 عملة، مع واجهة أزرار سريعة وتحديث لحظي.
+الفئة: أدوات 🛠️
+"""
 import sys, logging
 import requests
 import telebot
@@ -10,7 +18,8 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, format="[Currency] %(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("currency")
 
-TOKEN = "ضع_التوكن_هنا"
+from bot_base import get_token
+TOKEN = get_token("BOT_CURRENCY_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)

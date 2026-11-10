@@ -19,7 +19,8 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO, format="[CryptoRate] %(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("crypto")
 
-TOKEN     = "ضع_التوكن_هنا"
+from bot_base import get_token
+TOKEN = get_token("BOT_CRYPTORATE_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 BOT_NAME  = "محوّل العملة الرقمية"
 bot       = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)

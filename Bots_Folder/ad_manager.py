@@ -20,6 +20,23 @@ logger = logging.getLogger("AdManager")
 
 DATA_DIR = Path(__file__).parent.parent / "Data"
 ADS_CONFIG_FILE = DATA_DIR / "ads_config.json"
+MONETAG_CONFIG_FILE = DATA_DIR / "monetag_config.json"
+
+DEFAULT_MONETAG_CONFIG = {
+    "_version": "1.0",
+    "_provider": "Monetag (monetag.com)",
+    "_description": "إعدادات شفرات إعلانات Monetag المخصصة لكل بوت وتطبيق مصغر",
+    "global_default": {
+        "enabled": True,
+        "direct_link": "",
+        "zone_id": "",
+        "script_url": "",
+        "format": "direct_link",
+        "frequency": 3,
+        "note": "الشفرات الافتراضية الموحدة لجميع البوتات التي لا تملك شفرات مخصصة"
+    },
+    "bots": {}
+}
 
 DEFAULT_ADS_CONFIG = {
     "enabled": True,
@@ -46,10 +63,169 @@ DEFAULT_ADS_CONFIG = {
 class AdManager:
     """مدير الإعلانات المركزي"""
 
-    def __init__(self, config_file: Optional[Path] = None):
+    def __init__(self, config_file: Optional[Path] = None, monetag_file: Optional[Path] = None):
         self.config_file = config_file or ADS_CONFIG_FILE
+        self.monetag_file = monetag_file or MONETAG_CONFIG_FILE
         self._user_msg_count: Dict[int, int] = {}
         self.config = self._load_config()
+        self.monetag_config = self._load_monetag_config()
+
+    def _load_monetag_config(self) -> dict:
+        """تحميل إعدادات شفرات إعلانات Monetag المخصصة لكل بوت"""
+        self.monetag_file.parent.mkdir(parents=True, exist_ok=True)
+        if not self.monetag_file.exists():
+            try:
+                with open(self.monetag_file, "w", encoding="utf-8") as f:
+                    json.dump(DEFAULT_MONETAG_CONFIG, f, ensure_ascii=False, indent=2)
+                return DEFAULT_MONETAG_CONFIG.copy()
+            except Exception:
+                return DEFAULT_MONETAG_CONFIG.copy()
+
+        try:
+            with open(self.monetag_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"خطأ في قراءة ملف إعدادات Monetag: {e}")
+            return DEFAULT_MONETAG_CONFIG.copy()
+
+    def save_monetag_config(self, new_config: dict):
+        """حفظ إعدادات إعلانات Monetag المحدثة"""
+        self.monetag_config = new_config
+        with open(self.monetag_file, "w", encoding="utf-8") as f:
+            json.dump(new_config, f, ensure_ascii=False, indent=2)
+
+    def get_monetag_config(self, bot_id: str) -> dict:
+        """الحصول على إعدادات Monetag لبوت معين مع استخدام الشفرة العامة كـ fallback."""
+        clean_id = bot_id.replace("bot_", "")
+        bots_cfg = self.monetag_config.get("bots", {})
+        bot_cfg = bots_cfg.get(clean_id, {})
+        
+        # إذا كان للبوت إعداد مخصص نشط وبه رابط أو معرف
+        if bot_cfg.get("has_custom_ads") and bot_cfg.get("active", True) and (bot_cfg.get("direct_link") or bot_cfg.get("zone_id") or bot_cfg.get("script_url")):
+            return bot_cfg
+
+        # الرجوع إلى الإعداد العام الموحد
+        global_cfg = self.monetag_config.get("global_default", {})
+        merged = dict(bot_cfg) if bot_cfg else {"bot_name": clean_id}
+        merged["direct_link"] = merged.get("direct_link") or global_cfg.get("direct_link", "")
+        merged["zone_id"] = merged.get("zone_id") or global_cfg.get("zone_id", "")
+        merged["script_url"] = merged.get("script_url") or global_cfg.get("script_url", "")
+        merged["format"] = merged.get("format") or global_cfg.get("format", "direct_link")
+        merged["frequency"] = merged.get("frequency") or global_cfg.get("frequency", 3)
+        merged["is_global_fallback"] = True
+        return merged
+
+    def set_monetag_config(self, bot_id: str, direct_link: str = "", zone_id: str = "",
+                           script_url: str = "", format_type: str = "direct_link",
+                           frequency: int = 3, active: bool = True) -> bool:
+        """تحديث وحفظ شفرات إعلانات Monetag لبوت معين."""
+        from datetime import datetime
+        clean_id = bot_id.replace("bot_", "")
+        if "bots" not in self.monetag_config:
+            self.monetag_config["bots"] = {}
+
+        has_code = bool(direct_link.strip() or zone_id.strip() or script_url.strip())
+        current = self.monetag_config["bots"].get(clean_id, {})
+        current.update({
+            "has_custom_ads": has_code,
+            "direct_link": direct_link.strip(),
+            "zone_id": zone_id.strip(),
+            "script_url": script_url.strip(),
+            "format": format_type,
+            "frequency": frequency,
+            "active": active if has_code else False,
+            "last_updated": datetime.now().isoformat()
+        })
+        self.monetag_config["bots"][clean_id] = current
+        self.save_monetag_config(self.monetag_config)
+        logger.info(f"✅ تم تحديث شفرات إعلانات Monetag للبوت [{clean_id}]")
+        return True
+
+    def set_global_monetag_default(self, direct_link: str = "", zone_id: str = "",
+                                   script_url: str = "", format_type: str = "direct_link",
+                                   frequency: int = 3, enabled: bool = True) -> bool:
+        """ضبط الشفرة الإعلانية الموحدة (Global Default) لجميع البوتات التي ليس لها شفرة خاصة."""
+        self.monetag_config["global_default"] = {
+            "enabled": enabled,
+            "direct_link": direct_link.strip(),
+            "zone_id": zone_id.strip(),
+            "script_url": script_url.strip(),
+            "format": format_type,
+            "frequency": frequency,
+            "note": "الشفرات الافتراضية الموحدة لجميع البوتات التي لا تملك شفرات مخصصة"
+        }
+        self.save_monetag_config(self.monetag_config)
+        logger.info("✅ تم تحديث الشفرة الإعلانية الموحدة لـ Monetag")
+        return True
+
+    def has_monetag_ad(self, bot_id: str) -> bool:
+        """هل هذا البوت/التطبيق مزود بشفرة إعلانية (مخصصة أو عامة)؟"""
+        cfg = self.get_monetag_config(bot_id)
+        return bool(cfg.get("direct_link") or cfg.get("zone_id") or cfg.get("script_url"))
+
+    def has_custom_monetag_ad(self, bot_id: str) -> bool:
+        """هل هذا البوت تحديداً له شفرة خاصة به (وليس مجرد fallback عام)؟"""
+        clean_id = bot_id.replace("bot_", "")
+        b = self.monetag_config.get("bots", {}).get(clean_id, {})
+        return bool(b.get("has_custom_ads") and (b.get("direct_link") or b.get("zone_id") or b.get("script_url")))
+
+    def record_ad_view(self, bot_id: str, format_type: str = "direct_link"):
+        """تسجيل مشاهدة إعلان في قاعدة البيانات المركزية."""
+        try:
+            from database import get_db
+            db = get_db()
+            if db:
+                db.record_ad_impression(bot_id, format_type)
+        except Exception as e:
+            logger.debug(f"record_ad_view error: {e}")
+
+    def record_ad_click(self, bot_id: str, format_type: str = "direct_link"):
+        """تسجيل نقرة إعلان في قاعدة البيانات المركزية."""
+        try:
+            from database import get_db
+            db = get_db()
+            if db:
+                db.record_ad_click(bot_id, format_type)
+        except Exception as e:
+            logger.debug(f"record_ad_click error: {e}")
+
+    def get_all_monetag_statuses(self) -> Dict[str, dict]:
+        """إرجاع تقرير شامل بحالة إعلانات Monetag لجميع البوتات الـ 36."""
+        statuses = {}
+        bots_cfg = self.monetag_config.get("bots", {})
+        global_cfg = self.monetag_config.get("global_default", {})
+        global_has = bool(global_cfg.get("direct_link") or global_cfg.get("zone_id") or global_cfg.get("script_url"))
+
+        # جلب إحصائيات المشاهدات والنقرات إن وجدت
+        ad_stats_map = {}
+        try:
+            from database import get_db
+            db = get_db()
+            if db:
+                stats = db.get_ad_stats()
+                for s in stats:
+                    ad_stats_map[s["bot_name"]] = s
+        except Exception:
+            pass
+
+        for bid, b in bots_cfg.items():
+            has_custom = bool(b.get("has_custom_ads") and (b.get("direct_link") or b.get("zone_id") or b.get("script_url")))
+            active = has_custom or global_has
+            st = ad_stats_map.get(bid, {})
+            statuses[bid] = {
+                "bot_name": b.get("bot_name", bid),
+                "has_ad": active,
+                "is_custom": has_custom,
+                "is_global": (not has_custom and global_has),
+                "format": b.get("format", "direct_link"),
+                "zone_id": b.get("zone_id", ""),
+                "direct_link": b.get("direct_link") or (global_cfg.get("direct_link", "") if global_has else ""),
+                "impressions": st.get("impressions", 0),
+                "clicks": st.get("clicks", 0),
+                "ctr_percent": st.get("ctr_percent", 0.0),
+                "last_updated": b.get("last_updated")
+            }
+        return statuses
 
     def _load_config(self) -> dict:
         """تحميل إعدادات الإعلانات من الملف"""
@@ -245,8 +421,23 @@ def attach_unified_ads(bot, bot_name: str = "bot"):
                         args = (args[0], text) + tuple(args[2:])
                     else:
                         kwargs["text"] = text
+                    mgr.record_ad_view(bot_name, "footer")
         except Exception:
             pass  # الإعلان لا يعطّل الرسالة أبداً
         return original_send(*args, **kwargs)
 
     bot.send_message = send_message_with_ads
+
+
+def get_monetag_button(bot_name: str = "bot"):
+    """إرجاع زر راعي Inline مرتبط بـ Monetag Direct Smartlink إن وُجد."""
+    mgr = get_ad_manager()
+    cfg = mgr.get_monetag_config(bot_name)
+    link = cfg.get("direct_link", "").strip()
+    if not link:
+        return None
+    try:
+        from telebot.types import InlineKeyboardButton
+        return InlineKeyboardButton(text="🔥 عرض حصري / راعي التطبيق", url=link)
+    except Exception:
+        return None

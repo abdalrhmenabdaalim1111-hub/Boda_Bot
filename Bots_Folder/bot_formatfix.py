@@ -27,7 +27,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[FormatFix] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("formatfix")
 
-TOKEN     = os.getenv("BOT_FORMATFIX_TOKEN", "8319889739:AAH-3xpmsitsmms8KM471wMm0Vm21kURyuY")
+from bot_base import get_token
+TOKEN = get_token("BOT_FORMATFIX_TOKEN")
 STORE_URL = "https://t.me/BodaStoreeBot"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)
 _sessions: dict = {}   # uid → {raw: bytes}

@@ -26,7 +26,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format="[IQTest] %(asctime)s %(message)s", datefmt="%H:%M:%S")
     log = logging.getLogger("iqtest")
 
-TOKEN        = os.getenv("BOT_IQTEST_TOKEN", "8712494378:AAHVjhraz0--uMzO_iW8KaivcsQyeI3xj3U")
+from bot_base import get_token
+TOKEN = get_token("BOT_IQTEST_TOKEN")
 BOT_NAME     = "مقياس العبقرية | Genius Meter"
 BOT_USERNAME = "@GeniusCheck1Bot"
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML", threaded=True)

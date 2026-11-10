@@ -27,7 +27,8 @@ except ImportError:
     log = logging.getLogger("random_suggest")
 
 STORE_URL = "https://t.me/BodaStoreeBot"
-TOKEN     = os.getenv("BOT_RANDOM_SUGGEST_TOKEN", "8596214537:AAGAOw0f71JYaj2t9h-vTbZh_rGb8lx97nQ")
+from bot_base import get_token
+TOKEN = get_token("BOT_RANDOM_SUGGEST_TOKEN")
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
 suggestions = [
@@ -47,7 +48,21 @@ def send_welcome(message):
     if not is_subscribed(bot, message.from_user.id):
         send_subscription_prompt(bot, message.chat.id)
         return
-    bot.reply_to(message, "مرحباً! أرسل أي رسالة للحصول على اقتراح عشوائي لليوم!")
+    try:
+        uname = bot.get_me().username
+    except Exception:
+        uname = "RandomSuggestMixBot"
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        InlineKeyboardButton("🎲 اقتراح عشوائي الآن", url=f"https://t.me/{uname}"),
+        InlineKeyboardButton("🏪 متجر تطبيقات Boda", url="https://t.me/BodaStoreeBot"),
+    )
+    bot.reply_to(message,
+                 "🎲 <b>أهلاً بك في المقترح العشوائي!</b>\n\n"
+                 "دع الحظ يختار عنك! أكل، فيلم، موسيقى أو وجهة سفر — "
+                 "اقتراح ممتع جديد في كل ضغطة.\n\n"
+                 "💬 <b>أرسل أي رسالة الآن للحصول على اقتراحك العشوائي!</b>",
+                 parse_mode="HTML", reply_markup=kb)
 
 @bot.message_handler(func=lambda message: True)
 def handle_text_message(message):
