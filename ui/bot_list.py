@@ -12,7 +12,7 @@ class BotListPanel:
     كل بطاقة تعرض: Status dot، الاسم، Uptime، CPU/RAM، أزرار ▶ ⏹
     """
 
-    def __init__(self, parent, on_start, on_stop, on_scroll_log, on_set_token=None):
+    def __init__(self, parent, on_start, on_stop, on_scroll_log, on_set_token=None, on_set_ads=None):
         """
         Args:
             parent:        الإطار الأب
@@ -20,11 +20,13 @@ class BotListPanel:
             on_stop:       callback(bot_name) عند الضغط على ⏹
             on_scroll_log: callback(bot_name) عند النقر على البطاقة
             on_set_token:  callback(bot_name) عند النقر على زر التوكن 🔑
+            on_set_ads:    callback(bot_name) عند النقر على زر إعلانات Monetag 📢
         """
         self._on_start      = on_start
         self._on_stop       = on_stop
         self._on_scroll_log = on_scroll_log
         self._on_set_token  = on_set_token
+        self._on_set_ads    = on_set_ads
         self.bot_widgets: dict[str, dict] = {}
 
         parent.rowconfigure(1, weight=1)
@@ -154,7 +156,16 @@ class BotListPanel:
                                relief="flat", bd=0, padx=3, pady=0,
                                cursor="hand2",
                                command=lambda n=bot.name: self._on_set_token(n) if self._on_set_token else None)
-        token_btn.pack(side="right", padx=(2, 2))
+        token_btn.pack(side="right", padx=(1, 1))
+
+        # زر إعلانات Monetag 📢
+        ads_btn = tk.Button(inner, text="📢",
+                             font=("Segoe UI Emoji", 8),
+                             bg=C["border"], fg=C["text_dim"],
+                             relief="flat", bd=0, padx=3, pady=0,
+                             cursor="hand2",
+                             command=lambda n=bot.name: self._on_set_ads(n) if self._on_set_ads else None)
+        ads_btn.pack(side="right", padx=(1, 1))
 
         # النقر على البطاقة → الانتقال في السجل
         for w in (row, inner, name_lbl, dot, uptime_lbl):
@@ -170,6 +181,7 @@ class BotListPanel:
             "start_btn": start_btn,
             "stop_btn":  stop_btn,
             "token_btn": token_btn,
+            "ads_btn":   ads_btn,
         }
 
     # ── تحديث حالة بطاقة ─────────────────────────────────────────────────────
@@ -205,9 +217,18 @@ class BotListPanel:
         w["restart"].config(
             text=f"↺{bot.restart_count}" if bot.restart_count else "")
         w["perf"].config(text=perf_text, fg=pc)
-        w["restart"].config(
-            text=f"↺{bot.restart_count}" if bot.restart_count else "")
-        w["perf"].config(text=perf_text, fg=pc)
+
+        # تحديث حالة زر Monetag 📢
+        try:
+            from ad_manager import get_ad_manager
+            clean_id = bot.name.replace("bot_", "")
+            has_custom_ad = get_ad_manager().has_custom_monetag_ad(clean_id)
+            if has_custom_ad:
+                w["ads_btn"].config(bg="#27ae60", fg="white")
+            else:
+                w["ads_btn"].config(bg=C["border"], fg=C["text_dim"])
+        except Exception:
+            pass
 
     # ── تحديث العداد ─────────────────────────────────────────────────────────
     def set_count(self, n: int):

@@ -3,7 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>✂️ قصادم الصوت الصامت — Boda</title>
+<meta name="description" content="يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#17212b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2032%2032%27%3E%3Ctext%20x=%270%27%20y=%2726%27%20font-size=%2726%27%3E✂️%3C/text%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://abdalrhmenabdaalim1111-hub.github.io/Boda_Bot/silentcut/">
+<meta property="og:title" content="✂️ آلة قص الصمت — Boda">
+<meta property="og:description" content="يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="✂️ آلة قص الصمت — Boda">
+<meta name="twitter:description" content="يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت">
+<title>✂️ آلة قص الصمت — Boda</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root {
@@ -135,18 +146,21 @@ label { display: block; font-size: 12.5px; color: var(--hint); margin: 10px 0 5p
 <div class="container">
   <header class="app-header">
     <span class="emoji">✂️</span>
-    <h1>قصادم الصوت الصامت</h1>
-    <p>معالجة صوتية داخل جهازك — قريباً بمكتبة كاملة</p>
+    <h1>آلة قص الصمت</h1>
+    <p>يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت</p>
   </header>
 
 
-<div class="card" style="text-align:center">
-  <div style="font-size:64px">🔇</div>
-  <h2 style="margin:10px 0">نسخة الويب قيد التطوير</h2>
-  <p style="color:var(--hint);line-height:2;font-size:14px">
-    إزالة الصمت من الفيديوهات تحتاج معالجة ثقيلة تعمل حالياً عبر البوت نفسه.<br>
-    <b>أرسل فيديوك للبوت الآن وسيحدثك خلال دقائق!</b></p>
-  <button class="btn" onclick="location.href='https://t.me/BodaSilentCutBot'">🤖 فتح البوت مباشرة</button>
+<div class="card">
+  <label>اختر ملف صوتي أو فيديو</label>
+  <input type="file" id="file" accept="audio/*,video/*" style="width:100%;color:var(--text)">
+  <div class="chips" id="strip-w" style="flex-wrap:wrap;gap:2px"></div>
+  <button class="btn" id="go" onclick="analyze()">🔍 حلّل الصمت الآن</button>
+  <small style="color:var(--hint);display:block;margin-top:4px">
+    التحليل يعمل على جهازك تماماً — لا يُرفع ملفك لأي خادم (حتى 80MB)</small>
+  <div class="result" id="res"></div>
+  <button class="btn secondary" id="copyplan" style="display:none;margin-top:8px"
+          onclick="copyPlan()">📋 نسخ خطة القص للبوت</button>
 </div>
 
 
@@ -304,7 +318,75 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
 })();
 </script>
 <script>
-Boda.track('app_open',{detail:'landing'});
+const MAX_MB = 80;
+let PLAN = null;
+
+async function analyze(){
+  const f = document.getElementById('file').files[0];
+  if(!f) return Boda.toast('⚠️ اختر ملفاً أولاً');
+  if(f.size > MAX_MB*1e6) { Boda.toast('⚠️ الملف أكبر من 80MB — أرسله للبوت مباشرة'); return; }
+  Boda.toast('⏳ جاري تحليل '+ (f.size/1e6|0) + 'MB...');
+  Boda.haptic('light');
+  try{
+    const buf = await f.arrayBuffer();
+    const ac  = new (window.AudioContext||window.webkitAudioContext)();
+    const aud = await ac.decodeAudioData(buf);
+    const ch  = aud.getChannelData(0);
+    const sr  = aud.sampleRate;
+    const step = Math.max(1, sr/20|0);            // 20 قراءة/ثانية كافية لهذه المهمة
+    const fmt = s => { s=Math.round(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+    const peaks = [];
+    for(let i=0;i<ch.length;i+=step){
+      let m=0;
+      for(let j=i;j<Math.min(i+step,ch.length);j++) m=Math.max(m,Math.abs(ch[j]));
+      peaks.push(m);
+    }
+    const mx = Math.max.apply(null,peaks);
+    const th = Math.max(0.02, mx*0.03);           // عتبة 3% من الأعلى
+    // شريط الطاقة (48 خانة): لون مميز = صمت، والباقي صوت
+    const cols=48, box=document.getElementById('strip-w');
+    let strip='<span style="width:100%;color:var(--hint);font-size:11px">الطاقة الصوتية 0 → '+fmt(ch.length/sr)+' ث</span>';
+    for(let k=0;k<cols;k++){
+      const v=peaks[(k*peaks.length/cols)|0];
+      strip+='<span style="min-width:2%;height:8px;border-radius:4px;background:'+
+             (v<th?'var(--accent)':'var(--surface)')+'"></span>';
+    }
+    box.innerHTML=strip;
+    // بناء خطة الصمت
+    const runs=[]; let cur=null;
+    for(let i=0;i<peaks.length;i++){
+      const t=i*step/sr;
+      if(peaks[i]<th){ if(!cur) cur={a:t}; }
+      else if(cur){ cur.b=t; if(cur.b-cur.a>=0.15) runs.push(cur); cur=null; }
+    }
+    if(cur){ cur.b=ch.length/sr; if(cur.b-cur.a>=0.15) runs.push(cur); }
+    const total=runs.reduce((x,r)=>x+(r.b-r.a),0);
+    PLAN = runs.length? runs.map(r=>fmt(r.a)+'-'+fmt(r.b)).join(', ') : '';
+    const res=document.getElementById('res');
+    if(runs.length){
+      const shown=runs.slice(0,8).map(r=>r.a<60?fmt(r.a)+'s':fmt(r.a)).join(' · ');
+      res.className='result show';
+      res.innerHTML='<b>🔇 وجدنا '+runs.length+' مقطع صامت</b>'+
+        '<br><small style="color:var(--hint)">إجمالي الصمت: '+fmt(total)+
+        ' ('+Math.round(100*total/(ch.length/sr))+'% من الملف)</small>'+
+        '<br><span dir="ltr">'+shown+(runs.length>8?' …':'')+'</span>';
+      document.getElementById('copyplan').style.display='block';
+    }else{
+      res.className='result show';
+      res.innerHTML='✅ الملف مكثف الصوت — لا صمت يُذكر ليُقص';
+      document.getElementById('copyplan').style.display='none';
+    }
+    Boda.track('feature_use',{detail:'silence_analyze'});
+  }catch(e){
+    Boda.toast('⚠️ صيغة الملف غير مدعومة بالتحليل المحلي — أرسله للبوت');
+  }
+}
+function copyPlan(){
+  if(!PLAN) return;
+  Boda.copy('اقص الصمت عند: '+PLAN, '📋 خطة القص منسوخة — أرسلها للبوت');
+  setTimeout(()=>location.href='https://t.me/BodaSilentCutBot', 700);
+}
+Boda.track('app_open',{detail:'tool'});
 </script>
 </body>
 </html>
