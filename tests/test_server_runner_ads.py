@@ -37,16 +37,16 @@ class DummyBot:
         pass
 
 
-def _http_get(url):
+def _http_get(url, timeout=15):
     req = urllib.request.Request(url, headers={"User-Agent": "TestClient/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status, resp.headers, resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         return e.code, e.headers, e.read().decode("utf-8")
 
 
-def _http_post_json(url, payload):
+def _http_post_json(url, payload, timeout=15):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url, data=data,
@@ -54,7 +54,7 @@ def _http_post_json(url, payload):
         method="POST"
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status, resp.headers, json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         return e.code, e.headers, json.loads(e.read().decode("utf-8"))
@@ -134,15 +134,28 @@ def test_webhook_server_serves_miniapp():
 # ── 5. اختبار واجهة برمجة الإعلانات /api/ads/status و /api/ads/set ──────────
 def test_webhook_server_ad_endpoints():
     """التحقق من استعراض وتحديث إعلانات Monetag عبر WebhookServer وحقنها الحي."""
+    # نسخة احتياطية: الاختبار يكتب إعلاناً تجريبياً في بيانات الإنتاج،
+    # فيجب استعادة الملفات الأصلية مهما كانت نتيجة الاختبار.
+    config_file = DATA_DIR / "monetag_config.json"
+    touched = [
+        config_file,
+        WEBROOT_DIR / "currency" / "index.html",
+        WEBAPPS_DIR / "currency.html",
+    ]
+    backup = {p: p.read_bytes() for p in touched if p.exists()}
+    missing = [p for p in touched if not p.exists()]
+
     srv = WebhookServer(host="127.0.0.1", port=0)
     srv.register("test_bot", DummyBot())
     srv.start()
+    # Give the server thread time to bind and become ready under test-suite load
+    time.sleep(1.0)
     try:
         base_url = f"http://127.0.0.1:{srv.actual_port}"
 
         # 1. استعراض الحالات
         req = urllib.request.Request(f"{base_url}/api/ads/status")
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             assert data["ok"] is True
             assert "apps" in data
@@ -165,3 +178,10 @@ def test_webhook_server_ad_endpoints():
         assert test_zone in currency_html or test_link in currency_html
     finally:
         srv.stop()
+        for path, data in backup.items():
+            path.write_bytes(data)
+        for path in missing:
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
