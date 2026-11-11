@@ -70,6 +70,7 @@ SECURITY_AUDIT_TOKENS.md
 *.tokens
 *.secrets
 coverage.xml
+coverage.json
 
 #.generating runtime data (rebuild with: python tools/build_mini_apps.py)
 webroot/data/stats.json

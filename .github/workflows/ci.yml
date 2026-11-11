@@ -39,7 +39,10 @@ jobs:
         run: python dev_tools.py lint
 
       - name: Test suite with coverage
-        run: pytest -q --cov=Bots_Folder --cov-report=xml --cov-report=term
+        run: pytest -q --cov=Bots_Folder --cov-report=json --cov-report=xml --cov-report=term
+
+      - name: Coverage gate (per-module minimums)
+        run: python tools/check_coverage.py
 
       - name: Registry health check
         run: python dev_tools.py health

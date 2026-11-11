@@ -138,10 +138,9 @@ def _make_middleware_with_url():
 
 def _make_middleware_without_url():
     """إنشاء ميدل وير بدون متغير بيئة"""
-    with _patch_miniapps_url(""):
-        mock_bot = MagicMock()
-        mw = unified_middleware.UnifiedBotMiddleware(mock_bot, "testbot")
-        return mw, mock_bot
+    mock_bot = MagicMock()
+    mw = unified_middleware.UnifiedBotMiddleware(mock_bot, "testbot")
+    return mw, mock_bot
 
 
 class TestUnifiedBotMiddleware:
@@ -176,36 +175,41 @@ class TestUnifiedBotMiddleware:
 
     def test_pre_process_sends_promo_on_start_first_time(self):
         """pre_process: يرسل بطاقة التطبيق مرة واحدة عند /start"""
-        mw, mock_bot = _make_middleware_with_url()
-        mock_msg = MagicMock()
-        mock_msg.from_user.id = 123
-        mock_msg.chat.type = "private"
-        mock_msg.text = "/start"
+        # السياق يُبقي رابط التطبيق مرقّعاً أثناء pre_process نفسها —
+        # لا اعتماد على MINIAPPS_BASE_URL من .env المحلي (مستقل عن البيئة)
+        with _patch_miniapps_url("https://example.com/bots"):
+            mw, mock_bot = _make_middleware_without_url()
+            mock_msg = MagicMock()
+            mock_msg.from_user.id = 123
+            mock_msg.chat.type = "private"
+            mock_msg.text = "/start"
 
-        with patch("threading.Timer") as mock_timer:
-            mock_timer_instance = MagicMock()
-            mock_timer.return_value = mock_timer_instance
-            mw.pre_process(mock_msg, {})
-            mock_timer.assert_called_once()
-            call_args = mock_timer.call_args
-            callback = call_args[0][1]
-            callback(123)
-            mock_bot.send_message.assert_called()
-            call_args = mock_bot.send_message.call_args
-            text = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("text", "")
-            assert "تفاعلية" in text
+            with patch("threading.Timer") as mock_timer:
+                mock_timer_instance = MagicMock()
+                mock_timer.return_value = mock_timer_instance
+                mw.pre_process(mock_msg, {})
+                mock_timer.assert_called_once()
+                call_args = mock_timer.call_args
+                callback = call_args[0][1]
+                callback(123)
+                mock_bot.send_message.assert_called()
+                call_args = mock_bot.send_message.call_args
+                text = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("text", "")
+                assert "تفاعلية" in text
 
     def test_pre_process_no_promo_on_second_start(self):
         """pre_process: لا يرسل البطاقة مرة ثانية"""
-        mw, mock_bot = _make_middleware_with_url()
-        mock_msg = MagicMock()
-        mock_msg.from_user.id = 123
-        mock_msg.chat.type = "private"
-        mock_msg.text = "/start"
+        with _patch_miniapps_url("https://example.com/bots"):
+            mw, mock_bot = _make_middleware_without_url()
+            mock_msg = MagicMock()
+            mock_msg.from_user.id = 123
+            mock_msg.chat.type = "private"
+            mock_msg.text = "/start"
 
-        mw.pre_process(mock_msg, {})
-        mw.pre_process(mock_msg, {})
-        assert 123 in mw._promo_sent
+            with patch("threading.Timer"):
+                mw.pre_process(mock_msg, {})
+                mw.pre_process(mock_msg, {})
+            assert 123 in mw._promo_sent
 
     def test_pre_process_no_promo_without_url(self):
         """pre_process: لا بطاقة بدون MINIAPPS_BASE_URL"""
