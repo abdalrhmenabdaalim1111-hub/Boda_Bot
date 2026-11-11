@@ -58,8 +58,8 @@ def test_apply_migrations_is_idempotent(empty_db):
 def test_rollback_reverts_schema(empty_db):
     """التراجع ينفّذ سكربت down ويزيل الصف من السجل"""
     migrations.apply_migrations(empty_db, backup=False)
-    rolled = migrations.rollback(empty_db, steps=1)
-    assert len(rolled) == 1
+    rolled = migrations.rollback(empty_db, steps=len(migrations.MIGRATIONS))
+    assert len(rolled) == len(migrations.MIGRATIONS)
 
     tables = {
         r[0] for r in empty_db.execute(
@@ -67,10 +67,12 @@ def test_rollback_reverts_schema(empty_db):
     }
     assert "bot_config" not in tables
     assert "audit_log" not in tables
+    assert "ads" not in tables
 
     versions = [r[0] for r in empty_db.execute(
         "SELECT version FROM schema_migrations")]
     assert 1 not in versions
+    assert 2 not in versions
 
 
 def test_rollback_all_then_reapply(empty_db):

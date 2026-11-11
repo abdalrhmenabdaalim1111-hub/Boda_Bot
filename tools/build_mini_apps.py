@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from app_template import build_html          # noqa: E402
 from app_defs import APPS                    # noqa: E402
 
@@ -363,9 +364,51 @@ def main():
         print("❌ تعذر قراءة bots_registry.json")
         return 1
 
+    # Marker-aware rebuild (D7): never wipe the whole webroot — preserve any
+    # file or directory that carries ad markers or is not managed by us.
+    # We only remove the paths this generator owns, then regenerate them.
     if out_dir.exists():
-        shutil.rmtree(out_dir)
-    (out_dir / "data").mkdir(parents=True)
+        for managed in ("data", "store", "index.html", "sitemap.xml",
+                        "robots.txt", ".nojekyll"):
+            target = out_dir / managed
+            if target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+            elif target.exists():
+                target.unlink(missing_ok=True)
+        # Preserve ad markers: read old files BEFORE removing directories.
+        # Stored in a dict for carry-over during regeneration below.
+        _preserved_markers = {}
+        try:
+            import json as _j
+            _apps = _j.loads(REG.read_text(encoding="utf-8"))
+            for _a in (_apps if isinstance(_apps, list) else _apps.get("bots", [])):
+                _bid = _a.get("id")
+                if _bid:
+                    _old = out_dir / _bid / "index.html"
+                    if _old.exists():
+                        try:
+                            from control_center.ads.injector import list_blocks as _lb
+                            import re as _re
+                            _old_text = _old.read_text(encoding="utf-8")
+                            _carried = []
+                            for _blk in _lb(_old_text):
+                                _m = _re.search(
+                                    r"<!-- AD:BEGIN slot=" + _re.escape(_blk["slot"]) +
+                                    r" id=" + _re.escape(_blk["ad_id"]) + r" -->(.*?)"
+                                    r"<!-- AD:END slot=" + _re.escape(_blk["slot"]) + r" -->",
+                                    _old_text, _re.DOTALL)
+                                if _m:
+                                    _carried.append((_blk["slot"], _blk["ad_id"], _m.group(1).strip()))
+                            if _carried:
+                                _preserved_markers[_bid] = _carried
+                        except Exception:
+                            pass
+                    _d = out_dir / _bid
+                    if _d.is_dir():
+                        shutil.rmtree(_d, ignore_errors=True)
+        except Exception:
+            pass
+    (out_dir / "data").mkdir(parents=True, exist_ok=True)
 
     # catalog.json — مصدر المتجر (نفس بنية النسخة المضمنة في store/index.html)
     catalog = [{"id": a["id"], "emoji": a.get("emoji", "🤖"), "name": a.get("name", ""),
@@ -399,6 +442,15 @@ def main():
             n_interactive += 1
         d = out_dir / bid
         d.mkdir(exist_ok=True)
+        # Marker-aware: carry over ad markers preserved before the directory
+        # was removed (D7).
+        carried_markers = _preserved_markers.get(bid, [])
+        if carried_markers:
+            try:
+                from control_center.ads.injector import inject_markers as _inj
+                html = _inj(html, carried_markers)
+            except Exception:
+                pass
         (d / "index.html").write_text(html, encoding="utf-8")
         # نسخة ملف فردي في webapps/
         (webapps_dir / f"{bid}.html").write_text(html, encoding="utf-8")
