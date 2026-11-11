@@ -1297,5 +1297,384 @@ def test_get_or_create_assignment_no_db(tmp_path):
         assert "b3" in assignment
 
 
+# ── تغطية الفروع المتبقية: attach_growth_engine والمسارات غير المختبرة ─────────
+
+
+def _engine_with(cfg: dict, tmp_path, pool=None):
+    """محرك مُعد للاختبار + تسجيله كسingleton مع بول جاهز"""
+    cfg_file = tmp_path / "net_cfg.json"
+    base = dict(growth_engine.DEFAULT_NETWORK_CONFIG)
+    base.update(cfg)
+    cfg_file.write_text(json.dumps(base, ensure_ascii=False), encoding="utf-8")
+    eng = GrowthEngine(config_file=cfg_file)
+    if pool is None:
+        pool = [dict(b) for b in POOL]
+    eng._registry_cache = (pool, time.time())
+    growth_engine._growth_engine_instance = eng
+    return eng
+
+
+def _mk_private_msg(uid, text):
+    """رسالة خاصة وهمية كاملة الحقول"""
+    m = MagicMock()
+    m.chat.type = "private"
+    m.chat.id = uid
+    m.from_user.id = uid
+    m.from_user.username = "user"
+    m.from_user.full_name = "Test User"
+    m.text = text
+    return m
+
+
+def test_load_config_default_write_exception(tmp_path):
+    """113-114: فشل كتابة ملف الإعدادات الافتراضي → تجاهل والعودة لللافتراضي"""
+    cfg_file = tmp_path / "fresh.json"
+    with patch("growth_engine.json.dump", side_effect=OSError("disk full")):
+        eng = GrowthEngine(config_file=cfg_file)
+    assert eng.config["assignment_size"] == 5
+    assert eng.config["fixed_bot_ids"] == ["store"]
+
+
+def test_load_registry_pool_skips_empty_username(tmp_path, monkeypatch):
+    """137: بوت بلا username في الريجستري يُتخطى"""
+    reg = tmp_path / "registry.json"
+    reg.write_text(json.dumps([
+        {"id": "nouser", "name": "بوت بلا يوزر", "username": ""},
+        {"id": "nokey", "name": "بلا مفتاح أصلاً"},
+        {"id": "withuser", "name": "بوت جيد", "username": "@GoodBot", "emoji": "🔧"},
+    ], ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(growth_engine, "REGISTRY_FILE", reg)
+    eng = GrowthEngine(config_file=tmp_path / "cfg.json")
+    eng._registry_cache = (None, 0)
+    pool = eng._load_registry_pool()
+    ids = [b["id"] for b in pool]
+    assert ids == ["withuser"]
+    assert pool[0]["username"] == "@GoodBot"
+    assert pool[0]["url"] == "https://t.me/GoodBot"
+
+
+def test_assignment_already_full_skips_candidates(engine):
+    """203->206: الثوابت + البوت الحالي يملآن الحجم → لا مرشحين إضافيين"""
+    eng, db = engine
+    eng.config["assignment_size"] = 2
+    a = eng.get_or_create_assignment(321, current_bot="b1")
+    assert sorted(a) == ["b1", "store"]
+
+
+def test_replace_blocked_full_and_no_db(engine, monkeypatch):
+    """219->221 + 222->224: استبدال المحظورين — القائمة كاملة، وغياب DB"""
+    eng, db = engine
+    # لا محظورين → keep كامل → need=0 (219->221)
+    result = eng._replace_blocked(700, ["store", "b1", "b2", "b3", "b4"], [])
+    assert len(result) == 5
+    # بدون DB → التعيين يُبنى دون حفظ (222->224)
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: None)
+    result2 = eng._replace_blocked(701, ["store", "b1"], ["b1"], current_bot="x")
+    assert "b1" not in result2
+    assert len(result2) == 5
+    assert "store" in result2
+
+
+def test_cache_allow_explicit_days(engine):
+    """238->240: تحديد days صراحةً"""
+    eng, _ = engine
+    before = time.time()
+    eng._cache_allow(55, days=0.5)
+    assert eng._activation_cache[55] == pytest.approx(before + 43200, abs=10)
+
+
+def test_check_network_activation_active_sets_cache(engine):
+    """265-273: تفعيل ساري (غير منتهي) → حساب المتبقي وتخزينه في كاش الذاكرة"""
+    eng, db = engine
+    uid = 900
+    db.activations[uid] = datetime.now().isoformat()
+    eng._activation_cache.clear()
+    allowed, text, kb = eng.check_network_activation(MagicMock(), uid, current_bot="b1")
+    assert allowed is True
+    assert text is None
+    assert kb is None
+    assert uid in eng._activation_cache
+    assert eng._activation_cache[uid] > time.time()
+
+
+def test_build_activation_keyboard_import_error(engine):
+    """341-357: غياب telebot → لوحة DummyMarkup"""
+    import sys as _sys
+    eng, _ = engine
+    bots = [{"id": "store", "name": "متجر", "username": "@s", "url": "https://t.me/s"}]
+    with patch.dict(_sys.modules, {"telebot.types": None}):
+        kb = eng._build_activation_keyboard(bots)
+    assert len(kb.keyboard) == 2
+    assert kb.keyboard[0].url == "https://t.me/s"
+    assert kb.keyboard[1].callback_data == "verify_network_activation"
+
+
+def test_get_store_button_import_error(engine):
+    """389-395: غياب telebot → زر DummyBtn"""
+    import sys as _sys
+    eng, _ = engine
+    with patch.dict(_sys.modules, {"telebot.types": None}):
+        btn = eng.get_store_button()
+    assert "متجر التطبيقات" in btn.text
+    assert btn.url == "https://t.me/BodaStoreeBot"
+
+
+def test_record_referral_no_db(tmp_path):
+    """441: بدون DB → False"""
+    eng = GrowthEngine(config_file=tmp_path / "c.json")
+    with patch("growth_engine._get_db", return_value=None):
+        assert eng.record_referral(1, 2, "b") is False
+
+
+def test_attach_growth_engine_disabled(tmp_path):
+    """480: المحرك معطل → يعود فوراً دون تركيب أي شيء"""
+    _engine_with({"enabled": False}, tmp_path)
+    bot = MagicMock()
+    growth_engine.attach_growth_engine(bot, "testbot")
+    bot.get_me.assert_not_called()
+    growth_engine._growth_engine_instance = None
+
+
+def test_attach_growth_engine_get_me_exception(tmp_path):
+    """486-487: فشل get_me → اسم احتياطي ويستمر التركيب"""
+    _engine_with({"enabled": True}, tmp_path)
+    bot = MagicMock()
+    bot.get_me.side_effect = Exception("network down")
+    growth_engine.attach_growth_engine(bot, "mybot")
+    assert bot.process_new_messages.__name__ == "wrapped_process_new_messages"
+    assert bot.send_message.__name__ == "_send_tracking_block"
+    growth_engine._growth_engine_instance = None
+
+
+def test_attach_growth_engine_partial_interfaces(tmp_path):
+    """490->541 + 541->576 + 576->620: بوت بواجهات ناقصة يُركب دون انهيار"""
+    _engine_with({"enabled": True}, tmp_path)
+    # بلا process_new_messages و callback_query_handler
+    bot1 = MagicMock(spec=["get_me", "message_handler", "send_message"])
+    growth_engine.attach_growth_engine(bot1, "testbot")
+    assert bot1.send_message.__name__ == "_send_tracking_block"
+    # بلا message_handler أيضاً
+    bot2 = MagicMock(spec=["get_me", "send_message"])
+    growth_engine.attach_growth_engine(bot2, "testbot")
+    growth_engine._growth_engine_instance = None
+
+
+def test_wrapped_process_referral_parsing(tmp_path, monkeypatch):
+    """502-507 + 533 + 536: تحليل /start ref_ والمرور للمعالج الأصلي"""
+    eng = _engine_with({"enabled": True, "require_5_bots_activation": True}, tmp_path)
+    fake_db = FakeDB()
+    fake_db.get_referral_count = lambda u, b: 0
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: fake_db)
+
+    recorded = []
+    monkeypatch.setattr(eng, "record_referral",
+                        lambda r, u, b: recorded.append((r, u, b)) or True)
+
+    bot = MagicMock()
+    bot.get_me.return_value = MagicMock(username="tb")
+    processed = []
+    bot.process_new_messages = lambda msgs: processed.extend(msgs)
+    growth_engine.attach_growth_engine(bot, "testbot")
+
+    # مستخدم مسموح عبر كاش الذاكرة
+    eng._activation_cache[111] = time.time() + 3600
+
+    # إحالة صالحة
+    bot.process_new_messages([_mk_private_msg(111, "/start ref_999")])
+    assert recorded == [(999, 111, "testbot")]
+
+    # ref غير رقمي → ValueError يُلتقط بصمت
+    bot.process_new_messages([_mk_private_msg(111, "/start ref_abc")])
+    # إحالة ذاتية → لا تسجيل
+    bot.process_new_messages([_mk_private_msg(111, "/start ref_111")])
+    assert len(recorded) == 1
+
+    # الرسائل المسموحة تصل للمعالج الأصلي (533 + 536)
+    ok_msg = _mk_private_msg(111, "مرحبا")
+    bot.process_new_messages([ok_msg])
+    assert ok_msg in processed
+    growth_engine._growth_engine_instance = None
+
+
+def test_wrapped_process_gate_no_db_and_send_fail(tmp_path, monkeypatch):
+    """519->526 + 529-530: بوابة بدون DB وفشل إرسال البوابة"""
+    eng = _engine_with({"enabled": True, "require_5_bots_activation": True}, tmp_path)
+    monkeypatch.setattr(eng, "check_network_activation",
+                        lambda b, u, current_bot="": (False, "GATE", None))
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: None)
+
+    bot = MagicMock()
+    bot.get_me.return_value = MagicMock(username="tb")
+    processed = []
+    bot.process_new_messages = lambda msgs: processed.extend(msgs)
+    bot.send_message = MagicMock(side_effect=Exception("send failed"))
+
+    growth_engine.attach_growth_engine(bot, "testbot")
+    bot.process_new_messages([_mk_private_msg(55, "hi")])
+    assert processed == []  # ممنوعة (continue) رغم فشل الإرسال
+    growth_engine._growth_engine_instance = None
+
+
+def test_wrapped_process_gate_track_user_fails(tmp_path, monkeypatch):
+    """524-525: فشل track_user لا يمنع إرسال البوابة"""
+    eng = _engine_with({"enabled": True, "require_5_bots_activation": True}, tmp_path)
+    monkeypatch.setattr(eng, "check_network_activation",
+                        lambda b, u, current_bot="": (False, "GATE", None))
+    fake_db = FakeDB()  # لا يملك track_user → AttributeError → يُلتقط
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: fake_db)
+
+    bot = MagicMock()
+    bot.get_me.return_value = MagicMock(username="tb")
+    processed = []
+    bot.process_new_messages = lambda msgs: processed.extend(msgs)
+    orig_send = MagicMock()
+    bot.send_message = orig_send
+
+    growth_engine.attach_growth_engine(bot, "testbot")
+    bot.process_new_messages([_mk_private_msg(66, "hi")])
+    orig_send.assert_called_once()  # البوابة أُرسلت رغم فشل التسجيل
+    assert processed == []
+    growth_engine._growth_engine_instance = None
+
+
+def test_verify_callback_success_and_missing(tmp_path, monkeypatch):
+    """545-571: جسم زر التحقق — النجاح والنقص"""
+    eng = _engine_with({"enabled": True, "require_5_bots_activation": True,
+                        "fixed_bot_ids": ["store"], "balance": True}, tmp_path)
+    handlers = {}
+    bot = MagicMock()
+    bot.get_me.return_value = MagicMock(username="tb")
+
+    def fake_cqh(func=None, **kw):
+        def deco(f):
+            handlers["verify"] = f
+            return f
+        return deco
+    bot.callback_query_handler = fake_cqh
+
+    orig_send = MagicMock()
+    bot.send_message = orig_send
+    growth_engine.attach_growth_engine(bot, "testbot")
+    assert "verify" in handlers
+
+    # ── نجاح: كل البوتات started ──
+    fake_db = FakeDB()
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: fake_db)
+    uid = 777
+    assignment = eng.get_or_create_assignment(uid, "testbot")
+    for bid in assignment:
+        fake_db.started[(bid, uid)] = True
+
+    call = MagicMock()
+    call.id = "c1"
+    call.from_user.id = uid
+    call.message.chat.id = uid
+    handlers["verify"](call)
+    bot.answer_callback_query.assert_called_once()
+    assert "تم التحقق" in bot.answer_callback_query.call_args[0][1]
+    orig_send.assert_called()  # رسالة التهنئة
+
+    # ── نقص: مستخدم جديد لم يشترك في شيء ──
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: FakeDB())
+    call2 = MagicMock()
+    call2.id = "c2"
+    call2.from_user.id = 888
+    call2.message.chat.id = 888
+    handlers["verify"](call2)
+    alert = bot.answer_callback_query.call_args[0][1]
+    assert "لم تشترك" in alert
+    sent = orig_send.call_args
+    gate_text = sent[0][1] if len(sent[0]) > 1 else sent[1].get("text", "")
+    assert "باقي خطوة واحدة" in gate_text  # بوابة بالناقصين فقط
+    growth_engine._growth_engine_instance = None
+
+
+def test_store_and_share_command_handlers(tmp_path, monkeypatch):
+    """580-614: أوامر /store و /share (المسار الطبيعي + مسار ImportError)"""
+    import sys as _sys
+    _engine_with({"enabled": True}, tmp_path)
+    fake_db = FakeDB()
+    fake_db.get_referral_count = lambda u, b: 2
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: fake_db)
+
+    cmd_handlers = {}
+    bot = MagicMock()
+    bot.get_me.return_value = MagicMock(username="tb")
+    orig_reply = MagicMock()
+    bot.reply_to = orig_reply
+
+    def fake_mh(**kw):
+        def deco(f):
+            cmd_handlers[tuple(kw.get("commands", []))] = f
+            return f
+        return deco
+    bot.message_handler = fake_mh
+
+    growth_engine.attach_growth_engine(bot, "testbot")
+    store_key = next(k for k in cmd_handlers if "store" in k)
+    share_key = next(k for k in cmd_handlers if "ref" in k)
+
+    msg = MagicMock()
+    msg.from_user.id = 55
+    msg.chat.id = 55
+
+    # /store — المسار الطبيعي
+    cmd_handlers[store_key](msg)
+    assert "متجر تطبيقات بودا" in orig_reply.call_args[0][1]
+
+    # /share — المسار الطبيعي
+    cmd_handlers[share_key](msg)
+    share_text = orig_reply.call_args[0][1]
+    assert "رابط الدعوة" in share_text
+    assert "ref_55" in share_text
+
+    # مسار ImportError → الرد النصي البسيط (586-587 + 613-614)
+    with patch.dict(_sys.modules, {"telebot.types": None}):
+        cmd_handlers[store_key](msg)
+        cmd_handlers[share_key](msg)
+    assert orig_reply.call_count == 4
+    growth_engine._growth_engine_instance = None
+
+
+def test_send_tracking_403_handler_exceptions(tmp_path, monkeypatch):
+    """631->636 + 634-635: 403 مع DB غائب/فاشل — الاستثناء الأصلي يُعاد رفعه"""
+    from telebot.apihelper import ApiTelegramException
+    _engine_with({"enabled": True}, tmp_path)
+
+    bot = MagicMock()
+    bot.get_me.return_value = MagicMock(username="tb")
+    exc = ApiTelegramException("Forbidden", 403,
+                               {"error_code": 403, "description": "bot was blocked by the user"})
+    orig_send = MagicMock(side_effect=exc)
+    bot.send_message = orig_send
+    growth_engine.attach_growth_engine(bot, "testbot")
+
+    # DB غائب → لا تسجيل (631->636)
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: None)
+    with pytest.raises(ApiTelegramException):
+        bot.send_message(123, "x")
+
+    # _get_db نفسه يفشل → يُلتقط داخلياً (634-635)
+    def _boom():
+        raise RuntimeError("db down")
+    monkeypatch.setattr(growth_engine, "_get_db", lambda: _boom())
+    with pytest.raises(ApiTelegramException):
+        bot.send_message(456, "x")
+    growth_engine._growth_engine_instance = None
+
+
+def test_send_tracking_import_error(tmp_path):
+    """639-640: فشل استيراد ApiTelegramException → التغليف يُتخطى بأمان"""
+    import sys as _sys
+    _engine_with({"enabled": True}, tmp_path)
+    bot = MagicMock()
+    bot.get_me.return_value = MagicMock(username="tb")
+    with patch.dict(_sys.modules, {"telebot.apihelper": None}):
+        growth_engine.attach_growth_engine(bot, "testbot")
+    # لم يُغلّف send_message — ما زال MagicMock
+    assert isinstance(bot.send_message, MagicMock)
+    growth_engine._growth_engine_instance = None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

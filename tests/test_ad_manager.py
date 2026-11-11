@@ -866,5 +866,216 @@ class TestGetMonetagButtonAdditional:
         assert btn is None
 
 
+class TestAdManagerRemainingBranches:
+    """تغطية الفروع المتبقية في ad_manager"""
+
+    def _make_mgr(self, tmp_path, cfg: dict, monetag: dict = None):
+        """مدير إعلانات بملفات مؤقتة"""
+        import ad_manager as am
+        cfg_file = tmp_path / "ads_rb.json"
+        mon_file = tmp_path / "mon_rb.json"
+        cfg_file.write_text(json.dumps(cfg, ensure_ascii=False), encoding="utf-8")
+        mon_file.write_text(json.dumps(
+            monetag if monetag is not None
+            else {"global_default": {"enabled": True, "direct_link": "https://g.link", "zone_id": "1"},
+                  "bots": {}},
+            ensure_ascii=False), encoding="utf-8")
+        return am.AdManager(config_file=cfg_file, monetag_file=mon_file)
+
+    def test_monetag_file_created_when_missing(self, tmp_path):
+        """84-87: إنشاء ملف Monetag افتراضي عند غيابه"""
+        from ad_manager import AdManager
+        mon = tmp_path / "mon_new.json"
+        cfg = tmp_path / "ads.json"
+        cfg.write_text(json.dumps({"enabled": True}), encoding="utf-8")
+        mgr = AdManager(config_file=cfg, monetag_file=mon)
+        assert mon.exists()
+        assert "global_default" in mgr.monetag_config
+
+    def test_monetag_default_write_exception(self, tmp_path):
+        """88-89: فشل كتابة الملف الافتراضي → الإعدادات الافتراضية"""
+        cfg = tmp_path / "ads.json"
+        cfg.write_text(json.dumps({"enabled": True}), encoding="utf-8")
+        with patch("ad_manager.json.dump", side_effect=OSError("disk full")):
+            from ad_manager import AdManager
+            mgr = AdManager(config_file=cfg, monetag_file=tmp_path / "m.json")
+        assert "global_default" in mgr.monetag_config
+
+    def test_ads_config_created_when_missing(self, tmp_path):
+        """305-310: إنشاء ملف إعدادات افتراضي عند غيابه"""
+        from ad_manager import AdManager
+        cfg = tmp_path / "fresh_ads.json"
+        mon = tmp_path / "mon.json"
+        mon.write_text(json.dumps({"global_default": {}, "bots": {}}), encoding="utf-8")
+        mgr = AdManager(config_file=cfg, monetag_file=mon)
+        assert cfg.exists()
+        assert mgr.config["enabled"] is True
+
+    def test_record_ad_view_and_click_with_db(self, tmp_path):
+        """186-187 + 196-197: تسجيل مشاهدة/نقرة عبر DB"""
+        mgr = self._make_mgr(tmp_path, {"enabled": True})
+        with patch("database.get_db") as mock_get_db:
+            mock_db = MagicMock()
+            mock_get_db.return_value = mock_db
+            mgr.record_ad_view("bot1")
+            mock_db.record_ad_impression.assert_called_once_with("bot1", "direct_link")
+            mgr.record_ad_click("bot2", "banner")
+            mock_db.record_ad_click.assert_called_once_with("bot2", "banner")
+
+    def test_record_ab_exception_paths(self, tmp_path):
+        """220-221 + 233-234: استثناء DB في تسجيل A/B لا يوقف إعادة المجموعة"""
+        mgr = self._make_mgr(tmp_path, {"enabled": True})
+        with patch("database.get_db", side_effect=Exception("db down")):
+            v1 = mgr.record_ab_view("b", 1)
+            v2 = mgr.record_ab_click("b", 1)
+        assert v1 in ("A", "B")
+        assert v2 in ("A", "B")
+
+    def test_get_all_monetag_statuses_db_exception(self, tmp_path):
+        """253-254: فشل جلب الإحصائيات لا يفشل التقرير"""
+        mgr = self._make_mgr(tmp_path, {"enabled": True}, monetag={
+            "global_default": {"enabled": True, "direct_link": "https://g.link"},
+            "bots": {"currency": {"has_custom_ads": True,
+                                  "direct_link": "https://c.link", "active": True}},
+        })
+        with patch("database.get_db", side_effect=Exception("db")):
+            statuses = mgr.get_all_monetag_statuses()
+        assert "currency" in statuses
+        assert statuses["currency"]["has_ad"] is True
+
+    def test_set_monetag_creates_bots_section(self, tmp_path):
+        """132: ملف Monetag بلا قسم bots → يُنشأ تلقائياً"""
+        mgr = self._make_mgr(tmp_path, {"enabled": True}, monetag={
+            "global_default": {"enabled": True, "direct_link": "https://g.link"}, "bots": {}
+        })
+        del mgr.monetag_config["bots"]  # محاكاة ملف قديم بلا القسم
+        assert mgr.set_monetag_config("newbot", direct_link="https://n.link") is True
+        assert mgr.get_monetag_config("newbot")["direct_link"] == "https://n.link"
+
+    def test_disabled_manager_short_circuits(self, tmp_path):
+        """337 + 391 + 414 + 469: التعطيل الكلي يوقف كل مسارات الإعلان"""
+        import ad_manager as am
+        from ad_manager import attach_unified_ads
+        mgr = self._make_mgr(tmp_path, {"enabled": False})
+        assert mgr.check_force_subscribe(MagicMock(), 1) == (True, None, None)
+        assert mgr.get_footer_ad(1) == ""
+        assert mgr.get_ad_button() is None
+
+        # attach_unified_ads لا يغلف شيئاً
+        am._ad_manager_instance = mgr
+        try:
+            bot = MagicMock()
+            sentinel = bot.send_message
+            attach_unified_ads(bot, "b")
+            assert bot.send_message is sentinel
+        finally:
+            am._ad_manager_instance = None
+
+    def test_send_message_with_ads_parse_mode_branches(self, tmp_path):
+        """483->498 + 484-487 + 489-490 + 494: فروع parse_mode وtext كـ kwarg"""
+        import ad_manager as am
+        from ad_manager import attach_unified_ads
+        mgr = self._make_mgr(tmp_path, {
+            "enabled": True,
+            "footer_ad": {"enabled": True, "frequency": 1,
+                          "text": "\n\n────────\n📢 <b>برعاية المتجر</b>"},
+            "button_ad": {"enabled": False},
+        })
+        am._ad_manager_instance = mgr
+        try:
+            bot = MagicMock()
+            orig = MagicMock()
+            bot.send_message = orig
+            attach_unified_ads(bot, "testbot")
+
+            # parse_mode صريح → الإعلان يُلصق بوسوم HTML كما هو (484-487)
+            bot.send_message(123, "Hello", parse_mode="HTML")
+            args, kwargs = orig.call_args
+            assert "<b>برعاية" in args[1]
+            assert kwargs.get("parse_mode") == "HTML"
+
+            # text كـ kwarg بلا parse_mode → تُنظف الوسوم (489-490 + 494)
+            orig.reset_mock()
+            bot.send_message(chat_id=123, text="Hi")
+            args, kwargs = orig.call_args
+            assert kwargs["text"].startswith("Hi")
+            assert "<" not in kwargs["text"]
+            assert "برعاية" in kwargs["text"]
+        finally:
+            am._ad_manager_instance = None
+
+    def test_send_message_with_ads_inner_exception(self, tmp_path):
+        """496-497: استثناء داخل الغلاف لا يمنع الرسالة الأصلية"""
+        import ad_manager as am
+        from ad_manager import attach_unified_ads
+        mgr = self._make_mgr(tmp_path, {
+            "enabled": True,
+            "footer_ad": {"enabled": True, "frequency": 1, "text": "\n📢 AD"},
+            "button_ad": {"enabled": False},
+        })
+        am._ad_manager_instance = mgr
+        try:
+            bot = MagicMock()
+            orig = MagicMock()
+            bot.send_message = orig
+            attach_unified_ads(bot, "testbot")
+
+            with patch.object(mgr, "get_footer_ad", side_effect=RuntimeError("boom")):
+                bot.send_message(123, "Test")
+            orig.assert_called_once_with(123, "Test")
+        finally:
+            am._ad_manager_instance = None
+
+    def test_get_monetag_button_import_error(self, tmp_path):
+        """528-529: فشل استيراد telebot → None"""
+        import sys as _sys
+        import ad_manager as am
+        from ad_manager import get_monetag_button
+        mgr = self._make_mgr(tmp_path, {"enabled": True})
+        am._ad_manager_instance = mgr
+        try:
+            with patch.dict(_sys.modules, {"telebot.types": None}):
+                assert get_monetag_button("anybot") is None
+        finally:
+            am._ad_manager_instance = None
+
+    def test_force_subscribe_keyboard_import_error(self, tmp_path):
+        """367-379: غياب telebot → DummyMarkup لبوابة الاشتراك"""
+        import sys as _sys
+        mgr = self._make_mgr(tmp_path, {
+            "enabled": True,
+            "force_subscribe": {
+                "enabled": True,
+                "channel_username": "@TestChannel",
+                "channel_title": "Test Channel",
+                "invite_link": "https://t.me/TestChannel",
+                "gate_message": "Please subscribe",
+            },
+        })
+        bot = MagicMock()
+        member = MagicMock()
+        member.status = "left"
+        bot.get_chat_member.return_value = member
+
+        with patch.dict(_sys.modules, {"telebot.types": None}):
+            allowed, msg, kb = mgr.check_force_subscribe(bot, 1)
+        assert allowed is False
+        assert "Please subscribe" in msg
+        assert len(kb.keyboard) == 2  # اشترك + تحقق
+
+    def test_get_ad_button_import_error(self, tmp_path):
+        """426-431: غياب telebot → DummyButton"""
+        import sys as _sys
+        mgr = self._make_mgr(tmp_path, {
+            "enabled": True,
+            "button_ad": {"enabled": True, "button_text": "Test", "url": "https://t.me/T"},
+        })
+        with patch.dict(_sys.modules, {"telebot.types": None}):
+            btn = mgr.get_ad_button()
+        assert btn is not None
+        assert btn.text == "Test"
+        assert btn.url == "https://t.me/T"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
