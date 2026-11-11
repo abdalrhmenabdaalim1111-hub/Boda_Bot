@@ -2,7 +2,7 @@
 <html dir="rtl" lang="ar" data-group="media">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="فلتر جماليات + تحويل لصيغ — كل شيء داخل جهازك">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#8b5cf6">
@@ -535,6 +535,7 @@ textarea{ min-height:92px; resize:vertical; }
     <p>فلتر جماليات + تحويل لصيغ — كل شيء داخل جهازك</p>
   </header>
 
+  <main id="app">
 
 <div class="card">
   <label>اختر صورة من جهازك</label>
@@ -552,6 +553,7 @@ textarea{ min-height:92px; resize:vertical; }
   <div class="result" id="res" style="text-align:center"></div>
 </div>
 
+  </main>
 
   <footer class="app-footer">
     <a href="../store/">🏠 الصفحة الرئيسية</a> · <a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>
@@ -617,6 +619,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   function initData() { try { return (tg && tg.initData) || ''; } catch (e) { return ''; } }
+
+  /* بيئة تيليجرام الحقيقية فقط — مكتبة telegram-web-app.js تُحمّل حتى خارج تيليجرام */
+  function isTelegram() {
+    try {
+      if (!tg) return false;
+      if (tg.initData) return true;
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) return true;
+      return !!(tg.platform && tg.platform !== 'unknown');
+    } catch (e) { return false; }
+  }
 
   /* ── التتبع (best-effort، لا يعطّل الواجهة) ── */
   function track(event, extra) {
@@ -714,27 +726,37 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   /* ── MainButton / BackButton أصليّان ── */
+  var mainCb = null;
   var MainButton = {
     set: function (text, onClick) {
-      if (!tg || !tg.MainButton) return false;
+      if (!tg || !tg.MainButton || !isTelegram()) return false;
       try {
         tg.MainButton.setText(text || '');
-        tg.MainButton.onClick(onClick || function () {});
+        /* إزالة المستمع السابق حتى لا تتراكم الأفعال عند تغيير النص */
+        if (mainCb && tg.MainButton.offClick) {
+          try { tg.MainButton.offClick(mainCb); } catch (e) {}
+        }
+        mainCb = onClick || function () {};
+        tg.MainButton.onClick(mainCb);
         tg.MainButton.show();
         return true;
       } catch (e) { return false; }
     },
     hide: function () { try { tg.MainButton.hide(); } catch (e) {} },
     progress: function (on) {
+      if (!isTelegram()) return;
       try { on ? tg.MainButton.showProgress(true) : tg.MainButton.hideProgress(); }
       catch (e) {}
     },
-    disable: function (on) { try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {} }
+    disable: function (on) {
+      if (!isTelegram()) return;
+      try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {}
+    }
   };
 
   var BackButton = {
     show: function (onClick) {
-      if (!tg || !tg.BackButton) return false;
+      if (!tg || !tg.BackButton || !isTelegram()) return false;
       try {
         tg.BackButton.onClick(onClick || function () { tg.close(); });
         tg.BackButton.show();
@@ -892,7 +914,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
       Ad.afterResult();
     }
     function scan(root) {
-      (root.querySelectorAll ? root.querySelectorAll('.result') : []).forEach(function (el) {
+      var nodes = [];
+      if (root.nodeType === 1 && root.classList && root.classList.contains('result')) {
+        nodes.push(root);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll('.result').forEach(function (el) { nodes.push(el); });
+      }
+      nodes.forEach(function (el) {
+        if (el._bodaObserved) return;
+        el._bodaObserved = true;
         if (el.classList.contains('show')) onShown(el);
         new MutationObserver(function (muts) {
           muts.forEach(function (m) {
@@ -934,6 +965,7 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   window.Boda = {
     track: track, api: api, toast: toast, haptic: haptic, copy: copy, share: share,
     getUser: getUser, initData: initData, ready: ready, tg: tg,
+    isTelegram: isTelegram,
     MainButton: MainButton, BackButton: BackButton, Cloud: Cloud, Ad: Ad
   };
 })();

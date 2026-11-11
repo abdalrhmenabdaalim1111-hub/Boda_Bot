@@ -15,54 +15,116 @@ APPS["currency"] = dict(
     interactive=True,
     body="""
 <div class="card">
-  <label>المبلغ</label>
-  <input type="number" id="amount" placeholder="100" inputmode="decimal" value="100">
-  <label>من</label>
-  <select id="from"></select>
-  <div class="chips" id="from-chips"></div>
-  <label>إلى</label>
-  <select id="to"></select>
-  <div class="chips" id="to-chips"></div>
+  <div class="field">
+    <label for="amount">المبلغ</label>
+    <input type="number" id="amount" placeholder="100" inputmode="decimal" value="100" min="0" step="any">
+  </div>
+  <div class="field">
+    <label for="from">من</label>
+    <select id="from"></select>
+    <div class="chips" id="from-chips"></div>
+  </div>
+  <div class="field">
+    <label for="to">إلى</label>
+    <select id="to"></select>
+    <div class="chips" id="to-chips"></div>
+  </div>
   <button class="btn" id="go" onclick="convert()">🔄 تحويل الآن</button>
-  <div class="result" id="res"></div>
+  <div class="result" id="res" aria-live="polite"></div>
 </div>
 """,
     js="""
 const POPULAR=['USD','EUR','GBP','EGP','SAR','AED','KWD','QAR','TRY','JPY'];
+const SHARE_BOT='https://t.me/BodaCurrencyBot';
 let RATES=null, cacheT=0;
+const fmt=n=>n.toLocaleString(undefined,{maximumFractionDigits:2});
+
 async function loadRates(){
-  if (RATES && Date.now()-cacheT < 600000) return RATES;   // كاش 10 دقائق
-  document.getElementById('go').disabled=true; Boda.toast('⏳ تحميل الأسعار...');
-  const r=await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-  RATES=(await r.json()).rates; cacheT=Date.now();
-  document.getElementById('go').disabled=false; return RATES;
+  if (RATES && Date.now()-cacheT < 600000) return RATES;
+  const go=document.getElementById('go');
+  if(go){ go.disabled=true; go.classList.add('loading'); }
+  Boda.toast('⏳ تحميل الأسعار...');
+  try{
+    const r=await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    if(!r.ok) throw 0;
+    RATES=(await r.json()).rates; cacheT=Date.now();
+  }catch(e){
+    Boda.haptic('error');
+    Boda.toast('⚠️ تعذر تحميل الأسعار — تحقق من الاتصال');
+  }finally{
+    if(go){ go.disabled=false; go.classList.remove('loading'); }
+  }
+  return RATES;
 }
-function fill(sel, chipsEl, excludeSel){
+
+function fill(sel, chipsEl){
   const s=document.getElementById(sel), c=document.getElementById(chipsEl);
-  const codes=Object.keys(RATES).sort(); s.innerHTML=codes.map(x=>'<option>'+x+'</option>').join('');
-  const draw=()=>{ c.innerHTML=POPULAR.map(x=>
-    '<span class="chip'+(s.value===x?' active':'')+'" onclick="setVal(\\''+sel+'\\',\\''+x+'\\')">'+x+'</span>').join(''); };
+  const codes=Object.keys(RATES).sort();
+  s.innerHTML=codes.map(x=>'<option>'+x+'</option>').join('');
+  const draw=()=>{
+    c.innerHTML=POPULAR.map(x=>
+      '<span class="chip'+(s.value===x?' active':'')+'" data-code="'+x+'">'+x+'</span>').join('');
+    c.querySelectorAll('.chip').forEach(el=>{
+      el.onclick=()=>setVal(sel, el.dataset.code);
+    });
+  };
   s.onchange=draw; draw();
 }
-function setVal(sel,v){ document.getElementById(sel).value=v;
-  document.getElementById(sel).dispatchEvent(new Event('change')); }
+
+function setVal(sel,v){
+  const el=document.getElementById(sel);
+  el.value=v;
+  el.dispatchEvent(new Event('change'));
+}
+
 async function convert(){
   const amt=parseFloat(document.getElementById('amount').value);
-  const from=document.getElementById('from').value, to=document.getElementById('to').value;
-  if(!amt||amt<=0) return Boda.toast('⚠️ أدخل مبلغاً صحيحاً');
+  const from=document.getElementById('from').value;
+  const to=document.getElementById('to').value;
+  if(!amt||amt<=0){ Boda.haptic('warning'); return Boda.toast('⚠️ أدخل مبلغاً صحيحاً'); }
   Boda.haptic('light');
+  Boda.MainButton.progress(true);
   const rates=await loadRates();
-  const out=amt/rates[from]*rates[to], rate=(1/rates[from]*rates[to]);
-  document.getElementById('res').className='result show';
-  document.getElementById('res').innerHTML=
-    '<b style="font-size:20px">'+amt.toLocaleString()+' '+from+' = '+
-    '<span style="color:var(--accent)">'+out.toLocaleString(undefined,{maximumFractionDigits:2})+' '+to+'</span></b>'+
-    '<br><small style="color:var(--hint)">1 '+from+' = '+rate.toFixed(4)+' '+to+'</small>'+
-    '<br><button class="btn secondary" style="margin-top:8px" onclick="Boda.copy(\\''+out.toFixed(2)+' '+to+'\\')">📋 نسخ النتيجة</button>';
+  Boda.MainButton.progress(false);
+  if(!rates||!rates[from]||!rates[to]) return;
+  const out=amt/rates[from]*rates[to], rate=rates[to]/rates[from];
+  const res=document.getElementById('res');
+  res.className='result show';
+  res.innerHTML=
+    '<div class="result-title">✅ نتيجة التحويل</div>'+
+    '<div style="font-size:22px;font-weight:800;line-height:1.7">'+
+      fmt(amt)+' '+from+' = <span style="color:var(--bd-brand)">'+fmt(out)+' '+to+'</span></div>'+
+    '<div class="muted" style="font-size:12.5px">1 '+from+' = '+rate.toFixed(4)+' '+to+'</div>'+
+    '<div class="result-actions">'+
+      '<button class="btn secondary" id="copy-btn" type="button">📋 نسخ النتيجة</button>'+
+      '<button class="btn secondary" id="share-btn" type="button">📤 مشاركة</button>'+
+    '</div>';
+  res.querySelector('#copy-btn').onclick=()=>Boda.copy(fmt(out)+' '+to, '📋 تم نسخ النتيجة');
+  res.querySelector('#share-btn').onclick=()=>
+    Boda.share('💱 '+fmt(amt)+' '+from+' = '+fmt(out)+' '+to+' — جرّب محول العملات', SHARE_BOT);
+  Boda.haptic('success');
   Boda.track('feature_use',{detail:'convert'});
+  Boda.Cloud.set('currency_pair', from+'>'+to);
+  const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
-loadRates().then(r=>{ fill('from','from-chips'); fill('to','to-chips');
-  setVal('from','USD'); setVal('to','EGP'); });
+
+Boda.ready(async ()=>{
+  const rates=await loadRates();
+  if(!rates) return;
+  fill('from','from-chips'); fill('to','to-chips');
+  setVal('from','USD'); setVal('to','EGP');
+  try{
+    const saved=await Boda.Cloud.get('currency_pair');
+    if(saved && saved.indexOf('>')>0){
+      const parts=saved.split('>');
+      if(rates[parts[0]]&&rates[parts[1]]){ setVal('from',parts[0]); setVal('to',parts[1]); }
+    }
+  }catch(e){}
+  if(Boda.MainButton.set('🔄 تحويل الآن', convert)){
+    const b=document.getElementById('go'); if(b) b.style.display='none';
+  }
+});
 """,
 )
 
@@ -246,7 +308,7 @@ function calc(){
     '<div style="background:var(--bg);border-radius:999px;height:12px;margin:10px 0;overflow:hidden">'+
     '<div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--danger),var(--accent));border-radius:999px"></div></div>'+
     '<p>'+msg+'</p>'+
-    '<button class="btn secondary" onclick="Boda.share(&#39;نسبة الحب بيني وبين... جرب حاسبة الحب 💌&#39;,&#39;https://t.me/BodaLoveCalBot&#39;)">📤 تحدى أصدقاءك</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;نسبة الحب بيني وبين... جرب حاسبة الحب 💌&#39;,&#39;https://t.me/LoveMatchRBot&#39;)">📤 تحدى أصدقاءك</button>';
   Boda.track('feature_use',{detail:'love_'+(pct>=70)});
 }
 """,
@@ -295,7 +357,7 @@ function finish(){
   res.innerHTML='<div style="font-size:40px;font-weight:800;color:var(--accent)">'+age+' سنة</div>'+
     '<p style="margin:8px 0">عقلكم العقلي: '+txt+'</p>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة الاختبار</button>'+
-    '<button class="btn secondary" onclick="Boda.share(&#39;عقلي  &#39;+age+&#39; سنة! جرّب اختبار العمر العقلي 🧠&#39;,&#39;https://t.me/BodaMentalAgeBot&#39;)">📤 شارك نتيجتك</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;عقلي  &#39;+age+&#39; سنة! جرّب اختبار العمر العقلي 🧠&#39;,&#39;https://t.me/MentalAgeBot&#39;)">📤 شارك نتيجتك</button>';
 }
 render();
 """,
@@ -305,7 +367,14 @@ APPS["iqtest"] = dict(
     emoji="🧩", title="اختبار الذكاء السريع", subtitle="10 أسئلة منطقية — 5 دقائق",
     interactive=True,
     body="""
-<div class="card"><div id="q-box"></div><div class="result" id="res" style="text-align:center"></div></div>
+<div class="card">
+  <div id="intro" class="center">
+    <div style="font-size:52px;line-height:1.35">🧠</div>
+    <p class="muted" style="font-size:13.5px;margin-bottom:4px">10 أسئلة منطقية سريعة. أجب بصدق واكتشف تقدير ذكائك.</p>
+  </div>
+  <div id="q-box"></div>
+  <div class="result" id="res" aria-live="polite"></div>
+</div>
 """,
     js="""
 const QS=[
@@ -319,32 +388,81 @@ const QS=[
  {q:'لو رأيت مرآة كلمة "BODA" فماذا تظهر؟',a:['BODA','ADO B','مقلوبة غير قابلة للقراءة','AOOB'],c:2},
  {q:'قطرة ماء واحدة = 10 ثوانٍ. كم ساعة يمتلئ كوب 360 قطرة؟',a:['1 ساعة','10 دقائق','ساعة ونصف','36 دقيقة'],c:0},
  {q:'الغريب دخل قرية كل أهلها كاذبون. قاله أحدهم: "أنا كاذب". هو...؟',a:['كاذب لأنهم كلهم كاذبون','صادق لأن الكاذب يكذب','متناقض — لا يمكن الحسم','أهلك القلعة'],c:2}];
-let i=0, correct=0, t0=Date.now();
+const SHARE_BOT='https://t.me/GeniusCheck1Bot';
+let i=0, correct=0, t0=0, started=false;
+
+function start(){
+  i=0; correct=0; t0=Date.now(); started=true;
+  document.getElementById('intro').style.display='none';
+  const res=document.getElementById('res');
+  res.className='result'; res.innerHTML='';
+  Boda.MainButton.hide();
+  Boda.haptic('light');
+  render();
+}
+
 function render(){
   const q=QS[i];
+  const done=Math.round(i/QS.length*100);
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--hint)">سؤال '+(i+1)+'/'+QS.length+' ✓ '+correct+'</small>'+
-    '<h2 style="margin:8px 0">'+q.q+'</h2>'+
-    q.a.map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')" style="text-align:right">'+o+'</button>').join('');
+    '<div class="row between" style="margin-bottom:8px">'+
+      '<small class="muted">سؤال '+(i+1)+' من '+QS.length+'</small>'+
+      '<span class="badge">✓ '+correct+' صحيح</span>'+
+    '</div>'+
+    '<div class="progress" style="margin-bottom:12px"><i style="width:'+done+'%"></i></div>'+
+    '<h2 style="margin:10px 0;font-size:17px;line-height:1.9">'+q.q+'</h2>'+
+    '<div class="stagger">'+
+      q.a.map((o,k)=>'<button class="btn secondary" type="button" style="text-align:right;justify-content:flex-start;font-weight:700" data-k="'+k+'">'+o+'</button>').join('')+
+    '</div>';
+  document.querySelectorAll('#q-box [data-k]').forEach(b=>{
+    b.onclick=()=>pick(parseInt(b.dataset.k,10));
+  });
 }
+
 function pick(k){
-  if(k===QS[i].c){ correct++; Boda.haptic('success'); } else Boda.haptic('error');
-  i++; if(i<QS.length) render(); else finish();
+  if(k===QS[i].c){ correct++; Boda.haptic('success'); }
+  else Boda.haptic('error');
+  i++;
+  if(i<QS.length) render(); else finish();
 }
+
 function finish(){
   const pct=Math.round(correct/QS.length*100);
   const iq=Math.round(70+pct*0.65);
-  Boda.track('feature_use',{detail:'iq_'+iq});
-  const lv = iq>=120?'🧠 عبقري!':iq>=100?'🌟 فوق المتوسط':iq>=85?'😊 جيد جداً':'📚 تحتاج تدريب';
+  const secs=Math.round((Date.now()-t0)/1000);
+  const lv=iq>=120?'🧠 عبقري!':iq>=100?'🌟 فوق المتوسط':iq>=85?'😊 جيد جداً':'📚 تحتاج تدريب';
   document.getElementById('q-box').innerHTML='';
   const res=document.getElementById('res'); res.className='result show';
-  res.innerHTML='<div style="font-size:40px;font-weight:800;color:var(--accent)">'+iq+'</div>'+
-    '<p>أجبت صح على '+correct+' من '+QS.length+' في '+Math.round((Date.now()-t0)/1000)+' ثانية</p>'+
-    '<p style="margin:6px 0">'+lv+'</p>'+
-    '<button class="btn" onclick="location.reload()">🔁 إعادة</button>'+
-    '<button class="btn secondary" onclick="Boda.share(&#39;نتيجتي في اختبار الذكاء: &#39;+iq+&#39; IQ 🧠 جرّبها!&#39;,&#39;https://t.me/BodaIQTestBot&#39;)">📤 شارك</button>';
+  res.innerHTML=
+    '<div class="result-title">🎯 نتيجتك</div>'+
+    '<div style="font-size:56px;font-weight:800;line-height:1.25;color:var(--bd-brand)">'+iq+'</div>'+
+    '<div class="badge" style="font-size:12px">'+lv+'</div>'+
+    '<p class="muted" style="margin-top:10px;font-size:13px">'+
+      correct+' من '+QS.length+' إجابة صحيحة في '+secs+' ثانية</p>'+
+    '<div class="result-actions">'+
+      '<button class="btn secondary" id="share-btn" type="button">📤 شارك نتيجتك</button>'+
+    '</div>';
+  res.querySelector('#share-btn').onclick=()=>
+    Boda.share('🧠 نتيجتي في اختبار الذكاء: '+iq+' IQ — جرّبها!', SHARE_BOT);
+  Boda.haptic('success');
+  Boda.track('feature_use',{detail:'iq_'+iq});
+  Boda.Cloud.set('iq_last', String(iq));
+  if(Boda.MainButton.set('🔁 إعادة الاختبار', start)){
+    const b=document.getElementById('go'); if(b) b.style.display='none';
+  }
+  const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
-render();
+
+Boda.ready(()=>{
+  const intro=document.getElementById('intro');
+  intro.insertAdjacentHTML('beforeend',
+    '<button class="btn" id="go" type="button" style="max-width:280px;margin-inline:auto">🚀 ابدأ الاختبار</button>');
+  document.getElementById('go').onclick=start;
+  if(Boda.MainButton.set('🚀 ابدأ الاختبار', start)){
+    document.getElementById('go').style.display='none';
+  }
+});
 """,
 )
 
@@ -388,7 +506,7 @@ function openBox(){
     Boda.haptic('success'); Boda.track('feature_use',{detail:'prize_'+pick.e});
     const res=document.getElementById('res'); res.className='result show';
     res.innerHTML='<h2 style="font-size:22px">'+pick.e+' '+pick.t+'</h2>'+
-      '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/BodaLuckyBoxBot&#39;)">📤 شارك حظك</button>'+
+      '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/LuckyBoxX1Bot&#39;)">📤 شارك حظك</button>'+
       '<p style="color:var(--hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
   },1400);
 }
@@ -437,7 +555,7 @@ function next(){
   else { document.getElementById('q-box').innerHTML='<h2>🎊 حللت كل الألغاز!</h2>'+
     '<p style="color:var(--hint)">عد غداً لألغاز جديدة</p>'+
     '<button class="btn" onclick="i=0;solved=0;render()">🔁 من البداية</button>'+
-    '<button class="btn secondary" onclick="Boda.share(&#39;حللت كل ألغاز الأذكياء 🌀 تحداني!&#39;,&#39;https://t.me/BodaBrainTwistBot&#39;)">📤 تحدى صديقاً</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;حللت كل ألغاز الأذكياء 🌀 تحداني!&#39;,&#39;https://t.me/BrainTwistXBot&#39;)">📤 تحدى صديقاً</button>';
     Boda.track('feature_use',{detail:'all_solved'}); }
 }
 render();
@@ -469,7 +587,7 @@ function gen(){
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML='<div style="font-size:18px;font-weight:700">'+full+'</div>'+
     '<button class="btn secondary" onclick="Boda.copy(\\''+full+'\\')">📋 نسخ</button>'+
-    '<button class="btn secondary" onclick="Boda.share(&#39;اسمي الطريف: &#39;+full+&#39; 🎭 ولّد اسمك!&#39;,&#39;https://t.me/BodaFunNameBot&#39;)">📤 شارك</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;اسمي الطريف: &#39;+full+&#39; 🎭 ولّد اسمك!&#39;,&#39;https://t.me/FunNameGenBot&#39;)">📤 شارك</button>';
   Boda.track('feature_use',{detail:'name_gen'});
 }
 """,
@@ -509,7 +627,7 @@ function spin(){
       const pick=list[Math.floor(Math.random()*list.length)];
       res.innerHTML='<div style="font-size:24px;font-weight:800;color:var(--accent)">'+pick+'</div>'+
         '<button class="btn secondary" onclick="spin()">🔁 مرة أخرى</button>'+
-        '<button class="btn secondary" onclick="Boda.share(&#39;اقترح لي القرار العشوائي: &#39;+pick+&#39; 🎲&#39;,&#39;https://t.me/BodaRandomBot&#39;)">📤 شارك</button>';
+        '<button class="btn secondary" onclick="Boda.share(&#39;اقترح لي القرار العشوائي: &#39;+pick+&#39; 🎲&#39;,&#39;https://t.me/RandomSuggestMixBot&#39;)">📤 شارك</button>';
       Boda.haptic('success'); Boda.track('feature_use',{detail:cat});
     }
   },80);
@@ -847,7 +965,7 @@ function finish(){
   const res=document.getElementById('res'); res.className='result show';
   res.innerHTML='<div style="font-size:54px">'+ty.e+'</div>'+
     '<h2>'+ty.n+'</h2><p style="color:var(--hint);margin:8px 0">'+ty.d+'</p>'+
-    '<button class="btn secondary" onclick="Boda.share(&#39;شخصيتي: &#39;+ty.e+&#39; &#39;+ty.n+&#39; 🔮 اكتشف شخصيتك!&#39;,&#39;https://t.me/BodaPersonaBot&#39;)">📤 شارك</button>'+
+    '<button class="btn secondary" onclick="Boda.share(&#39;شخصيتي: &#39;+ty.e+&#39; &#39;+ty.n+&#39; 🔮 اكتشف شخصيتك!&#39;,&#39;https://t.me/PsycheAnalyzeBot&#39;)">📤 شارك</button>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة</button>';
 }
 render();
@@ -1222,7 +1340,7 @@ async function analyze(){
 function copyPlan(){
   if(!PLAN) return;
   Boda.copy('اقص الصمت عند: '+PLAN, '📋 خطة القص منسوخة — أرسلها للبوت');
-  setTimeout(()=>location.href='https://t.me/BodaSilentCutBot', 700);
+  setTimeout(()=>location.href='https://t.me/SilentCutXBot', 700);
 }
 Boda.track('app_open',{detail:'tool'});
 """,
@@ -1268,7 +1386,7 @@ function send(){
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
     '✅ جاهز — افتح البوت وألصق الرابط'+dex+
-    '<button class="btn" style="margin-top:8px" onclick="location.href=\\'https://t.me/BodaCleanTokBot\\'">🤖 فتح البوت</button>';
+    '<button class="btn" style="margin-top:8px" onclick="location.href=\\'https://t.me/CleanTokVidBot\\'">🤖 فتح البوت</button>';
 }
 """,
 )
@@ -1278,35 +1396,45 @@ APPS["vidload"] = dict(
     interactive=True,
     body="""
 <div class="card">
-  <label>رابط الفيديو (تُكتشف المنصة تلقائياً)</label>
-  <input type="text" id="url" dir="ltr" placeholder="الصق أي رابط...">
-  <div style="margin:8px 0;color:var(--hint)" id="platform">⬅️ أدخل رابطاً لرؤية المنصة</div>
+  <div class="field">
+    <label for="url">رابط الفيديو (تُكتشف المنصة تلقائياً)</label>
+    <input type="text" id="url" dir="ltr" placeholder="الصق أي رابط..." inputmode="url" autocomplete="off">
+  </div>
+  <div id="platform" class="muted" style="margin:-4px 0 10px;font-size:13px">⬅️ أدخل رابطاً لرؤية المنصة</div>
   <label>المخرجات</label>
   <div class="chips">
-    <span class="chip active" onclick="setOut('فيديو 1080p', this)">🎬 1080p</span>
-    <span class="chip" onclick="setOut('فيديو 720p', this)">720p</span>
-    <span class="chip" onclick="setOut('الصوت فقط MP3', this)">🎧 صوت</span>
+    <span class="chip active" data-out="فيديو 1080p">🎬 1080p</span>
+    <span class="chip" data-out="فيديو 720p">720p</span>
+    <span class="chip" data-out="الصوت فقط MP3">🎧 صوت</span>
   </div>
   <button class="btn" id="go" onclick="send()">🤖 جهّز الطلب للبوت</button>
-  <div class="result" id="res"></div>
+  <div class="result" id="res" aria-live="polite"></div>
 </div>
 """,
     js="""
+const SHARE_BOT='https://t.me/VidLoadXBot';
+const BOT_LINK='https://t.me/VidLoadXBot';
 let OUT='فيديو 1080p';
 const PLATFORMS=[
-  ['YouTube',   /youtube\\.com|youtu\\.be/i,                                        '▶️'],
-  ['TikTok',    /tiktok\\.com/i,                                                      '🎵'],
-  ['Instagram', /instagram\\.com/i,                                                   '📸'],
-  ['X',         /(?:twitter|x)\\.com/i,                                               '🐦'],
-  ['Facebook',  /facebook\\.com|fb\\.watch/i,                                        '👥'],
-  ['Reddit',    /reddit\\.com/i,                                                      '🟠'],
-  ['Vimeo',     /vimeo\\.com/i,                                                       '🎬']
+  ['YouTube',   /youtube\\.com|youtu\\.be/i,  '▶️'],
+  ['TikTok',    /tiktok\\.com/i,               '🎵'],
+  ['Instagram', /instagram\\.com/i,            '📸'],
+  ['X',         /(?:twitter|x)\\.com/i,        '🐦'],
+  ['Facebook',  /facebook\\.com|fb\\.watch/i,  '👥'],
+  ['Reddit',    /reddit\\.com/i,               '🟠'],
+  ['Vimeo',     /vimeo\\.com/i,                '🎬']
 ];
 
+document.querySelectorAll('.chips .chip[data-out]').forEach(el=>{
+  el.onclick=()=>setOut(el.dataset.out, el);
+});
+
 function setOut(v, el){
-  if(el){ el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-          el.classList.add('active'); }
-  OUT=v; Boda.haptic('light');
+  if(el){
+    el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    el.classList.add('active');
+  }
+  OUT=v; Boda.haptic('select');
 }
 
 function detect(){
@@ -1314,24 +1442,56 @@ function detect(){
   const pl=document.getElementById('platform');
   if(!u){ pl.textContent='⬅️ أدخل رابطاً لرؤية المنصة'; return; }
   const hit=PLATFORMS.find(p=>p[1].test(u));
-  pl.innerHTML= hit
-    ? '<span style="font-size:20px">'+hit[2]+'</span> المنصة: <b style="color:var(--accent)">'+hit[0]+'</b> ✅'
-    : '✨ نفسه سيتعرف البوت على المنصة — الصق الرابط وسنتولى الباقي';
+  pl.innerHTML=hit
+    ? '<span style="font-size:18px">'+hit[2]+'</span> المنصة: <b style="color:var(--bd-brand)">'+hit[0]+'</b> ✓'
+    : '✨ سيتعرّف البوت على المنصة تلقائياً';
 }
 
 document.getElementById('url').oninput=detect;
 
 function send(){
   const u=document.getElementById('url').value.trim();
-  if(!/^(https?:\\/\\/)?[\\w.-]+\\.[a-z]{2,}/i.test(u))
+  if(!/^(https?:\\/\\/)?[\\w.-]+\\.[a-z]{2,}/i.test(u)){
+    Boda.haptic('warning');
     return Boda.toast('⚠️ أدخل رابطاً صحيحاً يبدأ بـ https');
-  Boda.haptic('light'); Boda.track('feature_use',{detail:'download_ready'});
-  Boda.copy('حمّل: '+OUT+'\\n'+u, '📋 الطلب منسوخ — ألصقه في البوت');
-  document.getElementById('res').className='result show';
-  document.getElementById('res').innerHTML=
-    '✅ طلبك جاهز: <b style="color:var(--accent)">'+OUT+'</b>'+
-    '<button class="btn" style="margin-top:8px" onclick="location.href=\\'https://t.me/BodaVidLoadBot\\'">🤖 فتح البوت</button>';
+  }
+  const full=/^https?:\\/\\//i.test(u)?u:'https://'+u;
+  Boda.haptic('light');
+  Boda.track('feature_use',{detail:'download_ready'});
+  const res=document.getElementById('res');
+  res.className='result show';
+  const pl=PLATFORMS.find(p=>p[1].test(u));
+  res.innerHTML=
+    '<div class="result-title">✅ طلبك جاهز</div>'+
+    (pl?'<div class="muted" style="font-size:13px;margin-bottom:6px">'+pl[2]+' '+pl[0]+'</div>':'')+
+    '<div style="font-weight:800;font-size:16px">'+OUT+'</div>'+
+    '<div class="muted" style="font-size:12px;word-break:break-all;margin-top:4px" dir="ltr">'+full+'</div>'+
+    '<div class="result-actions">'+
+      '<button class="btn" id="open-btn" type="button">🤖 فتح البوت</button>'+
+      '<button class="btn secondary" id="share-btn" type="button">📤 شارك التطبيق</button>'+
+    '</div>';
+  res.querySelector('#open-btn').onclick=openBot;
+  res.querySelector('#share-btn').onclick=()=>
+    Boda.share('📥 حمّل فيديوهات من يوتيوب وتيك توك مجاناً — جرّب البوت!', SHARE_BOT);
+  Boda.copy('حمّل: '+OUT+'\\n'+full, '📋 الطلب منسوخ — ألصقه في البوت');
+  Boda.haptic('success');
+  const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
+
+function openBot(){
+  try{
+    if(Boda.tg && Boda.tg.openTelegramLink) Boda.tg.openTelegramLink(BOT_LINK);
+    else location.href=BOT_LINK;
+  }catch(e){ location.href=BOT_LINK; }
+  Boda.track('feature_use',{detail:'open_bot'});
+}
+
+Boda.ready(()=>{
+  if(Boda.MainButton.set('🤖 جهّز الطلب', send)){
+    const b=document.getElementById('go'); if(b) b.style.display='none';
+  }
+});
 """,
 )
 
@@ -1360,7 +1520,7 @@ APPS["stickerx"] = dict(
   <button class="btn" id="dl" style="display:none" onclick="download()">⬇️ تنزيل الملصق (512px)</button>
   <p style="color:var(--hint);font-size:12px;line-height:1.9;text-align:center">
     بعد التنزيل: أرسل الملف للبوت وسيضيفه للعبوة ويفصل الخلفية إن رغبت</p>
-  <button class="btn secondary" onclick="location.href='https://t.me/BodaStickerXBot'">🤖 فتح البوت</button>
+  <button class="btn secondary" onclick="location.href='https://t.me/StickerXMakerBot'">🤖 فتح البوت</button>
 </div>
 """,
     js="""

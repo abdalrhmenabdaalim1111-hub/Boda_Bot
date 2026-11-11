@@ -42,6 +42,7 @@ ADS_CSS = """
   .pill.off { color:var(--hint); }
   .ad-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; }
   .ad-actions button.primary { flex:1; min-width:150px; }
+  .ad-actions button.danger { background:var(--err); color:#fff; border-color:transparent; }
   .toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%,16px);
            background:var(--text); color:var(--bg); padding:10px 18px;
            border-radius:999px; font-size:13px; font-weight:700; opacity:0;
@@ -99,6 +100,7 @@ ADS_HTML = """
       </div>
       <div class="ad-actions">
         <button id="ad-save" class="primary">💾 حفظ وإعادة توليد الصفحات</button>
+        <button id="ad-clear" class="danger" type="button">🗑 إزالة إعلان البوت</button>
         <a id="ad-open" class="hintline" target="_blank" rel="noopener">🔗 فتح صفحة البوت</a>
       </div>
       <div id="ad-msg" class="hintline" style="margin-top:10px"></div>
@@ -217,6 +219,36 @@ ADS_JS = r"""
     }
   }
 
+  async function clearAds() {
+    const botId = document.getElementById('ad-bot').value;
+    if (!botId) return;
+    if (!confirm('إزالة إعلان «' + botId + '» وإعادة توليد الصفحات؟')) return;
+    const btn = document.getElementById('ad-clear');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ الإزالة…';
+    try {
+      const res = await fetch(API_BASE + '/api/ads/set', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({
+          bot_id: botId, direct_link: '', zone_id: '', script_url: '',
+          format: 'direct_link', frequency: 3, active: false
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      dashToast('🗑 أُزيل إعلان ' + botId + ' وأُعيد توليد الصفحات');
+      document.getElementById('ad-msg').textContent =
+        'أُزيل الإعلان المخصص — سيعود البوت للإعداد العام إن وُجد.';
+      await loadAds();
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+      document.getElementById('ad-msg').textContent = 'فشل الإزالة: ' + e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🗑 إزالة إعلان البوت';
+    }
+  }
+
   function switchTab(name) {
     document.getElementById('tab-analytics').classList.toggle('hide', name !== 'analytics');
     document.getElementById('tab-ads').classList.toggle('hide', name !== 'ads');
@@ -227,6 +259,7 @@ ADS_JS = r"""
 
   document.getElementById('ad-bot').addEventListener('change', fillAdForm);
   document.getElementById('ad-save').addEventListener('click', saveAds);
+  document.getElementById('ad-clear').addEventListener('click', clearAds);
 """
 
 

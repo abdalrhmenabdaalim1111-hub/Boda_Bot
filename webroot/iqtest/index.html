@@ -2,7 +2,7 @@
 <html dir="rtl" lang="ar" data-group="fun">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="10 أسئلة منطقية — 5 دقائق">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#f97316">
@@ -21,7 +21,6 @@
 <meta name="twitter:description" content="10 أسئلة منطقية — 5 دقائق">
 <title>🧠 اختبار الذكاء السريع — Boda</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://thubanoa.com/1?z=11223344"></script>
 <style>
 @font-face{
   font-family:'Cairo';
@@ -536,9 +535,18 @@ textarea{ min-height:92px; resize:vertical; }
     <p>10 أسئلة منطقية — 5 دقائق</p>
   </header>
 
+  <main id="app">
 
-<div class="card"><div id="q-box"></div><div class="result" id="res" style="text-align:center"></div></div>
+<div class="card">
+  <div id="intro" class="center">
+    <div style="font-size:52px;line-height:1.35">🧠</div>
+    <p class="muted" style="font-size:13.5px;margin-bottom:4px">10 أسئلة منطقية سريعة. أجب بصدق واكتشف تقدير ذكائك.</p>
+  </div>
+  <div id="q-box"></div>
+  <div class="result" id="res" aria-live="polite"></div>
+</div>
 
+  </main>
 
   <footer class="app-footer">
     <a href="../store/">🏠 الصفحة الرئيسية</a> · <a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>
@@ -552,7 +560,7 @@ window.__BODA_GROUP__    = "fun";
 window.__BODA_BRAND__    = "#f97316";
 window.__BODA_API__      = "";
 window.__BODA_SHARE__    = "https://t.me/GeniusCheck1Bot";
-window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "──────────────\n📢 <b>برعاية:</b> <a href=\"https://t.me/BodaStoreeBot\">متجر تطبيقات بودا</a> — حمّل أقوى البوتات مجاناً!"}, "sponsor": {"title": "🌟 راعي التطبيق الرسمي (Monetag)", "text": "استكشف العرض الحصري المدعوم من شركائنا بضغطة واحدة!", "url": "https://monetag.example.com/ui_test", "button": "🔥 مشاهدة العرض الآن"}, "every": 2, "monetag_script": "https://thubanoa.com/1?z=11223344", "monetag_zone": "11223344", "has_monetag": true};
+window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "──────────────\n📢 <b>برعاية:</b> <a href=\"https://t.me/BodaStoreeBot\">متجر تطبيقات بودا</a> — حمّل أقوى البوتات مجاناً!"}, "sponsor": {"title": "🌟 قناة الراعي الرسمي", "text": "أقوى البوتات والتطبيقات مجاناً — جرّب المتجر الآن!", "url": "https://t.me/BodaStoreeBot", "button": "🏪 زيارة المتجر"}, "every": 2, "monetag_script": "", "monetag_zone": "", "has_monetag": false};
 </script>
 <script>
 /* ═════════ Boda MiniApp SDK v2 ═════════
@@ -604,6 +612,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   function initData() { try { return (tg && tg.initData) || ''; } catch (e) { return ''; } }
+
+  /* بيئة تيليجرام الحقيقية فقط — مكتبة telegram-web-app.js تُحمّل حتى خارج تيليجرام */
+  function isTelegram() {
+    try {
+      if (!tg) return false;
+      if (tg.initData) return true;
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) return true;
+      return !!(tg.platform && tg.platform !== 'unknown');
+    } catch (e) { return false; }
+  }
 
   /* ── التتبع (best-effort، لا يعطّل الواجهة) ── */
   function track(event, extra) {
@@ -701,27 +719,37 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   /* ── MainButton / BackButton أصليّان ── */
+  var mainCb = null;
   var MainButton = {
     set: function (text, onClick) {
-      if (!tg || !tg.MainButton) return false;
+      if (!tg || !tg.MainButton || !isTelegram()) return false;
       try {
         tg.MainButton.setText(text || '');
-        tg.MainButton.onClick(onClick || function () {});
+        /* إزالة المستمع السابق حتى لا تتراكم الأفعال عند تغيير النص */
+        if (mainCb && tg.MainButton.offClick) {
+          try { tg.MainButton.offClick(mainCb); } catch (e) {}
+        }
+        mainCb = onClick || function () {};
+        tg.MainButton.onClick(mainCb);
         tg.MainButton.show();
         return true;
       } catch (e) { return false; }
     },
     hide: function () { try { tg.MainButton.hide(); } catch (e) {} },
     progress: function (on) {
+      if (!isTelegram()) return;
       try { on ? tg.MainButton.showProgress(true) : tg.MainButton.hideProgress(); }
       catch (e) {}
     },
-    disable: function (on) { try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {} }
+    disable: function (on) {
+      if (!isTelegram()) return;
+      try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {}
+    }
   };
 
   var BackButton = {
     show: function (onClick) {
-      if (!tg || !tg.BackButton) return false;
+      if (!tg || !tg.BackButton || !isTelegram()) return false;
       try {
         tg.BackButton.onClick(onClick || function () { tg.close(); });
         tg.BackButton.show();
@@ -879,7 +907,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
       Ad.afterResult();
     }
     function scan(root) {
-      (root.querySelectorAll ? root.querySelectorAll('.result') : []).forEach(function (el) {
+      var nodes = [];
+      if (root.nodeType === 1 && root.classList && root.classList.contains('result')) {
+        nodes.push(root);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll('.result').forEach(function (el) { nodes.push(el); });
+      }
+      nodes.forEach(function (el) {
+        if (el._bodaObserved) return;
+        el._bodaObserved = true;
         if (el.classList.contains('show')) onShown(el);
         new MutationObserver(function (muts) {
           muts.forEach(function (m) {
@@ -921,6 +958,7 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   window.Boda = {
     track: track, api: api, toast: toast, haptic: haptic, copy: copy, share: share,
     getUser: getUser, initData: initData, ready: ready, tg: tg,
+    isTelegram: isTelegram,
     MainButton: MainButton, BackButton: BackButton, Cloud: Cloud, Ad: Ad
   };
 })();
@@ -937,32 +975,81 @@ const QS=[
  {q:'لو رأيت مرآة كلمة "BODA" فماذا تظهر؟',a:['BODA','ADO B','مقلوبة غير قابلة للقراءة','AOOB'],c:2},
  {q:'قطرة ماء واحدة = 10 ثوانٍ. كم ساعة يمتلئ كوب 360 قطرة؟',a:['1 ساعة','10 دقائق','ساعة ونصف','36 دقيقة'],c:0},
  {q:'الغريب دخل قرية كل أهلها كاذبون. قاله أحدهم: "أنا كاذب". هو...؟',a:['كاذب لأنهم كلهم كاذبون','صادق لأن الكاذب يكذب','متناقض — لا يمكن الحسم','أهلك القلعة'],c:2}];
-let i=0, correct=0, t0=Date.now();
+const SHARE_BOT='https://t.me/GeniusCheck1Bot';
+let i=0, correct=0, t0=0, started=false;
+
+function start(){
+  i=0; correct=0; t0=Date.now(); started=true;
+  document.getElementById('intro').style.display='none';
+  const res=document.getElementById('res');
+  res.className='result'; res.innerHTML='';
+  Boda.MainButton.hide();
+  Boda.haptic('light');
+  render();
+}
+
 function render(){
   const q=QS[i];
+  const done=Math.round(i/QS.length*100);
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--hint)">سؤال '+(i+1)+'/'+QS.length+' ✓ '+correct+'</small>'+
-    '<h2 style="margin:8px 0">'+q.q+'</h2>'+
-    q.a.map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')" style="text-align:right">'+o+'</button>').join('');
+    '<div class="row between" style="margin-bottom:8px">'+
+      '<small class="muted">سؤال '+(i+1)+' من '+QS.length+'</small>'+
+      '<span class="badge">✓ '+correct+' صحيح</span>'+
+    '</div>'+
+    '<div class="progress" style="margin-bottom:12px"><i style="width:'+done+'%"></i></div>'+
+    '<h2 style="margin:10px 0;font-size:17px;line-height:1.9">'+q.q+'</h2>'+
+    '<div class="stagger">'+
+      q.a.map((o,k)=>'<button class="btn secondary" type="button" style="text-align:right;justify-content:flex-start;font-weight:700" data-k="'+k+'">'+o+'</button>').join('')+
+    '</div>';
+  document.querySelectorAll('#q-box [data-k]').forEach(b=>{
+    b.onclick=()=>pick(parseInt(b.dataset.k,10));
+  });
 }
+
 function pick(k){
-  if(k===QS[i].c){ correct++; Boda.haptic('success'); } else Boda.haptic('error');
-  i++; if(i<QS.length) render(); else finish();
+  if(k===QS[i].c){ correct++; Boda.haptic('success'); }
+  else Boda.haptic('error');
+  i++;
+  if(i<QS.length) render(); else finish();
 }
+
 function finish(){
   const pct=Math.round(correct/QS.length*100);
   const iq=Math.round(70+pct*0.65);
-  Boda.track('feature_use',{detail:'iq_'+iq});
-  const lv = iq>=120?'🧠 عبقري!':iq>=100?'🌟 فوق المتوسط':iq>=85?'😊 جيد جداً':'📚 تحتاج تدريب';
+  const secs=Math.round((Date.now()-t0)/1000);
+  const lv=iq>=120?'🧠 عبقري!':iq>=100?'🌟 فوق المتوسط':iq>=85?'😊 جيد جداً':'📚 تحتاج تدريب';
   document.getElementById('q-box').innerHTML='';
   const res=document.getElementById('res'); res.className='result show';
-  res.innerHTML='<div style="font-size:40px;font-weight:800;color:var(--accent)">'+iq+'</div>'+
-    '<p>أجبت صح على '+correct+' من '+QS.length+' في '+Math.round((Date.now()-t0)/1000)+' ثانية</p>'+
-    '<p style="margin:6px 0">'+lv+'</p>'+
-    '<button class="btn" onclick="location.reload()">🔁 إعادة</button>'+
-    '<button class="btn secondary" onclick="Boda.share(&#39;نتيجتي في اختبار الذكاء: &#39;+iq+&#39; IQ 🧠 جرّبها!&#39;,&#39;https://t.me/BodaIQTestBot&#39;)">📤 شارك</button>';
+  res.innerHTML=
+    '<div class="result-title">🎯 نتيجتك</div>'+
+    '<div style="font-size:56px;font-weight:800;line-height:1.25;color:var(--bd-brand)">'+iq+'</div>'+
+    '<div class="badge" style="font-size:12px">'+lv+'</div>'+
+    '<p class="muted" style="margin-top:10px;font-size:13px">'+
+      correct+' من '+QS.length+' إجابة صحيحة في '+secs+' ثانية</p>'+
+    '<div class="result-actions">'+
+      '<button class="btn secondary" id="share-btn" type="button">📤 شارك نتيجتك</button>'+
+    '</div>';
+  res.querySelector('#share-btn').onclick=()=>
+    Boda.share('🧠 نتيجتي في اختبار الذكاء: '+iq+' IQ — جرّبها!', SHARE_BOT);
+  Boda.haptic('success');
+  Boda.track('feature_use',{detail:'iq_'+iq});
+  Boda.Cloud.set('iq_last', String(iq));
+  if(Boda.MainButton.set('🔁 إعادة الاختبار', start)){
+    const b=document.getElementById('go'); if(b) b.style.display='none';
+  }
+  const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
-render();
+
+Boda.ready(()=>{
+  const intro=document.getElementById('intro');
+  intro.insertAdjacentHTML('beforeend',
+    '<button class="btn" id="go" type="button" style="max-width:280px;margin-inline:auto">🚀 ابدأ الاختبار</button>');
+  document.getElementById('go').onclick=start;
+  if(Boda.MainButton.set('🚀 ابدأ الاختبار', start)){
+    document.getElementById('go').style.display='none';
+  }
+});
 </script>
 </body>
 </html>
