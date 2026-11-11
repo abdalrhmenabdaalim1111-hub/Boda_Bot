@@ -156,6 +156,7 @@ class BodaBotManager:
             "open_folder": self._open_folder,
             "export_log":  lambda: self.log_panel.export(),
             "clear_log":   lambda: self.log_panel.clear(),
+            "open_ads_dashboard": self._open_ads_dashboard,
         })
 
         # Body: left (bots list) + right (notebook: log + stats)
@@ -792,6 +793,21 @@ class BodaBotManager:
             self.log_panel.write_sys("⚡ تم تعميم شفرة Monetag الموحدة لجميع التطبيقات بنجاح!", "ok")
             dlg.destroy()
 
+        def do_clear_custom():
+            mgr.set_monetag_config(clean_id, direct_link="", zone_id="",
+                                   script_url="", format_type="direct_link",
+                                   frequency=3, active=False)
+            try:
+                subprocess.Popen([sys.executable, "tools/build_mini_apps.py"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+            self.stats_panel.refresh(self.bots)
+            if bot:
+                self._update_card(bot.name)
+            self.log_panel.write_sys(f"🗑 تمت إزالة إعلانات [{clean_id}] وإعادة توليد الصفحات", "ok")
+            dlg.destroy()
+
         save_btn = tk.Button(btn_box, text="💾 حفظ لهذا البوت", font=("Segoe UI", 9, "bold"),
                              bg="#27ae60", fg="white", relief="flat", padx=10, pady=5,
                              cursor="hand2", command=do_save_custom)
@@ -802,10 +818,66 @@ class BodaBotManager:
                                cursor="hand2", command=do_set_global)
         global_btn.pack(side="left", padx=(0, 6))
 
+        clear_btn = tk.Button(btn_box, text="🗑 إزالة", font=("Segoe UI", 9),
+                              bg=C["danger"], fg="white", relief="flat", padx=8, pady=5,
+                              cursor="hand2", command=do_clear_custom)
+        clear_btn.pack(side="left", padx=(0, 6))
+
+        dash_btn = tk.Button(btn_box, text="🌐 لوحة الإعلانات", font=("Segoe UI", 9),
+                             bg=C["panel"], fg=C["text_bright"], relief="flat", padx=8, pady=5,
+                             cursor="hand2", command=self._open_ads_dashboard)
+        dash_btn.pack(side="right", padx=(6, 0))
+
         cancel_btn = tk.Button(btn_box, text="إلغاء", font=("Segoe UI", 9),
                                bg=C["border"], fg=C["text_bright"], relief="flat", padx=10, pady=5,
                                cursor="hand2", command=dlg.destroy)
         cancel_btn.pack(side="right")
+
+    def _open_ads_dashboard(self):
+        """فتح محرر الإعلانات في المتصفح، مع تشغيل خادم api_server عند الحاجة."""
+        import webbrowser
+
+        def worker():
+            import urllib.request
+            base = os.getenv("BODA_DASHBOARD_URL", "http://127.0.0.1:8080").rstrip("/")
+
+            def server_up():
+                try:
+                    with urllib.request.urlopen(base + "/api/ads/status", timeout=1.5) as r:
+                        return r.status == 200
+                except Exception:
+                    return False
+
+            if not server_up():
+                try:
+                    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+                    subprocess.Popen(
+                        [sys.executable, "api_server.py"],
+                        cwd=str(Path(__file__).parent),
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        env=env,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                    )
+                    for _ in range(24):
+                        time.sleep(0.25)
+                        if server_up():
+                            break
+                except Exception:
+                    pass
+
+            if server_up():
+                webbrowser.open(base + "/dashboard")
+                self.root.after(0, lambda: self.log_panel.write_sys(
+                    "🌐 فُتح محرر الإعلانات في المتصفح — تبويب «📢 الإعلانات»", "ok"))
+            else:
+                self.root.after(0, lambda: messagebox.showwarning(
+                    "محرر الإعلانات",
+                    "تعذّر تشغيل خادم API تلقائيًا.\n\n"
+                    "شغّله يدويًا من مجلد المشروع:\n"
+                    "python api_server.py\n\n"
+                    "ثم افتح:\nhttp://127.0.0.1:8080/dashboard"))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     # ── Close ──────────────────────────────────────────────────────────────────
     def _on_close(self):

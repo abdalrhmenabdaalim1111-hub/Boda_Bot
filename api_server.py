@@ -453,7 +453,9 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             try:
                 sys.path.insert(0, str(BOTS_DIR))
                 from ad_manager import get_ad_manager
-                statuses = get_ad_manager().get_all_monetag_statuses()
+                mgr = get_ad_manager()
+                mgr.reload_from_disk()   # لا تكتب نسخة قديمة فوق تعديلات Manager/الملف
+                statuses = mgr.get_all_monetag_statuses()
                 self._send_json(200, {"ok": True, "count": len(statuses), "apps": statuses})
             except Exception as e:
                 self._send_json(500, {"error": str(e)})
@@ -527,6 +529,7 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
                 sys.path.insert(0, str(BOTS_DIR))
                 from ad_manager import get_ad_manager
                 mgr = get_ad_manager()
+                mgr.reload_from_disk()   # التقاط أي تعديل خارجي قبل الحفظ
                 mgr.set_monetag_config(bot_id, direct_link=d_link, zone_id=z_id,
                                        script_url=s_url, format_type=fmt,
                                        frequency=freq, active=active)

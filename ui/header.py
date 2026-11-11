@@ -50,6 +50,7 @@ class Header:
         btn_defs = [
             ("▶  Start All",   "Success", callbacks.get("start_all")),
             ("⏹  Stop All",    "Danger",  callbacks.get("stop_all")),
+            ("📢  Ads Editor", "Accent",  callbacks.get("open_ads_dashboard")),
             ("🔄  Refresh",    "Accent",  callbacks.get("refresh")),
             ("📂  Open Folder","Neutral",  callbacks.get("open_folder")),
             ("🖨  Export Log",  "Neutral",  callbacks.get("export_log")),
