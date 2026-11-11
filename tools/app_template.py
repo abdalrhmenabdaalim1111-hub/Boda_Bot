@@ -289,6 +289,7 @@ COMMON_JS = """
 def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
                body_html: str, app_js: str, app_css: str = "",
                api_base: str = "", ads_cfg: dict | None = None,
+               ad_markers: list | None = None,
                share_url: str = "https://t.me/BodaStoreeBot",
                back_url: str = "", page_url: str = "") -> str:
     """تجميع صفحة تطبيق كاملة من القالب + أجزاء التطبيق"""
@@ -316,7 +317,7 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
               f'<meta name="twitter:title" content="{emoji} {title} — Boda">\n'
               f'<meta name="twitter:description" content="{full_desc}">\n')
 
-    return f"""<!DOCTYPE html>
+    result = f"""<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
@@ -356,3 +357,23 @@ window.__BODA_ADS__      = {ads_json};
 <script>{app_js}</script>
 </body>
 </html>"""
+
+    # ── Ad marker injection (Phase A1) ──────────────────────────────────
+    # Post-process generated HTML to inject ad marker blocks. Keeps ads in
+    # sync when the generator rebuilds (D7: generator is marker-aware).
+    if ad_markers:
+        try:
+            import sys as _sys
+            from pathlib import Path as _P
+            _sys.path.insert(0, str(_P(__file__).parent.parent))
+            from control_center.ads.injector import inject_markers as _inj
+            _blocks = []
+            for m in ad_markers:
+                if isinstance(m, (tuple, list)) and len(m) >= 3:
+                    _blocks.append((str(m[0]), str(m[1]), str(m[2])))
+            if _blocks:
+                result = _inj(result, _blocks)
+        except Exception:
+            pass
+
+    return result
