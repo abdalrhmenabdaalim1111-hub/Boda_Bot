@@ -101,6 +101,18 @@ class AdManager:
         with open(self.monetag_file, "w", encoding="utf-8") as f:
             json.dump(new_config, f, ensure_ascii=False, indent=2)
 
+    def reload_from_disk(self) -> dict:
+        """إعادة تحميل إعدادات Monetag من القرص.
+
+        ضرورية للخوادم طويلة العمر (api_server) حتى لا تكتب نسخة قديمة
+        فوق تعديلات أُجريت من Manager أو من ملف الإعدادات مباشرة.
+        """
+        try:
+            self.monetag_config = self._load_monetag_config()
+        except Exception as e:
+            logger.debug(f"reload_from_disk: {e}")
+        return self.monetag_config
+
     def get_monetag_config(self, bot_id: str) -> dict:
         """الحصول على إعدادات Monetag لبوت معين مع استخدام الشفرة العامة كـ fallback."""
         clean_id = bot_id.replace("bot_", "")
