@@ -2,7 +2,7 @@
 <html dir="rtl" lang="ar" data-group="media">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="من يوتيوب وإنستغرام وتيك توك وX — اكتشف المنصة تلقائياً">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#8b5cf6">
@@ -535,21 +535,25 @@ textarea{ min-height:92px; resize:vertical; }
     <p>من يوتيوب وإنستغرام وتيك توك وX — اكتشف المنصة تلقائياً</p>
   </header>
 
+  <main id="app">
 
 <div class="card">
-  <label>رابط الفيديو (تُكتشف المنصة تلقائياً)</label>
-  <input type="text" id="url" dir="ltr" placeholder="الصق أي رابط...">
-  <div style="margin:8px 0;color:var(--hint)" id="platform">⬅️ أدخل رابطاً لرؤية المنصة</div>
+  <div class="field">
+    <label for="url">رابط الفيديو (تُكتشف المنصة تلقائياً)</label>
+    <input type="text" id="url" dir="ltr" placeholder="الصق أي رابط..." inputmode="url" autocomplete="off">
+  </div>
+  <div id="platform" class="muted" style="margin:-4px 0 10px;font-size:13px">⬅️ أدخل رابطاً لرؤية المنصة</div>
   <label>المخرجات</label>
   <div class="chips">
-    <span class="chip active" onclick="setOut('فيديو 1080p', this)">🎬 1080p</span>
-    <span class="chip" onclick="setOut('فيديو 720p', this)">720p</span>
-    <span class="chip" onclick="setOut('الصوت فقط MP3', this)">🎧 صوت</span>
+    <span class="chip active" data-out="فيديو 1080p">🎬 1080p</span>
+    <span class="chip" data-out="فيديو 720p">720p</span>
+    <span class="chip" data-out="الصوت فقط MP3">🎧 صوت</span>
   </div>
   <button class="btn" id="go" onclick="send()">🤖 جهّز الطلب للبوت</button>
-  <div class="result" id="res"></div>
+  <div class="result" id="res" aria-live="polite"></div>
 </div>
 
+  </main>
 
   <footer class="app-footer">
     <a href="../store/">🏠 الصفحة الرئيسية</a> · <a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>
@@ -615,6 +619,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   function initData() { try { return (tg && tg.initData) || ''; } catch (e) { return ''; } }
+
+  /* بيئة تيليجرام الحقيقية فقط — مكتبة telegram-web-app.js تُحمّل حتى خارج تيليجرام */
+  function isTelegram() {
+    try {
+      if (!tg) return false;
+      if (tg.initData) return true;
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) return true;
+      return !!(tg.platform && tg.platform !== 'unknown');
+    } catch (e) { return false; }
+  }
 
   /* ── التتبع (best-effort، لا يعطّل الواجهة) ── */
   function track(event, extra) {
@@ -712,27 +726,37 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   /* ── MainButton / BackButton أصليّان ── */
+  var mainCb = null;
   var MainButton = {
     set: function (text, onClick) {
-      if (!tg || !tg.MainButton) return false;
+      if (!tg || !tg.MainButton || !isTelegram()) return false;
       try {
         tg.MainButton.setText(text || '');
-        tg.MainButton.onClick(onClick || function () {});
+        /* إزالة المستمع السابق حتى لا تتراكم الأفعال عند تغيير النص */
+        if (mainCb && tg.MainButton.offClick) {
+          try { tg.MainButton.offClick(mainCb); } catch (e) {}
+        }
+        mainCb = onClick || function () {};
+        tg.MainButton.onClick(mainCb);
         tg.MainButton.show();
         return true;
       } catch (e) { return false; }
     },
     hide: function () { try { tg.MainButton.hide(); } catch (e) {} },
     progress: function (on) {
+      if (!isTelegram()) return;
       try { on ? tg.MainButton.showProgress(true) : tg.MainButton.hideProgress(); }
       catch (e) {}
     },
-    disable: function (on) { try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {} }
+    disable: function (on) {
+      if (!isTelegram()) return;
+      try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {}
+    }
   };
 
   var BackButton = {
     show: function (onClick) {
-      if (!tg || !tg.BackButton) return false;
+      if (!tg || !tg.BackButton || !isTelegram()) return false;
       try {
         tg.BackButton.onClick(onClick || function () { tg.close(); });
         tg.BackButton.show();
@@ -890,7 +914,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
       Ad.afterResult();
     }
     function scan(root) {
-      (root.querySelectorAll ? root.querySelectorAll('.result') : []).forEach(function (el) {
+      var nodes = [];
+      if (root.nodeType === 1 && root.classList && root.classList.contains('result')) {
+        nodes.push(root);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll('.result').forEach(function (el) { nodes.push(el); });
+      }
+      nodes.forEach(function (el) {
+        if (el._bodaObserved) return;
+        el._bodaObserved = true;
         if (el.classList.contains('show')) onShown(el);
         new MutationObserver(function (muts) {
           muts.forEach(function (m) {
@@ -932,26 +965,35 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   window.Boda = {
     track: track, api: api, toast: toast, haptic: haptic, copy: copy, share: share,
     getUser: getUser, initData: initData, ready: ready, tg: tg,
+    isTelegram: isTelegram,
     MainButton: MainButton, BackButton: BackButton, Cloud: Cloud, Ad: Ad
   };
 })();
 </script>
 <script>
+const SHARE_BOT='https://t.me/VidLoadXBot';
+const BOT_LINK='https://t.me/VidLoadXBot';
 let OUT='فيديو 1080p';
 const PLATFORMS=[
-  ['YouTube',   /youtube\.com|youtu\.be/i,                                        '▶️'],
-  ['TikTok',    /tiktok\.com/i,                                                      '🎵'],
-  ['Instagram', /instagram\.com/i,                                                   '📸'],
-  ['X',         /(?:twitter|x)\.com/i,                                               '🐦'],
-  ['Facebook',  /facebook\.com|fb\.watch/i,                                        '👥'],
-  ['Reddit',    /reddit\.com/i,                                                      '🟠'],
-  ['Vimeo',     /vimeo\.com/i,                                                       '🎬']
+  ['YouTube',   /youtube\.com|youtu\.be/i,  '▶️'],
+  ['TikTok',    /tiktok\.com/i,               '🎵'],
+  ['Instagram', /instagram\.com/i,            '📸'],
+  ['X',         /(?:twitter|x)\.com/i,        '🐦'],
+  ['Facebook',  /facebook\.com|fb\.watch/i,  '👥'],
+  ['Reddit',    /reddit\.com/i,               '🟠'],
+  ['Vimeo',     /vimeo\.com/i,                '🎬']
 ];
 
+document.querySelectorAll('.chips .chip[data-out]').forEach(el=>{
+  el.onclick=()=>setOut(el.dataset.out, el);
+});
+
 function setOut(v, el){
-  if(el){ el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-          el.classList.add('active'); }
-  OUT=v; Boda.haptic('light');
+  if(el){
+    el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    el.classList.add('active');
+  }
+  OUT=v; Boda.haptic('select');
 }
 
 function detect(){
@@ -959,24 +1001,56 @@ function detect(){
   const pl=document.getElementById('platform');
   if(!u){ pl.textContent='⬅️ أدخل رابطاً لرؤية المنصة'; return; }
   const hit=PLATFORMS.find(p=>p[1].test(u));
-  pl.innerHTML= hit
-    ? '<span style="font-size:20px">'+hit[2]+'</span> المنصة: <b style="color:var(--accent)">'+hit[0]+'</b> ✅'
-    : '✨ نفسه سيتعرف البوت على المنصة — الصق الرابط وسنتولى الباقي';
+  pl.innerHTML=hit
+    ? '<span style="font-size:18px">'+hit[2]+'</span> المنصة: <b style="color:var(--bd-brand)">'+hit[0]+'</b> ✓'
+    : '✨ سيتعرّف البوت على المنصة تلقائياً';
 }
 
 document.getElementById('url').oninput=detect;
 
 function send(){
   const u=document.getElementById('url').value.trim();
-  if(!/^(https?:\/\/)?[\w.-]+\.[a-z]{2,}/i.test(u))
+  if(!/^(https?:\/\/)?[\w.-]+\.[a-z]{2,}/i.test(u)){
+    Boda.haptic('warning');
     return Boda.toast('⚠️ أدخل رابطاً صحيحاً يبدأ بـ https');
-  Boda.haptic('light'); Boda.track('feature_use',{detail:'download_ready'});
-  Boda.copy('حمّل: '+OUT+'\n'+u, '📋 الطلب منسوخ — ألصقه في البوت');
-  document.getElementById('res').className='result show';
-  document.getElementById('res').innerHTML=
-    '✅ طلبك جاهز: <b style="color:var(--accent)">'+OUT+'</b>'+
-    '<button class="btn" style="margin-top:8px" onclick="location.href=\'https://t.me/BodaVidLoadBot\'">🤖 فتح البوت</button>';
+  }
+  const full=/^https?:\/\//i.test(u)?u:'https://'+u;
+  Boda.haptic('light');
+  Boda.track('feature_use',{detail:'download_ready'});
+  const res=document.getElementById('res');
+  res.className='result show';
+  const pl=PLATFORMS.find(p=>p[1].test(u));
+  res.innerHTML=
+    '<div class="result-title">✅ طلبك جاهز</div>'+
+    (pl?'<div class="muted" style="font-size:13px;margin-bottom:6px">'+pl[2]+' '+pl[0]+'</div>':'')+
+    '<div style="font-weight:800;font-size:16px">'+OUT+'</div>'+
+    '<div class="muted" style="font-size:12px;word-break:break-all;margin-top:4px" dir="ltr">'+full+'</div>'+
+    '<div class="result-actions">'+
+      '<button class="btn" id="open-btn" type="button">🤖 فتح البوت</button>'+
+      '<button class="btn secondary" id="share-btn" type="button">📤 شارك التطبيق</button>'+
+    '</div>';
+  res.querySelector('#open-btn').onclick=openBot;
+  res.querySelector('#share-btn').onclick=()=>
+    Boda.share('📥 حمّل فيديوهات من يوتيوب وتيك توك مجاناً — جرّب البوت!', SHARE_BOT);
+  Boda.copy('حمّل: '+OUT+'\n'+full, '📋 الطلب منسوخ — ألصقه في البوت');
+  Boda.haptic('success');
+  const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
+
+function openBot(){
+  try{
+    if(Boda.tg && Boda.tg.openTelegramLink) Boda.tg.openTelegramLink(BOT_LINK);
+    else location.href=BOT_LINK;
+  }catch(e){ location.href=BOT_LINK; }
+  Boda.track('feature_use',{detail:'open_bot'});
+}
+
+Boda.ready(()=>{
+  if(Boda.MainButton.set('🤖 جهّز الطلب', send)){
+    const b=document.getElementById('go'); if(b) b.style.display='none';
+  }
+});
 </script>
 </body>
 </html>

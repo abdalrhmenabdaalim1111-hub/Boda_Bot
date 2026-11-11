@@ -61,7 +61,7 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
 <html dir="rtl" lang="{lang}" data-group="{pal['group']}">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="{full_desc}">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="{pal['brand']}">
@@ -83,7 +83,9 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
     <p>{subtitle}</p>
   </header>
 
+  <main id="app">
 {body_html}
+  </main>
 
   <footer class="app-footer">
     {back_link}<a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>

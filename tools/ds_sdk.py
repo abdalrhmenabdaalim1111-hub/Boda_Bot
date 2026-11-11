@@ -60,6 +60,16 @@ SDK_JS = r"""
 
   function initData() { try { return (tg && tg.initData) || ''; } catch (e) { return ''; } }
 
+  /* بيئة تيليجرام الحقيقية فقط — مكتبة telegram-web-app.js تُحمّل حتى خارج تيليجرام */
+  function isTelegram() {
+    try {
+      if (!tg) return false;
+      if (tg.initData) return true;
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) return true;
+      return !!(tg.platform && tg.platform !== 'unknown');
+    } catch (e) { return false; }
+  }
+
   /* ── التتبع (best-effort، لا يعطّل الواجهة) ── */
   function track(event, extra) {
     try {
@@ -156,27 +166,37 @@ SDK_JS = r"""
   }
 
   /* ── MainButton / BackButton أصليّان ── */
+  var mainCb = null;
   var MainButton = {
     set: function (text, onClick) {
-      if (!tg || !tg.MainButton) return false;
+      if (!tg || !tg.MainButton || !isTelegram()) return false;
       try {
         tg.MainButton.setText(text || '');
-        tg.MainButton.onClick(onClick || function () {});
+        /* إزالة المستمع السابق حتى لا تتراكم الأفعال عند تغيير النص */
+        if (mainCb && tg.MainButton.offClick) {
+          try { tg.MainButton.offClick(mainCb); } catch (e) {}
+        }
+        mainCb = onClick || function () {};
+        tg.MainButton.onClick(mainCb);
         tg.MainButton.show();
         return true;
       } catch (e) { return false; }
     },
     hide: function () { try { tg.MainButton.hide(); } catch (e) {} },
     progress: function (on) {
+      if (!isTelegram()) return;
       try { on ? tg.MainButton.showProgress(true) : tg.MainButton.hideProgress(); }
       catch (e) {}
     },
-    disable: function (on) { try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {} }
+    disable: function (on) {
+      if (!isTelegram()) return;
+      try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {}
+    }
   };
 
   var BackButton = {
     show: function (onClick) {
-      if (!tg || !tg.BackButton) return false;
+      if (!tg || !tg.BackButton || !isTelegram()) return false;
       try {
         tg.BackButton.onClick(onClick || function () { tg.close(); });
         tg.BackButton.show();
@@ -334,7 +354,16 @@ SDK_JS = r"""
       Ad.afterResult();
     }
     function scan(root) {
-      (root.querySelectorAll ? root.querySelectorAll('.result') : []).forEach(function (el) {
+      var nodes = [];
+      if (root.nodeType === 1 && root.classList && root.classList.contains('result')) {
+        nodes.push(root);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll('.result').forEach(function (el) { nodes.push(el); });
+      }
+      nodes.forEach(function (el) {
+        if (el._bodaObserved) return;
+        el._bodaObserved = true;
         if (el.classList.contains('show')) onShown(el);
         new MutationObserver(function (muts) {
           muts.forEach(function (m) {
@@ -376,6 +405,7 @@ SDK_JS = r"""
   window.Boda = {
     track: track, api: api, toast: toast, haptic: haptic, copy: copy, share: share,
     getUser: getUser, initData: initData, ready: ready, tg: tg,
+    isTelegram: isTelegram,
     MainButton: MainButton, BackButton: BackButton, Cloud: Cloud, Ad: Ad
   };
 })();

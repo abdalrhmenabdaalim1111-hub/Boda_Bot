@@ -64,6 +64,8 @@ htmlcov/
 
 # Session artifacts
 .zcode/
+.ads_backup_*/
+**/.ads_backup_*/
 
 # Security: never commit secrets or audit docs that contain real tokens
 SECURITY_AUDIT_TOKENS.md

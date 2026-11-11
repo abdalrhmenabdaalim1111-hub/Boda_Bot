@@ -2,7 +2,7 @@
 <html dir="rtl" lang="ar" data-group="tools">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="أسعار صرف حية لأكثر من 100 عملة">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#3b82f6">
@@ -536,20 +536,28 @@ textarea{ min-height:92px; resize:vertical; }
     <p>أسعار صرف حية لأكثر من 100 عملة</p>
   </header>
 
+  <main id="app">
 
 <div class="card">
-  <label>المبلغ</label>
-  <input type="number" id="amount" placeholder="100" inputmode="decimal" value="100">
-  <label>من</label>
-  <select id="from"></select>
-  <div class="chips" id="from-chips"></div>
-  <label>إلى</label>
-  <select id="to"></select>
-  <div class="chips" id="to-chips"></div>
+  <div class="field">
+    <label for="amount">المبلغ</label>
+    <input type="number" id="amount" placeholder="100" inputmode="decimal" value="100" min="0" step="any">
+  </div>
+  <div class="field">
+    <label for="from">من</label>
+    <select id="from"></select>
+    <div class="chips" id="from-chips"></div>
+  </div>
+  <div class="field">
+    <label for="to">إلى</label>
+    <select id="to"></select>
+    <div class="chips" id="to-chips"></div>
+  </div>
   <button class="btn" id="go" onclick="convert()">🔄 تحويل الآن</button>
-  <div class="result" id="res"></div>
+  <div class="result" id="res" aria-live="polite"></div>
 </div>
 
+  </main>
 
   <footer class="app-footer">
     <a href="../store/">🏠 الصفحة الرئيسية</a> · <a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>
@@ -615,6 +623,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   function initData() { try { return (tg && tg.initData) || ''; } catch (e) { return ''; } }
+
+  /* بيئة تيليجرام الحقيقية فقط — مكتبة telegram-web-app.js تُحمّل حتى خارج تيليجرام */
+  function isTelegram() {
+    try {
+      if (!tg) return false;
+      if (tg.initData) return true;
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) return true;
+      return !!(tg.platform && tg.platform !== 'unknown');
+    } catch (e) { return false; }
+  }
 
   /* ── التتبع (best-effort، لا يعطّل الواجهة) ── */
   function track(event, extra) {
@@ -712,27 +730,37 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   }
 
   /* ── MainButton / BackButton أصليّان ── */
+  var mainCb = null;
   var MainButton = {
     set: function (text, onClick) {
-      if (!tg || !tg.MainButton) return false;
+      if (!tg || !tg.MainButton || !isTelegram()) return false;
       try {
         tg.MainButton.setText(text || '');
-        tg.MainButton.onClick(onClick || function () {});
+        /* إزالة المستمع السابق حتى لا تتراكم الأفعال عند تغيير النص */
+        if (mainCb && tg.MainButton.offClick) {
+          try { tg.MainButton.offClick(mainCb); } catch (e) {}
+        }
+        mainCb = onClick || function () {};
+        tg.MainButton.onClick(mainCb);
         tg.MainButton.show();
         return true;
       } catch (e) { return false; }
     },
     hide: function () { try { tg.MainButton.hide(); } catch (e) {} },
     progress: function (on) {
+      if (!isTelegram()) return;
       try { on ? tg.MainButton.showProgress(true) : tg.MainButton.hideProgress(); }
       catch (e) {}
     },
-    disable: function (on) { try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {} }
+    disable: function (on) {
+      if (!isTelegram()) return;
+      try { on ? tg.MainButton.disable() : tg.MainButton.enable(); } catch (e) {}
+    }
   };
 
   var BackButton = {
     show: function (onClick) {
-      if (!tg || !tg.BackButton) return false;
+      if (!tg || !tg.BackButton || !isTelegram()) return false;
       try {
         tg.BackButton.onClick(onClick || function () { tg.close(); });
         tg.BackButton.show();
@@ -890,7 +918,16 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
       Ad.afterResult();
     }
     function scan(root) {
-      (root.querySelectorAll ? root.querySelectorAll('.result') : []).forEach(function (el) {
+      var nodes = [];
+      if (root.nodeType === 1 && root.classList && root.classList.contains('result')) {
+        nodes.push(root);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll('.result').forEach(function (el) { nodes.push(el); });
+      }
+      nodes.forEach(function (el) {
+        if (el._bodaObserved) return;
+        el._bodaObserved = true;
         if (el.classList.contains('show')) onShown(el);
         new MutationObserver(function (muts) {
           muts.forEach(function (m) {
@@ -932,46 +969,103 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   window.Boda = {
     track: track, api: api, toast: toast, haptic: haptic, copy: copy, share: share,
     getUser: getUser, initData: initData, ready: ready, tg: tg,
+    isTelegram: isTelegram,
     MainButton: MainButton, BackButton: BackButton, Cloud: Cloud, Ad: Ad
   };
 })();
 </script>
 <script>
 const POPULAR=['USD','EUR','GBP','EGP','SAR','AED','KWD','QAR','TRY','JPY'];
+const SHARE_BOT='https://t.me/BodaCurrencyBot';
 let RATES=null, cacheT=0;
+const fmt=n=>n.toLocaleString(undefined,{maximumFractionDigits:2});
+
 async function loadRates(){
-  if (RATES && Date.now()-cacheT < 600000) return RATES;   // كاش 10 دقائق
-  document.getElementById('go').disabled=true; Boda.toast('⏳ تحميل الأسعار...');
-  const r=await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-  RATES=(await r.json()).rates; cacheT=Date.now();
-  document.getElementById('go').disabled=false; return RATES;
+  if (RATES && Date.now()-cacheT < 600000) return RATES;
+  const go=document.getElementById('go');
+  if(go){ go.disabled=true; go.classList.add('loading'); }
+  Boda.toast('⏳ تحميل الأسعار...');
+  try{
+    const r=await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    if(!r.ok) throw 0;
+    RATES=(await r.json()).rates; cacheT=Date.now();
+  }catch(e){
+    Boda.haptic('error');
+    Boda.toast('⚠️ تعذر تحميل الأسعار — تحقق من الاتصال');
+  }finally{
+    if(go){ go.disabled=false; go.classList.remove('loading'); }
+  }
+  return RATES;
 }
-function fill(sel, chipsEl, excludeSel){
+
+function fill(sel, chipsEl){
   const s=document.getElementById(sel), c=document.getElementById(chipsEl);
-  const codes=Object.keys(RATES).sort(); s.innerHTML=codes.map(x=>'<option>'+x+'</option>').join('');
-  const draw=()=>{ c.innerHTML=POPULAR.map(x=>
-    '<span class="chip'+(s.value===x?' active':'')+'" onclick="setVal(\''+sel+'\',\''+x+'\')">'+x+'</span>').join(''); };
+  const codes=Object.keys(RATES).sort();
+  s.innerHTML=codes.map(x=>'<option>'+x+'</option>').join('');
+  const draw=()=>{
+    c.innerHTML=POPULAR.map(x=>
+      '<span class="chip'+(s.value===x?' active':'')+'" data-code="'+x+'">'+x+'</span>').join('');
+    c.querySelectorAll('.chip').forEach(el=>{
+      el.onclick=()=>setVal(sel, el.dataset.code);
+    });
+  };
   s.onchange=draw; draw();
 }
-function setVal(sel,v){ document.getElementById(sel).value=v;
-  document.getElementById(sel).dispatchEvent(new Event('change')); }
+
+function setVal(sel,v){
+  const el=document.getElementById(sel);
+  el.value=v;
+  el.dispatchEvent(new Event('change'));
+}
+
 async function convert(){
   const amt=parseFloat(document.getElementById('amount').value);
-  const from=document.getElementById('from').value, to=document.getElementById('to').value;
-  if(!amt||amt<=0) return Boda.toast('⚠️ أدخل مبلغاً صحيحاً');
+  const from=document.getElementById('from').value;
+  const to=document.getElementById('to').value;
+  if(!amt||amt<=0){ Boda.haptic('warning'); return Boda.toast('⚠️ أدخل مبلغاً صحيحاً'); }
   Boda.haptic('light');
+  Boda.MainButton.progress(true);
   const rates=await loadRates();
-  const out=amt/rates[from]*rates[to], rate=(1/rates[from]*rates[to]);
-  document.getElementById('res').className='result show';
-  document.getElementById('res').innerHTML=
-    '<b style="font-size:20px">'+amt.toLocaleString()+' '+from+' = '+
-    '<span style="color:var(--accent)">'+out.toLocaleString(undefined,{maximumFractionDigits:2})+' '+to+'</span></b>'+
-    '<br><small style="color:var(--hint)">1 '+from+' = '+rate.toFixed(4)+' '+to+'</small>'+
-    '<br><button class="btn secondary" style="margin-top:8px" onclick="Boda.copy(\''+out.toFixed(2)+' '+to+'\')">📋 نسخ النتيجة</button>';
+  Boda.MainButton.progress(false);
+  if(!rates||!rates[from]||!rates[to]) return;
+  const out=amt/rates[from]*rates[to], rate=rates[to]/rates[from];
+  const res=document.getElementById('res');
+  res.className='result show';
+  res.innerHTML=
+    '<div class="result-title">✅ نتيجة التحويل</div>'+
+    '<div style="font-size:22px;font-weight:800;line-height:1.7">'+
+      fmt(amt)+' '+from+' = <span style="color:var(--bd-brand)">'+fmt(out)+' '+to+'</span></div>'+
+    '<div class="muted" style="font-size:12.5px">1 '+from+' = '+rate.toFixed(4)+' '+to+'</div>'+
+    '<div class="result-actions">'+
+      '<button class="btn secondary" id="copy-btn" type="button">📋 نسخ النتيجة</button>'+
+      '<button class="btn secondary" id="share-btn" type="button">📤 مشاركة</button>'+
+    '</div>';
+  res.querySelector('#copy-btn').onclick=()=>Boda.copy(fmt(out)+' '+to, '📋 تم نسخ النتيجة');
+  res.querySelector('#share-btn').onclick=()=>
+    Boda.share('💱 '+fmt(amt)+' '+from+' = '+fmt(out)+' '+to+' — جرّب محول العملات', SHARE_BOT);
+  Boda.haptic('success');
   Boda.track('feature_use',{detail:'convert'});
+  Boda.Cloud.set('currency_pair', from+'>'+to);
+  const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
-loadRates().then(r=>{ fill('from','from-chips'); fill('to','to-chips');
-  setVal('from','USD'); setVal('to','EGP'); });
+
+Boda.ready(async ()=>{
+  const rates=await loadRates();
+  if(!rates) return;
+  fill('from','from-chips'); fill('to','to-chips');
+  setVal('from','USD'); setVal('to','EGP');
+  try{
+    const saved=await Boda.Cloud.get('currency_pair');
+    if(saved && saved.indexOf('>')>0){
+      const parts=saved.split('>');
+      if(rates[parts[0]]&&rates[parts[1]]){ setVal('from',parts[0]); setVal('to',parts[1]); }
+    }
+  }catch(e){}
+  if(Boda.MainButton.set('🔄 تحويل الآن', convert)){
+    const b=document.getElementById('go'); if(b) b.style.display='none';
+  }
+});
 </script>
 </body>
 </html>
