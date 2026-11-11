@@ -197,6 +197,7 @@ def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
         body_html=body, app_js=js, app_css=css,
         api_base=api_base, ads_cfg=ads_cfg,
         share_url=share, back_url="../store/",
+        group=app.get("tag", ""),
         page_url=f"{MINIAPPS_BASE}/{bot_id}/" if MINIAPPS_BASE else "")
 
 
@@ -318,7 +319,7 @@ def render_store(apps: list, ads_cfg: dict, api_base: str) -> str:
         subtitle="تصفح كل البوتات والتطبيقات المصغّرة",
         body_html=body, app_js=STORE_JS, app_css=STORE_CSS,
         api_base=api_base, ads_cfg={"banner": None, "sponsor": ads_cfg.get("sponsor"), "every": 99},
-        share_url=STORE_URL,
+        share_url=STORE_URL, group="متجر 🏪",
         page_url=f"{MINIAPPS_BASE}/store/" if MINIAPPS_BASE else "").replace(
         "window.__BODA_BOT_ID__   = \"store\";",
         "window.__BODA_BOT_ID__   = \"store\";\nwindow.__BODA_CATALOG__ = "

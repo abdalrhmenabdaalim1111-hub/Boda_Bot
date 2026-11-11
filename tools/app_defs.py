@@ -209,7 +209,7 @@ async function shorten(){
       res.innerHTML='<code dir="ltr">'+d.shorturl+'</code>'+
         '<div style="display:flex;gap:8px;margin-top:10px">'+
         '<button class="btn secondary" onclick="Boda.copy(\\''+d.shorturl+'\\')">📋 نسخ</button>'+
-        '<button class="btn secondary" onclick="Boda.share(\'رابط قصير via متجر بودا\',\\''+d.shorturl+'\\')">📤 مشاركة</button></div>';
+        '<button class="btn secondary" onclick="Boda.share(&#39;رابط قصير via متجر بودا&#39;,&#39;'+d.shorturl+'&#39;)">📤 مشاركة</button></div>';
       Boda.track('feature_use',{detail:'shorten'});
     } else throw 0;
   }catch(e){ res.innerHTML='⚠️ فشل الاختصار — جرّب رابطاً آخر'; }
@@ -246,7 +246,7 @@ function calc(){
     '<div style="background:var(--bg);border-radius:999px;height:12px;margin:10px 0;overflow:hidden">'+
     '<div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--danger),var(--accent));border-radius:999px"></div></div>'+
     '<p>'+msg+'</p>'+
-    '<button class="btn secondary" onclick="Boda.share(\'نسبة الحب بيني وبين... جرب حاسبة الحب 💌\',\'https://t.me/BodaLoveCalBot\')">📤 تحدى أصدقاءك</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;نسبة الحب بيني وبين... جرب حاسبة الحب 💌&#39;,&#39;https://t.me/BodaLoveCalBot&#39;)">📤 تحدى أصدقاءك</button>';
   Boda.track('feature_use',{detail:'love_'+(pct>=70)});
 }
 """,
@@ -295,7 +295,7 @@ function finish(){
   res.innerHTML='<div style="font-size:40px;font-weight:800;color:var(--accent)">'+age+' سنة</div>'+
     '<p style="margin:8px 0">عقلكم العقلي: '+txt+'</p>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة الاختبار</button>'+
-    '<button class="btn secondary" onclick="Boda.share(\'عقلي  \\''+age+'\\' سنة! جرّب اختبار العمر العقلي 🧠\',\'https://t.me/BodaMentalAgeBot\')">📤 شارك نتيجتك</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;عقلي  &#39;+age+&#39; سنة! جرّب اختبار العمر العقلي 🧠&#39;,&#39;https://t.me/BodaMentalAgeBot&#39;)">📤 شارك نتيجتك</button>';
 }
 render();
 """,
@@ -342,7 +342,7 @@ function finish(){
     '<p>أجبت صح على '+correct+' من '+QS.length+' في '+Math.round((Date.now()-t0)/1000)+' ثانية</p>'+
     '<p style="margin:6px 0">'+lv+'</p>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة</button>'+
-    '<button class="btn secondary" onclick="Boda.share(\'نتيجتي في اختبار الذكاء: \'+\'\'+iq+\' IQ 🧠 جرّبها!\',\'https://t.me/BodaIQTestBot\')">📤 شارك</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;نتيجتي في اختبار الذكاء: &#39;+iq+&#39; IQ 🧠 جرّبها!&#39;,&#39;https://t.me/BodaIQTestBot&#39;)">📤 شارك</button>';
 }
 render();
 """,
@@ -388,7 +388,7 @@ function openBox(){
     Boda.haptic('success'); Boda.track('feature_use',{detail:'prize_'+pick.e});
     const res=document.getElementById('res'); res.className='result show';
     res.innerHTML='<h2 style="font-size:22px">'+pick.e+' '+pick.t+'</h2>'+
-      '<button class="btn secondary" onclick="Boda.share(\'فتحت صندوق الحظ وحصلت على '+pick.e+' '+pick.t+' جرّب أنت كمان 🎁\',\'https://t.me/BodaLuckyBoxBot\')">📤 شارك حظك</button>'+
+      '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/BodaLuckyBoxBot&#39;)">📤 شارك حظك</button>'+
       '<p style="color:var(--hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
   },1400);
 }
@@ -437,7 +437,7 @@ function next(){
   else { document.getElementById('q-box').innerHTML='<h2>🎊 حللت كل الألغاز!</h2>'+
     '<p style="color:var(--hint)">عد غداً لألغاز جديدة</p>'+
     '<button class="btn" onclick="i=0;solved=0;render()">🔁 من البداية</button>'+
-    '<button class="btn secondary" onclick="Boda.share(\'حللت كل ألغاز الأذكياء 🌀 تحداني!\',\'https://t.me/BodaBrainTwistBot\')">📤 تحدى صديقاً</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;حللت كل ألغاز الأذكياء 🌀 تحداني!&#39;,&#39;https://t.me/BodaBrainTwistBot&#39;)">📤 تحدى صديقاً</button>';
     Boda.track('feature_use',{detail:'all_solved'}); }
 }
 render();
@@ -469,7 +469,7 @@ function gen(){
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML='<div style="font-size:18px;font-weight:700">'+full+'</div>'+
     '<button class="btn secondary" onclick="Boda.copy(\\''+full+'\\')">📋 نسخ</button>'+
-    '<button class="btn secondary" onclick="Boda.share(\'اسمي الطريف: '+full+' 🎭 ولّد اسمك!\',\'https://t.me/BodaFunNameBot\')">📤 شارك</button>';
+    '<button class="btn secondary" onclick="Boda.share(&#39;اسمي الطريف: &#39;+full+&#39; 🎭 ولّد اسمك!&#39;,&#39;https://t.me/BodaFunNameBot&#39;)">📤 شارك</button>';
   Boda.track('feature_use',{detail:'name_gen'});
 }
 """,
@@ -509,7 +509,7 @@ function spin(){
       const pick=list[Math.floor(Math.random()*list.length)];
       res.innerHTML='<div style="font-size:24px;font-weight:800;color:var(--accent)">'+pick+'</div>'+
         '<button class="btn secondary" onclick="spin()">🔁 مرة أخرى</button>'+
-        '<button class="btn secondary" onclick="Boda.share(\'اقترح لي القرار العشوائي: '+pick+' 🎲\',\'https://t.me/BodaRandomBot\')">📤 شارك</button>';
+        '<button class="btn secondary" onclick="Boda.share(&#39;اقترح لي القرار العشوائي: &#39;+pick+&#39; 🎲&#39;,&#39;https://t.me/BodaRandomBot&#39;)">📤 شارك</button>';
       Boda.haptic('success'); Boda.track('feature_use',{detail:cat});
     }
   },80);
@@ -792,7 +792,7 @@ async function load(){
     const r=await fetch('https://wttr.in/'+encodeURIComponent(c)+'?format=j1');
     const d=await r.json();
     const cur=d.current_condition[0];
-    const desc={Sunny:'☀️ مشمس',Clear:'🌙 صافٍ',Partly cloudy:'⛅ غائم جزئياً',Cloudy:'☁️ غائم',
+    const desc={Sunny:'☀️ مشمس',Clear:'🌙 صافٍ','Partly cloudy':'⛅ غائم جزئياً',Cloudy:'☁️ غائم',
       'Light rain':'🌧️ مطر خفيف',Rain:'🌧️ مطر',Thunderstorm:'⛈️ عواصف رعدية','Light snow':'🌨️ ثلج خفيف'}[cur.weatherDesc[0].value]||cur.weatherDesc[0].value;
     res.innerHTML='<div style="font-size:38px">'+desc+'</div>'+
       '<div style="font-size:30px;font-weight:800">'+cur.temp_C+'°C</div>'+
@@ -847,7 +847,7 @@ function finish(){
   const res=document.getElementById('res'); res.className='result show';
   res.innerHTML='<div style="font-size:54px">'+ty.e+'</div>'+
     '<h2>'+ty.n+'</h2><p style="color:var(--hint);margin:8px 0">'+ty.d+'</p>'+
-    '<button class="btn secondary" onclick="Boda.share(\'شخصيتي: \'+\'\'+ty.e+\' '+ty.n+' 🔮 اكتشف شخصيتك!\',\'https://t.me/BodaPersonaBot\')">📤 شارك</button>'+
+    '<button class="btn secondary" onclick="Boda.share(&#39;شخصيتي: &#39;+ty.e+&#39; &#39;+ty.n+&#39; 🔮 اكتشف شخصيتك!&#39;,&#39;https://t.me/BodaPersonaBot&#39;)">📤 شارك</button>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة</button>';
 }
 render();

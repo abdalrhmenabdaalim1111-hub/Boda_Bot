@@ -16,6 +16,221 @@ from __future__ import annotations
 import json
 
 
+ADS_CSS = """
+  .tabs { display:flex; gap:6px; margin-bottom:16px; background:var(--surface);
+          border:1px solid var(--border); padding:5px; border-radius:12px;
+          width:max-content; max-width:100%; overflow:auto; }
+  .tabs button { border:none; background:transparent; color:var(--hint);
+                 font-weight:700; padding:8px 16px; border-radius:9px; white-space:nowrap; }
+  .tabs button.active { background:var(--surface2); color:var(--text); }
+  .hide { display:none !important; }
+  .ads-grid { display:grid; grid-template-columns:1.05fr 1.25fr; gap:14px; }
+  @media (max-width:900px) { .ads-grid { grid-template-columns:1fr; } }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:560px) { .form-grid { grid-template-columns:1fr; } }
+  .form-grid .full { grid-column:1/-1; }
+  .fl { display:block; font-size:12px; color:var(--hint); margin-bottom:5px; }
+  .form-grid input, .form-grid select { width:100%; min-width:0; }
+  .switch { display:flex; align-items:center; gap:8px; font-size:13px;
+            background:var(--surface2); border:1px solid var(--border);
+            border-radius:10px; padding:9px 12px; }
+  .switch input { min-width:auto; width:18px; height:18px; accent-color:var(--accent); }
+  .pill { display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px;
+          border-radius:999px; border:1px solid var(--border); }
+  .pill.ok { color:var(--ok); border-color:rgba(46,204,113,.4); background:rgba(46,204,113,.1); }
+  .pill.warn { color:var(--warn); border-color:rgba(245,166,35,.4); background:rgba(245,166,35,.1); }
+  .pill.off { color:var(--hint); }
+  .ad-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  .ad-actions button.primary { flex:1; min-width:150px; }
+  .toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%,16px);
+           background:var(--text); color:var(--bg); padding:10px 18px;
+           border-radius:999px; font-size:13px; font-weight:700; opacity:0;
+           pointer-events:none; transition:.22s; z-index:9; }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+  .hintline { color:var(--hint); font-size:12px; line-height:1.8; }
+"""
+
+ADS_HTML = """
+<div id="tab-ads" class="hide">
+  <div class="note">
+    <b>ضبط الإعلانات لكل بوت عمليًا:</b> أدخل <code>Direct Link</code> أو
+    <code>Zone ID</code> من لوحة Monetag، ثم احفظ. يُحدّث الحفظ
+    <code>Data/monetag_config.json</code> ويعيد توليد صفحات التطبيقات تلقائيًا
+    (بانر ثابت أسفل الشاشة + إعلان بيني بعد النتيجة فقط).
+  </div>
+  <div class="ads-grid">
+    <div class="panel">
+      <h2>⚙️ إعدادات الإعلان للبوت</h2>
+      <div class="form-grid">
+        <div class="full">
+          <label class="fl" for="ad-bot">البوت</label>
+          <select id="ad-bot"></select>
+        </div>
+        <div class="full">
+          <label class="fl" for="ad-link">Direct Link (Monetag)</label>
+          <input id="ad-link" type="url" dir="ltr" placeholder="https://…">
+        </div>
+        <div>
+          <label class="fl" for="ad-zone">Zone ID</label>
+          <input id="ad-zone" type="text" dir="ltr" placeholder="1234567">
+        </div>
+        <div>
+          <label class="fl" for="ad-format">الصيغة</label>
+          <select id="ad-format">
+            <option value="direct_link">Direct Link</option>
+            <option value="in_page_push">In-Page Push</option>
+            <option value="interstitial">Interstitial</option>
+            <option value="popunder">Popunder</option>
+          </select>
+        </div>
+        <div class="full">
+          <label class="fl" for="ad-script">Script URL (اختياري)</label>
+          <input id="ad-script" type="url" dir="ltr" placeholder="https://…">
+        </div>
+        <div>
+          <label class="fl" for="ad-freq">التكرار (كل كم نتيجة)</label>
+          <input id="ad-freq" type="number" min="1" max="20" value="3">
+        </div>
+        <div>
+          <label class="fl">الحالة</label>
+          <label class="switch"><input id="ad-active" type="checkbox" checked>
+            تفعيل الإعلانات لهذا البوت</label>
+        </div>
+      </div>
+      <div class="ad-actions">
+        <button id="ad-save" class="primary">💾 حفظ وإعادة توليد الصفحات</button>
+        <a id="ad-open" class="hintline" target="_blank" rel="noopener">🔗 فتح صفحة البوت</a>
+      </div>
+      <div id="ad-msg" class="hintline" style="margin-top:10px"></div>
+    </div>
+    <div class="panel">
+      <h2>📋 حالة الإعلانات لكل البوتات</h2>
+      <div id="ad-rows"><span class="muted">جارٍ التحميل…</span></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+"""
+
+ADS_JS = r"""
+  let ADS = {};
+
+  function dashToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function renderAds() {
+    const ids = Object.keys(ADS).sort();
+    const sel = document.getElementById('ad-bot');
+    const cur = sel.value;
+    sel.innerHTML = ids.map(id => {
+      const a = ADS[id] || {};
+      return '<option value="' + esc(id) + '">' + esc(a.bot_name || id) +
+             ' — ' + esc(id) + '</option>';
+    }).join('');
+    if (cur && ids.includes(cur)) sel.value = cur;
+    fillAdForm();
+    document.getElementById('ad-rows').innerHTML = ids.length ? (
+      '<table><thead><tr><th>البوت</th><th>الحالة</th><th>الصيغة</th>' +
+      '<th>ظهور</th><th>نقر</th><th>CTR</th></tr></thead><tbody>' +
+      ids.map(id => {
+        const a = ADS[id] || {};
+        const pill = a.is_custom ? '<span class="pill ok">مخصص</span>' :
+                     a.is_global ? '<span class="pill warn">عام</span>' :
+                     '<span class="pill off">بدون</span>';
+        return '<tr><td>' + esc(a.bot_name || id) +
+               '<div class="muted" style="font-size:10.5px">' + esc(id) + '</div></td>' +
+               '<td>' + pill + '</td><td>' + esc(a.format || '—') + '</td>' +
+               '<td>' + (a.impressions || 0) + '</td><td>' + (a.clicks || 0) +
+               '</td><td>' + (a.ctr_percent || 0) + '%</td></tr>';
+      }).join('') + '</tbody></table>'
+    ) : '<span class="muted">لا توجد إعدادات إعلانات بعد — احفظ أول بوت من اليسار.</span>';
+  }
+
+  function fillAdForm() {
+    const id = document.getElementById('ad-bot').value;
+    const a = ADS[id] || {};
+    document.getElementById('ad-link').value = a.direct_link || '';
+    document.getElementById('ad-zone').value = a.zone_id || '';
+    document.getElementById('ad-script').value = a.script_url || '';
+    document.getElementById('ad-format').value = a.format || 'direct_link';
+    document.getElementById('ad-freq').value = a.frequency || 3;
+    document.getElementById('ad-active').checked = a.has_ad !== false;
+    document.getElementById('ad-open').href = '../' + encodeURIComponent(id) + '/';
+    document.getElementById('ad-msg').textContent = a.is_custom
+      ? 'هذا البوت يستخدم إعدادات مخصصة (تعديلها يستبدل الإعداد العام).'
+      : a.is_global
+        ? 'هذا البوت يرث الإعداد العام حالياً — أي حفظ هنا يجعله مخصصاً.'
+        : 'لا يوجد إعلان لهذا البوت حالياً.';
+  }
+
+  async function loadAds() {
+    try {
+      const data = await get('/api/ads/status');
+      ADS = data.apps || {};
+      renderAds();
+    } catch (e) {
+      document.getElementById('ad-rows').innerHTML =
+        '<span class="err">تعذر تحميل حالة الإعلانات: ' + esc(e.message) + '</span>';
+    }
+  }
+
+  async function saveAds() {
+    const botId = document.getElementById('ad-bot').value;
+    if (!botId) return;
+    const payload = {
+      bot_id: botId,
+      direct_link: document.getElementById('ad-link').value.trim(),
+      zone_id: document.getElementById('ad-zone').value.trim(),
+      script_url: document.getElementById('ad-script').value.trim(),
+      format: document.getElementById('ad-format').value,
+      frequency: parseInt(document.getElementById('ad-freq').value || '3', 10),
+      active: document.getElementById('ad-active').checked
+    };
+    if (!payload.direct_link && !payload.zone_id && !payload.script_url && payload.active) {
+      dashToast('⚠️ أدخل Direct Link أو Zone ID أولاً');
+      return;
+    }
+    const btn = document.getElementById('ad-save');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ الحفظ وإعادة التوليد…';
+    try {
+      const res = await fetch(API_BASE + '/api/ads/set', {
+        method: 'POST', headers: headers(), body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      dashToast('✅ حُفظت إعلانات ' + botId + ' وأُعيد توليد الصفحات');
+      document.getElementById('ad-msg').textContent =
+        (data.message || 'تم الحفظ') + ' — تمت مزامنة ملفات HTML.';
+      await loadAds();
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+      document.getElementById('ad-msg').textContent = 'فشل الحفظ: ' + e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 حفظ وإعادة توليد الصفحات';
+    }
+  }
+
+  function switchTab(name) {
+    document.getElementById('tab-analytics').classList.toggle('hide', name !== 'analytics');
+    document.getElementById('tab-ads').classList.toggle('hide', name !== 'ads');
+    document.querySelectorAll('.tabs button').forEach(b =>
+      b.classList.toggle('active', b.dataset.tab === name));
+    if (name === 'ads') loadAds();
+  }
+
+  document.getElementById('ad-bot').addEventListener('change', fillAdForm);
+  document.getElementById('ad-save').addEventListener('click', saveAds);
+"""
+
+
+
 def build_dashboard(api_base: str = "") -> str:
     """Return the full HTML of the analytics dashboard."""
     api = json.dumps(api_base or "")
@@ -79,6 +294,7 @@ def build_dashboard(api_base: str = "") -> str:
   .note {{ background:var(--surface2); border:1px solid var(--border);
            border-radius:10px; padding:10px 12px; font-size:12.5px;
            color:var(--hint); margin-bottom:14px; }}
+{ADS_CSS}
 </style>
 </head>
 <body>
@@ -95,6 +311,12 @@ def build_dashboard(api_base: str = "") -> str:
     </div>
   </header>
 
+  <div class="tabs" role="tablist">
+    <button data-tab="analytics" class="active">📊 التحليلات</button>
+    <button data-tab="ads">📢 الإعلانات</button>
+  </div>
+
+  <div id="tab-analytics">
   <div class="note">
     البيانات تُقرأ من <code>/api/overview</code> و<code>/api/stats</code>.
     من خارج جهازك أدخل مفتاح <code>API_SERVER_KEY</code> في الحقل أعلاه
@@ -125,6 +347,9 @@ def build_dashboard(api_base: str = "") -> str:
       </div>
     </div>
   </div>
+  </div>
+
+{ADS_HTML}
 
   <div class="foot">Generated by tools/build_mini_apps.py · Boda Bot System</div>
 </div>
@@ -225,6 +450,8 @@ def build_dashboard(api_base: str = "") -> str:
     ) : '<span class="muted">لا توجد بيانات استخدام بعد</span>';
   }}
 
+  {ADS_JS}
+
   async function refresh() {{
     try {{
       const [ov, st] = await Promise.all([get('/api/overview'), get('/api/stats')]);
@@ -240,8 +467,12 @@ def build_dashboard(api_base: str = "") -> str:
   document.getElementById('save').addEventListener('click', function () {{
     try {{ localStorage.setItem(KEY_STORE, document.getElementById('key').value); }} catch (e) {{}}
     refresh();
+    if (!document.getElementById('tab-ads').classList.contains('hide')) loadAds();
   }});
   document.getElementById('refresh').addEventListener('click', refresh);
+  document.querySelectorAll('.tabs button').forEach(function (b) {{
+    b.addEventListener('click', function () {{ switchTab(b.dataset.tab); }});
+  }});
   try {{ document.getElementById('key').value = apiKey(); }} catch (e) {{}}
   refresh();
   setInterval(refresh, 60000);
