@@ -140,6 +140,65 @@ MIGRATIONS: tuple = (
             # rollback so the migration can be applied again later.
         ),
     ),
+    # ── Phase A1: Ad Code Manager ───────────────────────────────────────────
+    Migration(
+        version=2,
+        name="ad_code_manager",
+        up=(
+            "CREATE TABLE IF NOT EXISTS ads ("
+            "  ad_id       TEXT PRIMARY KEY,"
+            "  name        TEXT    NOT NULL,"
+            "  provider    TEXT    NOT NULL DEFAULT 'monetag',"
+            "  format      TEXT    NOT NULL DEFAULT 'custom',"
+            "  slot        TEXT    NOT NULL DEFAULT 'body_end',"
+            "  snippet     TEXT    NOT NULL,"
+            "  zone_id     TEXT,"
+            "  direct_link TEXT,"
+            "  notes       TEXT,"
+            "  enabled     INTEGER NOT NULL DEFAULT 1,"
+            "  cpm_rate    REAL    NOT NULL DEFAULT 0,"
+            "  created_at  TEXT    NOT NULL,"
+            "  updated_at  TEXT    NOT NULL,"
+            "  created_by  TEXT"
+            ")",
+            "CREATE INDEX IF NOT EXISTS idx_ads_slot ON ads(slot)",
+            "CREATE INDEX IF NOT EXISTS idx_ads_enabled ON ads(enabled)",
+            "CREATE TABLE IF NOT EXISTS ad_assignments ("
+            "  id         INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  ad_id      TEXT    NOT NULL,"
+            "  scope      TEXT    NOT NULL,"
+            "  target_id  TEXT,"
+            "  priority   INTEGER NOT NULL DEFAULT 0,"
+            "  created_at TEXT    NOT NULL,"
+            "  FOREIGN KEY (ad_id) REFERENCES ads(ad_id) ON DELETE CASCADE"
+            ")",
+            "CREATE INDEX IF NOT EXISTS idx_ad_assign_scope ON ad_assignments(scope, target_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ad_assign_ad ON ad_assignments(ad_id)",
+            "CREATE TABLE IF NOT EXISTS ad_events ("
+            "  id          INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  ad_id       TEXT    NOT NULL,"
+            "  bot_id      TEXT    NOT NULL,"
+            "  event_type  TEXT    NOT NULL,"
+            "  user_id     INTEGER,"
+            "  occurred_at TEXT    NOT NULL"
+            ")",
+            "CREATE INDEX IF NOT EXISTS idx_ad_events_ad ON ad_events(ad_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ad_events_bot ON ad_events(bot_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ad_events_time ON ad_events(occurred_at DESC)",
+        ),
+        down=(
+            "DROP INDEX IF EXISTS idx_ad_events_time",
+            "DROP INDEX IF EXISTS idx_ad_events_bot",
+            "DROP INDEX IF EXISTS idx_ad_events_ad",
+            "DROP TABLE IF EXISTS ad_events",
+            "DROP INDEX IF EXISTS idx_ad_assign_ad",
+            "DROP INDEX IF EXISTS idx_ad_assign_scope",
+            "DROP TABLE IF EXISTS ad_assignments",
+            "DROP INDEX IF EXISTS idx_ads_enabled",
+            "DROP INDEX IF EXISTS idx_ads_slot",
+            "DROP TABLE IF EXISTS ads",
+        ),
+    ),
 )
 
 
