@@ -382,8 +382,15 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
         qs = parse_qs(parsed.query)
 
         # /health عام دائماً (لأدوات المراقبة)
-        if path in ("", "/health"):
+        if path == "/health":
             self._send_json(200, get_system_health())
+            return
+
+        # المسار الرئيسي يوجه تلقائياً إلى لوحة التحكم
+        if path == "":
+            self.send_response(302)
+            self.send_header("Location", "/dashboard")
+            self.end_headers()
             return
 
         if path == "/ready":
@@ -565,15 +572,15 @@ def run_api_server(host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> HTTPSer
             if report.get("applied"):
                 print(f"🗄️  تم تطبيق ترحيلات قاعدة البيانات: {', '.join(report['applied'])}")
         except Exception as e:
-            print(f"⚠️  تعذر تطبيق الترحيلات: {e}")
+            print(f"⚠️  Failed to apply migrations: {e}")
 
     server = ThreadingHTTPServer((host, port), BodaAPIHandler)
     server.daemon_threads = True
-    print(f"🚀 Boda Bot API Server v{SERVER_VERSION} running on http://{host}:{port}")
+    print(f"Boda Bot API Server v5.0.0 running on http://127.0.0.1:8080")
     if CONTROL_CENTER_AVAILABLE:
-        print(f"🧭  Control Center API: http://{host}:{port}/api/v1  (توثيق: /docs)")
+        print(f"Control Center API: http://127.0.0.1:8080/api/v1")
     if host in ("0.0.0.0", "::") and not API_SERVER_KEY:
-        print("⚠️  تحذير: الاستماع على كل الواجهات بدون API_SERVER_KEY — الطلبات الخارجية سترفض تلقائياً")
+        print("Warning: Listening on all interfaces without API_SERVER_KEY")
     return server
 
 

@@ -59,6 +59,7 @@ class BotState:
     """Live state of a single managed bot."""
 
     bot_id: str
+    tier: str = "light"
     enabled: bool = True
     running: bool = False
     pid: int = 0
@@ -79,6 +80,7 @@ class BotState:
             uptime = int(max(0, time.time() - self.started_at))
         return {
             "bot_id": self.bot_id,
+            "tier": self.tier,
             "enabled": self.enabled,
             "running": self.running,
             "pid": self.pid,
@@ -159,6 +161,7 @@ class BotSupervisor:
                         "category": bot.get("category", ""),
                         "tag": bot.get("tag", ""),
                         "username": bot.get("username", ""),
+                        "tier": bot.get("tier", "light"),
                         "file": bot.get("file") or f"bot_{bot_id}.py",
                         "registered": True,
                     })
@@ -181,6 +184,7 @@ class BotSupervisor:
                     "category": "",
                     "tag": "",
                     "username": "",
+                    "tier": "light",
                     "file": path.name,
                     "registered": False,
                 })
@@ -197,8 +201,14 @@ class BotSupervisor:
     def state(self, bot_id: str) -> BotState:
         with self._lock:
             if bot_id not in self._states:
+                tier = "light"
+                for entry in self.discover():
+                    if entry["id"] == bot_id:
+                        tier = entry.get("tier", "light")
+                        break
                 self._states[bot_id] = BotState(
                     bot_id=bot_id,
+                    tier=tier,
                     auto_restart=config.auto_restart_default(),
                     script_path=str(self.script_for(bot_id)),
                 )
@@ -259,11 +269,19 @@ class BotSupervisor:
                 continue
         return False
 
-    def _build_env(self) -> dict:
+    def _build_env(self, bot_id: str | None = None) -> dict:
         env = dict(os.environ)
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUNBUFFERED"] = "1"
         env.setdefault("PYTHONPATH", str(self.base_dir))
+        if bot_id:
+            try:
+                from . import botconfig, crypto
+                token = botconfig.resolve_token(bot_id)
+                if token:
+                    env[crypto.env_var_name(bot_id)] = token
+            except Exception:
+                pass
         return env
 
     def _spawn(self, bot_id: str):
@@ -276,7 +294,7 @@ class BotSupervisor:
         return subprocess.Popen(
             [sys.executable, "-u", str(script)],
             cwd=str(self.base_dir),
-            env=self._build_env(),
+            env=self._build_env(bot_id),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -311,6 +329,20 @@ class BotSupervisor:
                          "stop it first or use force=true",
                 "bot_id": bot_id,
             }
+
+        # Guard: heavy bots require adequate system memory to prevent host freeze
+        if state.tier == "heavy" and not force:
+            try:
+                import psutil
+                vm = psutil.virtual_memory()
+                if vm.percent > 95:
+                    return {
+                        "ok": False,
+                        "error": f"Memory critically low ({vm.percent}% used); heavy bot '{bot_id}' delayed to protect host stability",
+                        "bot_id": bot_id,
+                    }
+            except Exception:
+                pass
 
         try:
             proc = self._spawn(bot_id)

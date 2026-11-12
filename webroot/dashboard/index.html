@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark light">
-<title>📊 لوحة التحليلات — Boda Bot System</title>
+<title>📊 لوحة التحليلات والتحكم — Boda Bot System</title>
 <style>
   :root {
-    --bg:#0f1720; --surface:#16212e; --surface2:#1d2937; --text:#e6edf3;
+    --bg:#0b1118; --surface:#131c26; --surface2:#1a2533; --text:#e6edf3;
     --hint:#93a4b8; --accent:#4d94ff; --ok:#2ecc71; --warn:#f5a623; --err:#ff5c5c;
     --border:rgba(255,255,255,.09);
   }
@@ -17,13 +17,13 @@
     font-family:"Segoe UI",Tahoma,system-ui,-apple-system,sans-serif;
     font-size:14px; line-height:1.7;
   }
-  .wrap { max-width:1180px; margin:0 auto; }
+  .wrap { max-width:1240px; margin:0 auto; }
   header { display:flex; flex-wrap:wrap; gap:10px; align-items:center;
            justify-content:space-between; margin-bottom:18px; }
-  h1 { font-size:20px; margin:0; }
+  h1 { font-size:21px; margin:0; display:flex; align-items:center; gap:8px; }
   .sub { color:var(--hint); font-size:12.5px; }
   .bar { display:flex; gap:8px; flex-wrap:wrap; }
-  input, button {
+  input, button, select {
     background:var(--surface); color:var(--text); border:1px solid var(--border);
     border-radius:10px; padding:9px 12px; font-family:inherit; font-size:13px;
   }
@@ -54,18 +54,108 @@
   .muted { color:var(--hint); }
   .err { color:var(--err); }
   .ok { color:var(--ok); }
-  .foot { color:var(--hint); font-size:11.5px; text-align:center; margin-top:20px; }
+  .foot { color:var(--hint); font-size:11.5px; text-align:center; margin-top:24px; padding:16px 0; }
   .note { background:var(--surface2); border:1px solid var(--border);
            border-radius:10px; padding:10px 12px; font-size:12.5px;
            color:var(--hint); margin-bottom:14px; }
 
+  /* ── Tabs Navigation ── */
   .tabs { display:flex; gap:6px; margin-bottom:16px; background:var(--surface);
           border:1px solid var(--border); padding:5px; border-radius:12px;
           width:max-content; max-width:100%; overflow:auto; }
   .tabs button { border:none; background:transparent; color:var(--hint);
-                 font-weight:700; padding:8px 16px; border-radius:9px; white-space:nowrap; }
-  .tabs button.active { background:var(--surface2); color:var(--text); }
+                 font-weight:700; padding:9px 18px; border-radius:9px; white-space:nowrap;
+                 cursor:pointer; font-size:13.5px; transition:.15s; }
+  .tabs button.active { background:var(--surface2); color:var(--text); box-shadow:0 2px 8px rgba(0,0,0,.2); }
   .hide { display:none !important; }
+
+  /* ── Resource KPI Bar ── */
+  .kpi-bar { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px; }
+  .kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 16px; }
+  .kpi-card .val { font-size:22px; font-weight:800; }
+  .kpi-card .lbl { font-size:11.5px; color:var(--hint); margin-top:2px; }
+
+  /* ── Bot Management Toolbar ── */
+  .bot-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+                 background:var(--surface); border:1px solid var(--border); border-radius:14px;
+                 padding:12px 16px; margin-bottom:16px; }
+  .bot-toolbar .actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .bot-toolbar .filters { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .filter-btn { border:1px solid var(--border); background:var(--surface2); color:var(--hint);
+                font-size:12px; padding:6px 12px; border-radius:8px; cursor:pointer; }
+  .filter-btn.active { background:var(--accent); color:#fff; border-color:transparent; font-weight:700; }
+
+  /* ── Bot Cards Grid ── */
+  .bots-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:14px; }
+  .bot-card { background:var(--surface); border:1px solid var(--border); border-radius:14px;
+              padding:14px 16px; display:flex; flex-direction:column; justify-content:space-between;
+              transition:transform .15s, border-color .15s; }
+  .bot-card:hover { border-color:rgba(255,255,255,.2); transform:translateY(-2px); }
+  .bot-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+  .bot-title-row { display:flex; align-items:center; gap:8px; }
+  .bot-emoji { font-size:24px; line-height:1; }
+  .bot-name { font-weight:700; font-size:15px; }
+  .bot-username { font-size:11.5px; color:var(--hint); direction:ltr; text-align:right; }
+
+  /* ── Status & Tier Badges ── */
+  .badge-row { display:flex; gap:6px; align-items:center; }
+  .status-pill { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+                 padding:3px 9px; border-radius:999px; }
+  .status-pill.running { background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.4); }
+  .status-pill.stopped { background:rgba(255,92,92,.12); color:var(--err); border:1px solid rgba(255,92,92,.3); }
+  .status-dot { width:7px; height:7px; border-radius:50%; }
+  .status-pill.running .status-dot { background:var(--ok); box-shadow:0 0 8px var(--ok); animation:pulse 2s infinite; }
+  .status-pill.stopped .status-dot { background:var(--err); }
+  @keyframes pulse { 0%{opacity:1;} 50%{opacity:.4;} 100%{opacity:1;} }
+
+  .tier-pill { display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; }
+  .tier-pill.light { background:rgba(46,204,113,.12); color:#2ecc71; border:1px solid rgba(46,204,113,.3); }
+  .tier-pill.heavy { background:rgba(155,89,182,.15); color:#c39bd3; border:1px solid rgba(155,89,182,.4); }
+  .tier-pill.external_api { background:rgba(52,152,219,.15); color:#5dade2; border:1px solid rgba(52,152,219,.4); }
+  .tier-pill.needs_scheduler { background:rgba(245,166,35,.15); color:#f5a623; border:1px solid rgba(245,166,35,.4); }
+
+  /* ── Bot Meta Details ── */
+  .bot-meta-box { background:var(--surface2); border:1px solid var(--border); border-radius:9px;
+                  padding:8px 10px; margin:10px 0; font-size:11.5px; display:flex; justify-content:space-between; }
+  .bot-meta-item { display:flex; flex-direction:column; }
+  .bot-meta-item .m-lbl { color:var(--hint); font-size:10px; }
+  .bot-meta-item .m-val { font-weight:700; }
+  .bot-err-msg { color:var(--err); font-size:11px; margin-top:4px; word-break:break-word; }
+
+  /* ── Bot Action Buttons ── */
+  .bot-card-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .btn-sm { font-size:11.5px; padding:6px 11px; border-radius:8px; cursor:pointer; }
+  .btn-start { background:var(--ok); color:#111; font-weight:700; border:none; }
+  .btn-stop { background:rgba(255,92,92,.18); color:var(--err); border:1px solid rgba(255,92,92,.4); font-weight:700; }
+  .btn-restart { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .btn-secondary { background:var(--surface2); color:var(--hint); border:1px solid var(--border); }
+  .btn-secondary:hover { color:var(--text); }
+
+  /* ── Live Log Terminal Modal / Drawer ── */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:100;
+                   display:flex; align-items:center; justify-content:center; padding:16px; }
+  .modal-box { background:var(--surface); border:1px solid var(--border); border-radius:16px;
+               width:100%; max-width:850px; max-height:90vh; display:flex; flex-direction:column;
+               box-shadow:0 12px 40px rgba(0,0,0,.6); overflow:hidden; }
+  .modal-header { display:flex; justify-content:space-between; align-items:center;
+                  padding:14px 18px; border-bottom:1px solid var(--border); background:var(--surface2); }
+  .modal-title { font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px; }
+  .terminal-box { background:#0a0e14; color:#dcdfe4; font-family:Consolas, Monaco, "Courier New", monospace;
+                  font-size:12px; line-height:1.6; padding:14px; overflow-y:auto; flex:1; min-height:360px;
+                  max-height:60vh; direction:ltr; text-align:left; white-space:pre-wrap; word-break:break-all; }
+  .log-line { margin-bottom:2px; }
+  .log-line.error { color:#ff6b6b; }
+  .log-line.warning { color:#feca57; }
+  .log-line.info { color:#1dd1a1; }
+  .modal-footer { padding:10px 16px; border-top:1px solid var(--border); display:flex;
+                  justify-content:space-between; align-items:center; background:var(--surface2); }
+
+  /* ── Token Editor Modal ── */
+  .token-form { padding:18px; display:flex; flex-direction:column; gap:12px; }
+  .token-preview { font-family:monospace; direction:ltr; background:#0a0e14; padding:8px 12px;
+                   border-radius:8px; color:#54a0ff; font-size:12px; border:1px solid var(--border); }
+
+  /* ── Existing Ads CSS ── */
   .ads-grid { display:grid; grid-template-columns:1.05fr 1.25fr; gap:14px; }
   @media (max-width:900px) { .ads-grid { grid-template-columns:1fr; } }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -88,9 +178,36 @@
   .toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%,16px);
            background:var(--text); color:var(--bg); padding:10px 18px;
            border-radius:999px; font-size:13px; font-weight:700; opacity:0;
-           pointer-events:none; transition:.22s; z-index:9; }
+           pointer-events:none; transition:.22s; z-index:999; }
   .toast.show { opacity:1; transform:translate(-50%,0); }
   .hintline { color:var(--hint); font-size:12px; line-height:1.8; }
+
+  /* ── Store Manager CSS ── */
+  .status-pill.store-live { background:rgba(46,204,113,.15); color:var(--ok); border:1px solid rgba(46,204,113,.4); }
+  .status-pill.store-coming_soon { background:rgba(245,166,35,.15); color:var(--warn); border:1px solid rgba(245,166,35,.4); }
+  .status-pill.store-hidden { background:rgba(147,164,184,.15); color:var(--hint); border:1px solid rgba(147,164,184,.4); }
+  .status-pill.store-draft { background:rgba(155,89,182,.15); color:#c39bd3; border:1px solid rgba(155,89,182,.4); }
+
+  #store-table { width:100%; border-collapse:collapse; font-size:12.5px; min-width:900px; }
+  #store-table th, #store-table td { text-align:right; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  #store-table th { color:var(--hint); font-weight:600; font-size:11px; background:var(--surface2); position:sticky; top:0; z-index:1; }
+  #store-table tbody tr:hover { background:rgba(255,255,255,.02); }
+  #store-table tbody tr.dragging { opacity:0.5; background:rgba(77,148,255,.1); }
+  #store-table tbody tr.drag-over { border-top:2px solid var(--accent); }
+  .store-item-name { font-weight:600; }
+  .store-item-bot { font-size:11px; color:var(--hint); direction:ltr; }
+  .store-item-badges { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+  .store-badge { font-size:9px; font-weight:700; padding:1px 6px; border-radius:999px; background:var(--surface2); border:1px solid var(--border); color:var(--hint); }
+  .store-badge.new { background:rgba(46,204,113,.2); color:var(--ok); border-color:rgba(46,204,113,.4); }
+  .store-badge.featured { background:rgba(245,166,35,.2); color:var(--warn); border-color:rgba(245,166,35,.4); }
+  .store-order-input { width:50px; padding:4px 6px; text-align:center; font-size:12px; }
+  .btn-icon { background:none; border:none; color:var(--hint); cursor:pointer; padding:4px 8px; border-radius:6px; font-size:13px; }
+  .btn-icon:hover { background:var(--surface2); color:var(--text); }
+  .btn-icon.danger:hover { background:rgba(255,92,92,.2); color:var(--err); }
+  .store-modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .store-modal-grid .full { grid-column:1/-1; }
+  @media (max-width:600px) { .store-modal-grid { grid-template-columns:1fr; } }
+  .store-modal-grid textarea { width:100%; min-width:0; resize:vertical; }
 
 </style>
 </head>
@@ -98,55 +215,401 @@
 <div class="wrap">
   <header>
     <div>
-      <h1>📊 لوحة التحليلات</h1>
-      <div class="sub">نظرة حية على نمو البوتات — Boda Bot System</div>
+      <h1>🚀 مركز التحكم الشامل (لوحة التحليلات) <span style="font-size:14px; font-weight:400; color:var(--hint);">| Boda Bot System</span></h1>
+      <div class="sub">إدارة 34 بوتاً، شفرات الإعلانات، السجلات الحية ومؤشرات الأداء عبر المتصفح</div>
     </div>
     <div class="bar">
       <input id="key" type="password" placeholder="مفتاح API (X-API-Key) — اختياري محلياً">
       <button id="save" class="primary">🔑 حفظ المفتاح</button>
-      <button id="refresh">🔄 تحديث</button>
+      <button id="refresh">🔄 تحديث البيانات</button>
     </div>
   </header>
 
   <div class="tabs" role="tablist">
-    <button data-tab="analytics" class="active">📊 التحليلات</button>
-    <button data-tab="ads">📢 الإعلانات</button>
+    <button data-tab="bots" class="active">🤖 تشغيل وإدارة البوتات (34)</button>
+    <button data-tab="store">🏪 متجر التطبيقات</button>
+    <button data-tab="ads">📢 إعلانات Monetag</button>
+    <button data-tab="analytics">📊 التحليلات والنمو</button>
   </div>
 
-  <div id="tab-analytics">
-  <div class="note">
-    البيانات تُقرأ من <code>/api/overview</code> و<code>/api/stats</code>.
-    من خارج جهازك أدخل مفتاح <code>API_SERVER_KEY</code> في الحقل أعلاه
-    (يُحفظ محلياً في المتصفح تحت المفتاح <code>boda_api_key</code>).
-  </div>
-
-  <div class="cards" id="cards"></div>
-
-  <div class="grid">
-    <div>
-      <div class="panel">
-        <h2>أعلى البوتات (عدد المستخدمين)</h2>
-        <div id="topbots"><span class="muted">جارٍ التحميل…</span></div>
-      </div>
-      <div class="panel">
-        <h2>قمع بوابة الشبكة</h2>
-        <div id="funnel"><span class="muted">جارٍ التحميل…</span></div>
-      </div>
+  
+<div id="tab-bots">
+  <!-- Resource Metrics Bar -->
+  <div class="kpi-bar">
+    <div class="kpi-card">
+      <div class="val" id="kpi-active-bots">— / 34</div>
+      <div class="lbl">🤖 البوتات النشطة (Running)</div>
     </div>
-    <div>
-      <div class="panel">
-        <h2>نشاط المستخدمين</h2>
-        <div id="activity"><span class="muted">جارٍ التحميل…</span></div>
-      </div>
-      <div class="panel">
-        <h2>إحصائيات الإعلانات</h2>
-        <div id="ads"><span class="muted">جارٍ التحميل…</span></div>
-      </div>
+    <div class="kpi-card">
+      <div class="val" id="kpi-ram">—</div>
+      <div class="lbl">💾 ذاكرة النظام (Host RAM)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="kpi-cpu">—</div>
+      <div class="lbl">⚡ استهلاك المعالج (CPU)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="kpi-supervisor">🟢 متصل</div>
+      <div class="lbl">🛡️ مشرف النظام (Supervisor)</div>
     </div>
   </div>
+
+  <!-- Global Action Toolbar -->
+  <div class="bot-toolbar">
+    <div class="actions">
+      <button id="btn-start-all" class="primary">🚀 تشغيل الكل</button>
+      <button id="btn-stop-all" class="btn-stop">⏹ إيقاف الكل</button>
+      <button id="btn-refresh-bots" class="btn-secondary">🔄 تحديث الحالة</button>
+    </div>
+    <div class="filters">
+      <input id="bot-search" type="search" placeholder="🔍 ابحث بالاسم أو المعرف..." style="min-width:200px">
+      <button class="filter-btn active" data-tier="all">الكل (34)</button>
+      <button class="filter-btn" data-tier="light">⚡ خفيف (20)</button>
+      <button class="filter-btn" data-tier="external_api">🌐 واجهة (7)</button>
+      <button class="filter-btn" data-tier="heavy">🐘 ثقيل (6)</button>
+      <button class="filter-btn" data-tier="needs_scheduler">⏰ مجدول (1)</button>
+    </div>
   </div>
 
+  <!-- Bot Cards Grid -->
+  <div class="bots-grid" id="bots-grid">
+    <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--hint);">
+      ⏳ جارٍ تحميل حالة البوتات...
+    </div>
+  </div>
+</div>
 
+<!-- Modal: Live Log Stream (SSE) -->
+<div id="modal-logs" class="modal-overlay hide">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span id="log-modal-emoji">📜</span>
+        <span id="log-modal-title">سجلات البوت</span>
+        <span class="status-pill running" id="log-modal-status"><span class="status-dot"></span> بث مباشر</span>
+      </div>
+      <button class="btn-sm btn-secondary" id="btn-close-logs">✕ إغلاق</button>
+    </div>
+    <div class="terminal-box" id="terminal-content">جارٍ الاتصال ببث السجلات...</div>
+    <div class="modal-footer">
+      <div>
+        <label style="font-size:12px; cursor:pointer;">
+          <input type="checkbox" id="chk-autoscroll" checked> تمرير تلقائي (Auto-Scroll)
+        </label>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-sm btn-secondary" id="btn-clear-terminal">🗑 تفريغ الشاشة</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Token Management -->
+<div id="modal-token" class="modal-overlay hide">
+  <div class="modal-box" style="max-width:540px;">
+    <div class="modal-header">
+      <div class="modal-title">🔑 إدارة توكن البوت</div>
+      <button class="btn-sm btn-secondary" id="btn-close-token">✕ إغلاق</button>
+    </div>
+    <div class="token-form">
+      <div>
+        <b id="token-modal-bot-name">اسم البوت</b>
+        <div class="muted" id="token-modal-bot-id" style="font-size:12px;">bot_id</div>
+      </div>
+      <div>
+        <label class="fl">التوكن الحالي المحفوظ:</label>
+        <div class="token-preview" id="token-modal-masked">1234567890:AAF-*********</div>
+      </div>
+      <div>
+        <label class="fl" for="input-new-token">إدخال توكن جديد:</label>
+        <input id="input-new-token" type="text" dir="ltr" placeholder="123456789:ABCdefGHI..." style="width:100%;">
+      </div>
+      <div id="token-verify-status" class="hintline"></div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button id="btn-verify-token" class="btn-secondary" style="flex:1;">🔍 فحص التوكن مع تيليجرام</button>
+        <button id="btn-save-token" class="primary" style="flex:1;">💾 حفظ التوكن</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  
+<!-- ========== STORE MANAGER TAB ========== -->
+<div id="tab-store" class="hide">
+  <!-- Store Stats KPI Bar -->
+  <div class="kpi-bar" id="store-kpis">
+    <div class="kpi-card">
+      <div class="val" id="sk-total">—</div>
+      <div class="lbl">📦 إجمالي العناصر</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="sk-live">—</div>
+      <div class="lbl">✅ معروض (Live)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="sk-coming">—</div>
+      <div class="lbl">⏳ قريباً (Coming Soon)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="sk-hidden">—</div>
+      <div class="lbl">🚫 مخفي</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="sk-views">—</div>
+      <div class="lbl">👁️ إجمالي المشاهدات</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="sk-opens">—</div>
+      <div class="lbl">🔓 إجمالي الفتحات</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val" id="sk-clicks">—</div>
+      <div class="lbl">🖱️ إجمالي النقرات</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="bot-toolbar">
+    <div class="actions">
+      <button id="store-btn-add" class="primary">➕ إضافة عنصر جديد</button>
+      <button id="store-btn-preview" class="btn-secondary" style="display:none;">👁️ معاينة</button>
+      <button id="store-btn-catalog" class="btn-secondary">📋 توليد Catalog.json</button>
+      <button id="store-btn-build" class="btn-secondary">🔨 بناء الصفحات (Build)</button>
+      <button id="store-btn-publish" class="btn-secondary">🚀 نشر (GitHub Pages)</button>
+      <button id="store-btn-full-publish" class="primary" style="background:linear-gradient(90deg,var(--ok),#27ae60);">⚡ كامل: كتالوج + بناء + نشر</button>
+      <button id="store-btn-export" class="btn-secondary">📤 تصدير (JSON/CSV)</button>
+      <button id="store-btn-import" class="btn-secondary">📥 استيراد</button>
+    </div>
+    <div class="filters">
+      <input id="store-search" type="search" placeholder="🔍 ابحث بالاسم أو البوت..." style="min-width:200px">
+      <select id="store-status-filter" class="filter-btn" style="padding:6px 10px; background:var(--surface); border:1px solid var(--border);">
+        <option value="">جميع الحالات</option>
+        <option value="live">✅ معروض (Live)</option>
+        <option value="coming_soon">⏳ قريباً</option>
+        <option value="hidden">🚫 مخفي</option>
+        <option value="draft">📝 مسودة</option>
+      </select>
+      <select id="store-category-filter" class="filter-btn" style="padding:6px 10px; background:var(--surface); border:1px solid var(--border);">
+        <option value="">جميع التصنيفات</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Bulk Actions Bar (shown when items selected) -->
+  <div id="store-bulk-bar" class="hintline" style="display:none; background:rgba(77,148,255,.15); border:1px solid var(--accent); border-radius:8px; padding:10px 12px; margin:10px 0;">
+    <span id="store-bulk-count" style="font-weight:700;"></span> عنصر محدد
+    <select id="store-bulk-action" style="margin:0 8px; padding:4px 8px; border-radius:6px; background:var(--surface); border:1px solid var(--border); color:var(--text);">
+      <option value="">-- إجراء جماعي --</option>
+      <option value="delete">🗑 حذف المحدد</option>
+      <option value="status:live">✅ جعل معروض (Live)</option>
+      <option value="status:coming_soon">⏳ جعل قريباً</option>
+      <option value="status:hidden">🚫 جعل مخفي</option>
+      <option value="status:draft">📝 جعل مسودة</option>
+    </select>
+    <button id="store-btn-apply-bulk" class="btn-sm" style="background:var(--accent); color:#fff; border:none;">تطبيق</button>
+    <button id="store-btn-clear-selection" class="btn-sm btn-secondary">✕ إلغاء التحديد</button>
+  </div>
+
+  <!-- Store Items Table -->
+  <div class="panel" style="overflow-x:auto;">
+    <h2>📋 عناصر المتجر <span id="store-count" class="muted" style="font-weight:400; font-size:12px;"></span></h2>
+    <table id="store-table">
+      <thead>
+        <tr>
+          <th style="width:40px;"><input type="checkbox" id="store-select-all" title="تحديد الكل"></th>
+          <th style="width:40px;">#</th>
+          <th>العنصر</th>
+          <th>البوت المرتبط</th>
+          <th>التصنيف</th>
+          <th style="width:100px;">الحالة</th>
+          <th style="width:80px;">الترتيب</th>
+          <th style="width:70px;">👁️</th>
+          <th style="width:70px;">🔓</th>
+          <th style="width:70px;">🖱️</th>
+          <th style="width:120px;">الإجراءات</th>
+        </tr>
+      </thead>
+      <tbody id="store-tbody">
+        <tr><td colspan="11" style="text-align:center; padding:30px; color:var(--hint);">⏳ جارٍ تحميل عناصر المتجر...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Reorder Hint -->
+  <div id="store-reorder-hint" class="hintline" style="display:none; background:rgba(77,148,255,.1); border:1px solid var(--accent); border-radius:8px; padding:10px 12px; margin-top:10px;">
+    💡 <b>وضع الترتيب:</b> اسحب الصفوف لترتيبها، ثم اضغط <b>حفظ الترتيب</b> أو <b>إلغاء</b>.
+    <button id="store-btn-save-order" class="btn-sm" style="margin-right:8px; background:var(--ok); color:#111; border:none;">💾 حفظ الترتيب</button>
+    <button id="store-btn-cancel-order" class="btn-sm btn-secondary">✕ إلغاء</button>
+  </div>
+</div>
+
+<!-- Modal: Create/Edit Store Item -->
+<div id="modal-store-item" class="modal-overlay hide">
+  <div class="modal-box" style="max-width:720px;">
+    <div class="modal-header">
+      <div class="modal-title" id="store-modal-title">➕ إضافة عنصر متجر جديد</div>
+      <button class="btn-sm btn-secondary" id="btn-close-store-modal">✕ إغلاق</button>
+    </div>
+    <div class="token-form" style="max-height:70vh; overflow-y:auto;">
+      <input type="hidden" id="store-item-id">
+      <input type="hidden" id="store-item-original-bot">
+      
+      <div class="form-grid">
+        <div class="full">
+          <label class="fl" for="si-bot_id">البوت المرتبط *</label>
+          <select id="si-bot_id" required></select>
+        </div>
+        <div>
+          <label class="fl" for="si-title_ar">العنوان (عربي) *</label>
+          <input id="si-title_ar" type="text" required placeholder="اسم التطبيق بالعربي">
+        </div>
+        <div>
+          <label class="fl" for="si-title_en">العنوان (إنجليزي)</label>
+          <input id="si-title_en" type="text" placeholder="App Name in English">
+        </div>
+        <div>
+          <label class="fl" for="si-category">التصنيف *</label>
+          <select id="si-category" required>
+            <option value="">-- اختر التصنيف --</option>
+          </select>
+        </div>
+        <div>
+          <label class="fl" for="si-status">الحالة *</label>
+          <select id="si-status" required>
+            <option value="draft">📝 مسودة</option>
+            <option value="live">✅ معروض (Live)</option>
+            <option value="coming_soon">⏳ قريباً (Coming Soon)</option>
+            <option value="hidden">🚫 مخفي</option>
+          </select>
+        </div>
+        <div>
+          <label class="fl" for="si-display_order">ترتيب العرض</label>
+          <input id="si-display_order" type="number" min="0" value="0">
+        </div>
+        <div class="full">
+          <label class="fl" for="si-short_desc_ar">الوصف المختصر (عربي) *</label>
+          <input id="si-short_desc_ar" type="text" required placeholder="وصف مختصر يظهر في بطاقة المتجر">
+        </div>
+        <div class="full">
+          <label class="fl" for="si-short_desc_en">الوصف المختصر (إنجليزي)</label>
+          <input id="si-short_desc_en" type="text" placeholder="Short description for store card">
+        </div>
+        <div class="full">
+          <label class="fl" for="si-long_desc_ar">الوصف الطويل (عربي)</label>
+          <textarea id="si-long_desc_ar" rows="3" placeholder="وصف تفصيلي لصفحة التطبيق"></textarea>
+        </div>
+        <div class="full">
+          <label class="fl" for="si-long_desc_en">الوصف الطويل (إنجليزي)</label>
+          <textarea id="si-long_desc_en" rows="3" placeholder="Long description for app page"></textarea>
+        </div>
+        <div>
+          <label class="fl" for="si-icon_url">رابط الأيقونة (URL)</label>
+          <div style="display:flex; gap:8px;">
+            <input id="si-icon_url" type="url" dir="ltr" placeholder="https://example.com/icon.png" style="flex:1;">
+            <input type="file" id="si-icon_upload" accept="image/*" style="display:none;">
+            <button type="button" class="btn-sm btn-secondary" onclick="document.getElementById('si-icon_upload').click()" title="رفع أيقونة">📤 رفع</button>
+          </div>
+        </div>
+        <div>
+          <label class="fl" for="si-cover_url">رابط صورة الغلاف (URL)</label>
+          <div style="display:flex; gap:8px;">
+            <input id="si-cover_url" type="url" dir="ltr" placeholder="https://example.com/cover.png" style="flex:1;">
+            <input type="file" id="si-cover_upload" accept="image/*" style="display:none;">
+            <button type="button" class="btn-sm btn-secondary" onclick="document.getElementById('si-cover_upload').click()" title="رفع صورة غلاف">📤 رفع</button>
+          </div>
+        </div>
+        <div class="full">
+          <label class="fl" for="si-tags">الوسوم (Tags) — مفصولة بفاصلة</label>
+          <input id="si-tags" type="text" placeholder="أدوات, إنتاجية, مجاني">
+        </div>
+        <div class="full">
+          <label class="fl" for="si-badges">الشارات (Badges) — مفصولة بفاصلة</label>
+          <input id="si-badges" type="text" placeholder="جديد, مميز, مجاني">
+        </div>
+        <div class="full">
+          <label class="fl" for="si-deep_link">رابط عميق (Deep Link) *</label>
+          <input id="si-deep_link" type="url" dir="ltr" required placeholder="https://t.me/BotUsername?start=...">
+        </div>
+        <div class="full">
+          <label class="fl" for="si-miniapp_url">رابط Mini App (اختياري)</label>
+          <input id="si-miniapp_url" type="url" dir="ltr" placeholder="https://domain.com/bot_id/">
+        </div>
+      </div>
+      <div id="store-item-msg" class="hintline" style="margin-top:10px; min-height:20px;"></div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button id="store-btn-save-item" class="primary" style="flex:1;">💾 حفظ العنصر</button>
+        <button id="store-btn-delete-item" class="danger" type="button" style="flex:1; display:none;">🗑 حذف العنصر</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Live Preview -->
+<div id="modal-preview" class="modal-overlay hide">
+  <div class="modal-box" style="max-width:95%; max-height:95vh;">
+    <div class="modal-header">
+      <div class="modal-title">👁️ معاينة مباشرة للعنصر</div>
+      <button class="btn-sm btn-secondary" id="btn-close-preview">✕ إغلاق</button>
+    </div>
+    <iframe id="preview-frame" style="width:100%; height:80vh; border:none; background:#fff; border-radius:8px;"></iframe>
+  </div>
+</div>
+
+<!-- Modal: Import Store -->
+<div id="modal-import" class="modal-overlay hide">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title">📥 استيراد عناصر المتجر</div>
+      <button class="btn-sm btn-secondary" id="btn-close-import">✕ إغلاق</button>
+    </div>
+    <div class="token-form">
+      <p class="hintline">اختر ملف JSON يحتوي على مصفوفة من العناصر. العناصر الموجودة (حسب bot_id) سيتم تحديثها، والجديدة سيتم إنشاؤها.</p>
+      <input type="file" id="import-file" accept=".json" style="width:100%; margin:10px 0;">
+      <div id="import-msg" class="hintline" style="min-height:20px;"></div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button id="import-btn-confirm" class="primary" style="flex:1;">📥 استيراد</button>
+        <button id="import-btn-cancel" class="btn-secondary" style="flex:1;">إلغاء</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <div id="tab-analytics" class="hide">
+    <div class="note">
+      البيانات تُقرأ من <code>/api/overview</code> و<code>/api/stats</code>.
+      من خارج جهازك أدخل مفتاح <code>API_SERVER_KEY</code> في الحقل أعلاه
+      (يُحفظ محلياً في المتصفح تحت المفتاح <code>boda_api_key</code>).
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <h2>أعلى البوتات (عدد المستخدمين)</h2>
+          <div id="topbots"><span class="muted">جارٍ التحميل…</span></div>
+        </div>
+        <div class="panel">
+          <h2>قمع بوابة الشبكة</h2>
+          <div id="funnel"><span class="muted">جارٍ التحميل…</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>نشاط المستخدمين</h2>
+          <div id="activity"><span class="muted">جارٍ التحميل…</span></div>
+        </div>
+        <div class="panel">
+          <h2>إحصائيات الإعلانات</h2>
+          <div id="ads"><span class="muted">جارٍ التحميل…</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
 <div id="tab-ads" class="hide">
   <div class="note">
     <b>ضبط الإعلانات لكل بوت عمليًا:</b> أدخل <code>Direct Link</code> أو
@@ -209,7 +672,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 
-  <div class="foot">Generated by tools/build_mini_apps.py · Boda Bot System</div>
+  <div class="foot">Boda Bot System Control Center · Professional Supervisor Edition · 34 Bots Ready</div>
 </div>
 
 <script>
@@ -230,6 +693,16 @@
     const res = await fetch(API_BASE + path, { headers: headers() });
     if (!res.ok) throw new Error(path + ' → HTTP ' + res.status);
     return res.json();
+  }
+  async function post(path, payload) {
+    const res = await fetch(API_BASE + path, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(payload || {})
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || (path + ' → HTTP ' + res.status));
+    return data;
   }
 
   function esc(s) {
@@ -308,16 +781,323 @@
     ) : '<span class="muted">لا توجد بيانات استخدام بعد</span>';
   }
 
+  async function refreshAnalytics() {
+    try {
+      const [ov, st] = await Promise.all([get('/api/overview'), get('/api/stats')]);
+      renderOverview(ov);
+      renderStats(st);
+    } catch (e) {
+      document.getElementById('cards').innerHTML =
+        '<div class="card"><div class="v err">—</div><div class="l">' +
+        esc(e.message) + '</div></div>';
+    }
+  }
+
   
-  let ADS = {};
+  let BOTS = [];
+  let currentTierFilter = 'all';
+  let activeLogSource = null;
+  let activeTokenBotId = null;
 
   function dashToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
     clearTimeout(t._h);
-    t._h = setTimeout(() => t.classList.remove('show'), 2500);
+    t._h = setTimeout(() => t.classList.remove('show'), 2800);
   }
+
+  /* ── 1. Bot Management Logic ── */
+  async function loadBots() {
+    try {
+      const [resBots, resHealth] = await Promise.all([
+        get('/api/v1/bots').catch(() => null),
+        get('/api/v1/system/health').catch(() => null)
+      ]);
+
+      if (resBots && resBots.bots) {
+        // Normalize: API returns bot_id/display_name; UI uses id/name
+        BOTS = resBots.bots.map(b => ({
+          ...b,
+          id:      b.id      || b.bot_id || '',
+          name:    b.name    || b.display_name || b.bot_id || '',
+          running: b.running !== undefined ? b.running : (b.state && b.state.running),
+          state: {
+            running:         b.running         ?? (b.state && b.state.running)         ?? false,
+            pid:             b.pid             ?? (b.state && b.state.pid)             ?? 0,
+            uptime_seconds:  b.uptime_seconds  ?? (b.state && b.state.uptime_seconds)  ?? 0,
+            restarts:        b.restarts        ?? (b.state && b.state.restarts)        ?? 0,
+            last_error:      b.last_error      ?? (b.state && b.state.last_error)      ?? '',
+            enabled:         b.enabled         ?? true,
+          }
+        }));
+      } else {
+        // Fallback to legacy endpoint if v1 not ready
+        const legacy = await get('/api/bots').catch(() => []);
+        BOTS = legacy.map(b => ({
+          id: b.id, name: b.name, emoji: '🤖', category: b.category,
+          tier: 'light', username: b.username,
+          state: { running: b.active, pid: b.pid || 0, uptime_seconds: b.uptime || 0, enabled: true }
+        }));
+      }
+
+      renderKpis(resHealth);
+      renderBotsGrid();
+    } catch (e) {
+      document.getElementById('bots-grid').innerHTML =
+        '<div class="err" style="grid-column:1/-1; text-align:center; padding:30px;">❌ فشل تحميل البوتات: ' + esc(e.message) + '</div>';
+    }
+  }
+
+  function renderKpis(health) {
+    const activeCount = BOTS.filter(b => b.state && b.state.running).length;
+    document.getElementById('kpi-active-bots').textContent = activeCount + ' / ' + BOTS.length;
+
+    if (health) {
+      const proc = health.process || {};
+      const host = health.host || {};
+      if (host.memory_percent != null) {
+        document.getElementById('kpi-ram').textContent = host.memory_percent + '% (' + (host.memory_used_mb || 0) + ' MB)';
+      } else if (proc.memory_rss_mb != null) {
+        document.getElementById('kpi-ram').textContent = proc.memory_rss_mb + ' MB';
+      }
+      if (host.cpu_percent != null) {
+        document.getElementById('kpi-cpu').textContent = host.cpu_percent + '%';
+      } else {
+        document.getElementById('kpi-cpu').textContent = '—';
+      }
+    }
+  }
+
+  function formatUptime(seconds) {
+    if (!seconds || seconds <= 0) return '—';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return h + 'س ' + m + 'د';
+    if (m > 0) return m + 'د ' + s + 'ث';
+    return s + 'ث';
+  }
+
+  function tierBadge(tier) {
+    switch (tier) {
+      case 'heavy': return '<span class="tier-pill heavy">🐘 ثقيل</span>';
+      case 'external_api': return '<span class="tier-pill external_api">🌐 واجهة</span>';
+      case 'needs_scheduler': return '<span class="tier-pill needs_scheduler">⏰ مجدول</span>';
+      default: return '<span class="tier-pill light">⚡ خفيف</span>';
+    }
+  }
+
+  function renderBotsGrid() {
+    const q = (document.getElementById('bot-search').value || '').trim().toLowerCase();
+    const filtered = BOTS.filter(b => {
+      const matchesTier = (currentTierFilter === 'all') || (b.tier === currentTierFilter);
+      const matchesQuery = !q || (b.id && b.id.toLowerCase().includes(q)) ||
+                                 (b.name && b.name.toLowerCase().includes(q)) ||
+                                 (b.username && b.username.toLowerCase().includes(q));
+      return matchesTier && matchesQuery;
+    });
+
+    if (!filtered.length) {
+      document.getElementById('bots-grid').innerHTML =
+        '<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--hint);">🔍 لا توجد بوتات مطابقة للبحث أو الفلتر.</div>';
+      return;
+    }
+
+    document.getElementById('bots-grid').innerHTML = filtered.map(b => {
+      const st = b.state || {};
+      const isRunning = Boolean(st.running);
+      const statusClass = isRunning ? 'running' : 'stopped';
+      const statusText = isRunning ? 'يعمل الآن' : 'متوقف';
+
+      return '<div class="bot-card" data-bot-id="' + esc(b.id) + '">' +
+        '<div>' +
+          '<div class="bot-header">' +
+            '<div class="bot-title-row">' +
+              '<span class="bot-emoji">' + esc(b.emoji || '🤖') + '</span>' +
+              '<div>' +
+                '<div class="bot-name">' + esc(b.name || b.id) + '</div>' +
+                '<div class="bot-username">' + esc(b.username ? '@' + b.username.replace('@','') : b.id) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="badge-row">' +
+              tierBadge(b.tier) +
+              '<span class="status-pill ' + statusClass + '"><span class="status-dot"></span> ' + statusText + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bot-meta-box">' +
+            '<div class="bot-meta-item"><span class="m-lbl">PID</span><span class="m-val">' + (st.pid || '—') + '</span></div>' +
+            '<div class="bot-meta-item"><span class="m-lbl">وقت التشغيل</span><span class="m-val">' + formatUptime(st.uptime_seconds) + '</span></div>' +
+            '<div class="bot-meta-item"><span class="m-lbl">إعادة المحاولة</span><span class="m-val">' + (st.restarts || 0) + '</span></div>' +
+          '</div>' +
+          (st.last_error ? '<div class="bot-err-msg">⚠️ ' + esc(st.last_error) + '</div>' : '') +
+        '</div>' +
+        '<div class="bot-card-actions">' +
+          (isRunning
+            ? '<button class="btn-sm btn-stop" onclick="stopBot(\\'' + esc(b.id) + '\\')">⏹ إيقاف</button>' +
+              '<button class="btn-sm btn-restart" onclick="restartBot(\\'' + esc(b.id) + '\\')">🔄 إعادة تشغيل</button>'
+            : '<button class="btn-sm btn-start" onclick="startBot(\\'' + esc(b.id) + '\\')">▶ تشغيل</button>') +
+          '<button class="btn-sm btn-secondary" onclick="openTokenModal(\\'' + esc(b.id) + '\\',\\'' + esc(b.name) + '\\',\\'' + esc(b.token_masked || '') + '\\')">🔑 التوكن</button>' +
+          '<button class="btn-sm btn-secondary" onclick="openLogsModal(\\'' + esc(b.id) + '\\',\\'' + esc(b.name) + '\\',\\'' + esc(b.emoji || '🤖') + '\\')">📜 السجلات</button>' +
+          '<a class="btn-sm btn-secondary" href="../' + encodeURIComponent(b.id) + '/" target="_blank" style="text-decoration:none; display:inline-flex; align-items:center;">🔗 التطبيق</a>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function startBot(id) {
+    try {
+      dashToast('⏳ بدء تشغيل ' + id + '...');
+      const res = await post('/api/v1/bots/' + encodeURIComponent(id) + '/start');
+      dashToast(res.ok ? '✅ بدأ تشغيل ' + id : '❌ ' + (res.error || 'تعذر التشغيل'));
+      await loadBots();
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  async function stopBot(id) {
+    try {
+      dashToast('⏳ جاري إيقاف ' + id + '...');
+      const res = await post('/api/v1/bots/' + encodeURIComponent(id) + '/stop');
+      dashToast('⏹ تم إيقاف ' + id);
+      await loadBots();
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  async function restartBot(id) {
+    try {
+      dashToast('🔄 جاري إعادة تشغيل ' + id + '...');
+      const res = await post('/api/v1/bots/' + encodeURIComponent(id) + '/restart');
+      dashToast('✅ تم إعادة تشغيل ' + id);
+      await loadBots();
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  async function startAllBots() {
+    if (!confirm('تشغيل جميع البوتات المسجلة الآن؟')) return;
+    try {
+      dashToast('🚀 جاري تشغيل جميع البوتات...');
+      await post('/api/v1/bots/actions/start-all');
+      dashToast('✅ صدر أمر تشغيل جميع البوتات');
+      setTimeout(loadBots, 1200);
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  async function stopAllBots() {
+    if (!confirm('إيقاف جميع البوتات النشطة؟')) return;
+    try {
+      dashToast('⏹ جاري إيقاف جميع البوتات...');
+      await post('/api/v1/bots/actions/stop-all');
+      dashToast('⏹ تم إيقاف جميع البوتات');
+      setTimeout(loadBots, 1200);
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  /* ── 2. Live Logs SSE Stream Modal ── */
+  function openLogsModal(id, name, emoji) {
+    document.getElementById('log-modal-emoji').textContent = emoji;
+    document.getElementById('log-modal-title').textContent = (name || id) + ' (' + id + ')';
+    const term = document.getElementById('terminal-content');
+    term.innerHTML = '<span class="log-line info">⏳ جارٍ الاتصال ببث سجلات البوت ' + esc(id) + '...</span>\n';
+    document.getElementById('modal-logs').classList.remove('hide');
+
+    if (activeLogSource) activeLogSource.close();
+    try {
+      const k = apiKey();
+      const url = API_BASE + '/api/v1/bots/' + encodeURIComponent(id) + '/logs/stream' + (k ? '?token=' + encodeURIComponent(k) : '');
+      activeLogSource = new EventSource(url);
+
+      activeLogSource.onmessage = function (e) {
+        try {
+          const item = JSON.parse(e.data);
+          appendLogLine(item.line || e.data, item.level || 'info');
+        } catch (_) {
+          appendLogLine(e.data, 'info');
+        }
+      };
+
+      activeLogSource.onerror = function () {
+        appendLogLine('⚠️ انقطع اتصال البث الحي أو البوت متوقف.', 'warning');
+      };
+    } catch (err) {
+      appendLogLine('❌ تعذر فتح بث السجلات: ' + err.message, 'error');
+    }
+  }
+
+  function appendLogLine(line, level) {
+    const term = document.getElementById('terminal-content');
+    const div = document.createElement('div');
+    div.className = 'log-line ' + (level || 'info');
+    div.textContent = line;
+    term.appendChild(div);
+
+    if (document.getElementById('chk-autoscroll').checked) {
+      term.scrollTop = term.scrollHeight;
+    }
+  }
+
+  function closeLogsModal() {
+    document.getElementById('modal-logs').classList.add('hide');
+    if (activeLogSource) {
+      activeLogSource.close();
+      activeLogSource = null;
+    }
+  }
+
+  /* ── 3. Token Editor Modal ── */
+  function openTokenModal(id, name, masked) {
+    activeTokenBotId = id;
+    document.getElementById('token-modal-bot-name').textContent = name || id;
+    document.getElementById('token-modal-bot-id').textContent = 'ID: ' + id;
+    document.getElementById('token-modal-masked').textContent = masked || 'غير متوفر';
+    document.getElementById('input-new-token').value = '';
+    document.getElementById('token-verify-status').textContent = '';
+    document.getElementById('modal-token').classList.remove('hide');
+  }
+
+  function closeTokenModal() {
+    document.getElementById('modal-token').classList.add('hide');
+    activeTokenBotId = null;
+  }
+
+  async function verifyToken() {
+    const token = document.getElementById('input-new-token').value.trim();
+    const st = document.getElementById('token-verify-status');
+    if (!token) {
+      st.innerHTML = '<span class="err">⚠️ يرجى لصق التوكن أولاً.</span>';
+      return;
+    }
+    st.innerHTML = '<span class="info">⏳ جاري الاتصال بخوادم تيليجرام للتحقق (getMe)...</span>';
+    try {
+      const res = await post('/api/v1/system/verify-token', { token: token });
+      if (res.ok && res.bot) {
+        st.innerHTML = '<span class="ok">✅ التوكن سليم وشغال! البوت: <b>@' + esc(res.bot.username) + '</b> (' + esc(res.bot.first_name) + ')</span>';
+      } else {
+        st.innerHTML = '<span class="err">❌ التوكن غير صالح: ' + esc(res.error || 'رفضه خادم تيليجرام') + '</span>';
+      }
+    } catch (e) {
+      st.innerHTML = '<span class="err">❌ خطأ في الفحص: ' + esc(e.message) + '</span>';
+    }
+  }
+
+  async function saveToken() {
+    const token = document.getElementById('input-new-token').value.trim();
+    if (!token) return dashToast('⚠️ أدخل التوكن الجديد أولاً.');
+    if (!activeTokenBotId) return;
+    try {
+      dashToast('⏳ حفظ التوكن...');
+      const res = await post('/api/v1/bots/' + encodeURIComponent(activeTokenBotId) + '/config', { token: token });
+      if (res.ok) {
+        dashToast('✅ تم حفظ التوكن بنجاح للبوت ' + activeTokenBotId);
+        closeTokenModal();
+        await loadBots();
+      } else {
+        dashToast('❌ ' + (res.error || 'تعذر حفظ التوكن'));
+      }
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  /* ── 4. Ads Editor Logic (Preserved) ── */
+  let ADS = {};
 
   function renderAds() {
     const ids = Object.keys(ADS).sort();
@@ -384,13 +1164,9 @@
       zone_id: document.getElementById('ad-zone').value.trim(),
       script_url: document.getElementById('ad-script').value.trim(),
       format: document.getElementById('ad-format').value,
-      frequency: parseInt(document.getElementById('ad-freq').value || '3', 10),
+      frequency: parseInt(document.getElementById('ad-freq').value, 10) || 3,
       active: document.getElementById('ad-active').checked
     };
-    if (!payload.direct_link && !payload.zone_id && !payload.script_url && payload.active) {
-      dashToast('⚠️ أدخل Direct Link أو Zone ID أولاً');
-      return;
-    }
     const btn = document.getElementById('ad-save');
     btn.disabled = true;
     btn.textContent = '⏳ جارٍ الحفظ وإعادة التوليد…';
@@ -443,43 +1219,818 @@
     }
   }
 
+  /* ── 5. Store Manager Logic ── */
+  let STORE_ITEMS = [];
+  let STORE_CATEGORIES = [];
+  let storeReorderMode = false;
+  let draggedRow = null;
+
+  async function loadStore() {
+    try {
+      const [resItems, resStats, resCats] = await Promise.all([
+        get('/api/v1/store').catch(() => ({ items: [] })),
+        get('/api/v1/store/stats').catch(() => ({ stats: {} })),
+        get('/api/v1/store/categories').catch(() => ({ categories: [] }))
+      ]);
+      STORE_ITEMS = resItems.items || [];
+      STORE_CATEGORIES = resCats.categories || [];
+      renderStoreKpis(resStats.stats || {});
+      renderStoreTable();
+      renderStoreCategoryFilter();
+      populateBotSelect();
+      populateCategorySelect();
+    } catch (e) {
+      document.getElementById('store-tbody').innerHTML =
+        '<tr><td colspan="10" style="text-align:center; padding:30px; color:var(--err);">❌ فشل تحميل المتجر: ' + esc(e.message) + '</td></tr>';
+    }
+  }
+
+  function renderStoreKpis(stats) {
+    document.getElementById('sk-total').textContent = stats.total || 0;
+    document.getElementById('sk-live').textContent = stats.live_count || 0;
+    document.getElementById('sk-coming').textContent = stats.coming_soon_count || 0;
+    document.getElementById('sk-hidden').textContent = stats.hidden_count || 0;
+    document.getElementById('sk-views').textContent = fmtNum(stats.total_views || 0);
+    document.getElementById('sk-opens').textContent = fmtNum(stats.total_opens || 0);
+    document.getElementById('sk-clicks').textContent = fmtNum(stats.total_clicks || 0);
+  }
+
+  function fmtNum(n) { return n >= 1000 ? (n/1000).toFixed(1) + 'K' : n; }
+
+  function statusPill(status) {
+    const map = {
+      'live': 'store-live',
+      'coming_soon': 'store-coming_soon',
+      'hidden': 'store-hidden',
+      'draft': 'store-draft'
+    };
+    const label = {
+      'live': '✅ معروض',
+      'coming_soon': '⏳ قريباً',
+      'hidden': '🚫 مخفي',
+      'draft': '📝 مسودة'
+    };
+    return '<span class="status-pill ' + (map[status] || '') + '">' + (label[status] || status) + '</span>';
+  }
+
+  function renderStoreTable() {
+    const q = (document.getElementById('store-search').value || '').trim().toLowerCase();
+    const statusFilter = document.getElementById('store-status-filter').value;
+    const catFilter = document.getElementById('store-category-filter').value;
+
+    const filtered = STORE_ITEMS.filter(item => {
+      const matchesQuery = !q || (item.title_ar && item.title_ar.toLowerCase().includes(q)) ||
+                                   (item.bot_id && item.bot_id.toLowerCase().includes(q)) ||
+                                   (item.title_en && item.title_en.toLowerCase().includes(q));
+      const matchesStatus = !statusFilter || item.status === statusFilter;
+      const matchesCat = !catFilter || item.category === catFilter;
+      return matchesQuery && matchesStatus && matchesCat;
+    });
+
+    document.getElementById('store-count').textContent = '(' + filtered.length + ' من ' + STORE_ITEMS.length + ')';
+
+    if (!filtered.length) {
+      document.getElementById('store-tbody').innerHTML =
+        '<tr><td colspan="10" style="text-align:center; padding:30px; color:var(--hint);">🔍 لا توجد عناصر مطابقة للفلتر.</td></tr>';
+      return;
+    }
+
+    document.getElementById('store-tbody').innerHTML = filtered.map((item, idx) => {
+      const badges = (item.badges || '').split(',').map(s => s.trim()).filter(Boolean);
+      const badgeHtml = badges.length ? '<div class="store-item-badges">' + badges.map(b =>
+        '<span class="store-badge' + (b === 'جديد' || b === 'جديد' ? ' new' : '') + (b === 'مميز' ? ' featured' : '') + '">' + esc(b) + '</span>'
+      ).join('') + '</div>' : '';
+
+      return '<tr class="store-row" data-id="' + item.id + '" draggable="true">' +
+        '<td><input type="checkbox" class="store-row-checkbox" value="' + item.id + '"></td>' +
+        '<td style="color:var(--hint); font-size:11px;">' + (idx + 1) + '</td>' +
+        '<td>' +
+          '<div class="store-item-name">' + esc(item.title_ar || item.title_en || 'بدون عنوان') + '</div>' +
+          '<div class="store-item-bot">' + esc(item.bot_id) + '</div>' +
+          badgeHtml +
+        '</td>' +
+        '<td class="store-item-bot" dir="ltr">' + esc(item.bot_id) + '</td>' +
+        '<td>' + esc(item.category || '—') + '</td>' +
+        '<td>' + statusPill(item.status) + '</td>' +
+        '<td><input type="number" class="store-order-input" value="' + (item.display_order || 0) + '" min="0" data-id="' + item.id + '" style="display:none;"></td>' +
+        '<td>' + fmtNum(item.views || 0) + '</td>' +
+        '<td>' + fmtNum(item.opens || 0) + '</td>' +
+        '<td>' + fmtNum(item.clicks || 0) + '</td>' +
+        '<td>' +
+          '<button class="btn-icon" onclick="openStoreModal(' + item.id + ')" title="تعديل">✏️</button>' +
+          '<button class="btn-icon danger" onclick="deleteStoreItem(' + item.id + ', \'' + esc(item.title_ar || item.bot_id) + '\')" title="حذف">🗑</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    // Enable drag-drop for reorder mode
+    enableDragDrop();
+    // Update select-all checkbox state
+    updateSelectAllCheckbox();
+  }
+
+  function renderStoreCategoryFilter() {
+    const sel = document.getElementById('store-category-filter');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">جميع التصنيفات</option>' +
+      STORE_CATEGORIES.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+    if (STORE_CATEGORIES.includes(current)) sel.value = current;
+  }
+
+  async function populateBotSelect() {
+    try {
+      const res = await get('/api/v1/bots');
+      const bots = (res.bots || []).filter(b => b.token_configured);
+      const sel = document.getElementById('si-bot_id');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">-- اختر البوت --</option>' +
+        bots.map(b => '<option value="' + esc(b.id) + '">' + esc(b.name || b.id) + ' (@' + esc(b.username?.replace('@','') || b.id) + ')</option>').join('');
+      if (bots.some(b => b.id === current)) sel.value = current;
+    } catch (e) {
+      console.error('Failed to load bots for store:', e);
+    }
+  }
+
+  function populateCategorySelect() {
+    const sel = document.getElementById('si-category');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">-- اختر التصنيف --</option>' +
+      STORE_CATEGORIES.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+    if (STORE_CATEGORIES.includes(current)) sel.value = current;
+  }
+
+  function openStoreModal(itemId = null) {
+    const modal = document.getElementById('modal-store-item');
+    const title = document.getElementById('store-modal-title');
+    const msg = document.getElementById('store-item-msg');
+    const delBtn = document.getElementById('store-btn-delete-item');
+
+    // Reset form
+    document.getElementById('store-item-id').value = '';
+    document.getElementById('store-item-original-bot').value = '';
+    document.querySelectorAll('#modal-store-item input, #modal-store-item select, #modal-store-item textarea').forEach(el => {
+      if (el.type !== 'hidden') el.value = '';
+    });
+    document.getElementById('si-status').value = 'draft';
+    document.getElementById('si-display_order').value = '0';
+    msg.textContent = '';
+    delBtn.style.display = 'none';
+
+    if (itemId) {
+      // Edit mode
+      const item = STORE_ITEMS.find(i => i.id === itemId);
+      if (!item) return;
+      title.textContent = '✏️ تعديل عنصر المتجر: ' + esc(item.title_ar || item.bot_id);
+      document.getElementById('store-item-id').value = item.id;
+      document.getElementById('store-item-original-bot').value = item.bot_id;
+      document.getElementById('si-bot_id').value = item.bot_id;
+      document.getElementById('si-title_ar').value = item.title_ar || '';
+      document.getElementById('si-title_en').value = item.title_en || '';
+      document.getElementById('si-category').value = item.category || '';
+      document.getElementById('si-status').value = item.status || 'draft';
+      document.getElementById('si-display_order').value = item.display_order || 0;
+      document.getElementById('si-short_desc_ar').value = item.short_desc_ar || '';
+      document.getElementById('si-short_desc_en').value = item.short_desc_en || '';
+      document.getElementById('si-long_desc_ar').value = item.long_desc_ar || '';
+      document.getElementById('si-long_desc_en').value = item.long_desc_en || '';
+      document.getElementById('si-icon_url').value = item.icon_url || '';
+      document.getElementById('si-cover_url').value = item.cover_url || '';
+      document.getElementById('si-tags').value = (item.tags || []).join(', ');
+      document.getElementById('si-badges').value = (item.badges || []).join(', ');
+      document.getElementById('si-deep_link').value = item.deep_link || '';
+      document.getElementById('si-miniapp_url').value = item.miniapp_url || '';
+      delBtn.style.display = 'flex';
+    } else {
+      // Create mode
+      title.textContent = '➕ إضافة عنصر متجر جديد';
+      // Set default order to max + 1
+      const maxOrder = Math.max(0, ...STORE_ITEMS.map(i => i.display_order || 0));
+      document.getElementById('si-display_order').value = maxOrder + 1;
+    }
+
+    modal.classList.remove('hide');
+  }
+
+  function closeStoreModal() {
+    document.getElementById('modal-store-item').classList.add('hide');
+  }
+
+  async function saveStoreItem() {
+    const id = document.getElementById('store-item-id').value;
+    const originalBot = document.getElementById('store-item-original-bot').value;
+    const isEdit = !!id;
+
+    const payload = {
+      bot_id: document.getElementById('si-bot_id').value,
+      title_ar: document.getElementById('si-title_ar').value.trim(),
+      title_en: document.getElementById('si-title_en').value.trim(),
+      short_desc_ar: document.getElementById('si-short_desc_ar').value.trim(),
+      short_desc_en: document.getElementById('si-short_desc_en').value.trim(),
+      long_desc_ar: document.getElementById('si-long_desc_ar').value.trim(),
+      long_desc_en: document.getElementById('si-long_desc_en').value.trim(),
+      icon_url: document.getElementById('si-icon_url').value.trim(),
+      cover_url: document.getElementById('si-cover_url').value.trim(),
+      category: document.getElementById('si-category').value,
+      tags: document.getElementById('si-tags').value.split(',').map(s => s.trim()).filter(Boolean),
+      badges: document.getElementById('si-badges').value.split(',').map(s => s.trim()).filter(Boolean),
+      display_order: parseInt(document.getElementById('si-display_order').value, 10) || 0,
+      status: document.getElementById('si-status').value,
+      deep_link: document.getElementById('si-deep_link').value.trim(),
+      miniapp_url: document.getElementById('si-miniapp_url').value.trim(),
+    };
+
+    // Validation
+    if (!payload.bot_id) return showStoreMsg('⚠️ اختر البوت المرتبط', true);
+    if (!payload.title_ar) return showStoreMsg('⚠️ العنوان بالعربي مطلوب', true);
+    if (!payload.short_desc_ar) return showStoreMsg('⚠️ الوصف المختصر بالعربي مطلوب', true);
+    if (!payload.deep_link) return showStoreMsg('⚠️ الرابط العميق مطلوب', true);
+    if (!payload.category) return showStoreMsg('⚠️ التصنيف مطلوب', true);
+
+    const msg = document.getElementById('store-item-msg');
+    const btn = document.getElementById('store-btn-save-item');
+    btn.disabled = true;
+    btn.textContent = isEdit ? '⏳ جارٍ الحفظ...' : '⏳ جارٍ الإضافة...';
+
+    try {
+      let res;
+      if (isEdit) {
+        // Check if bot_id changed (not allowed via update, would need delete+create)
+        if (payload.bot_id !== originalBot) {
+          throw new Error('لا يمكن تغيير البوت المرتبط. احذف العنصر وأنشئ واحداً جديداً.');
+        }
+        res = await post('/api/v1/store/' + id, payload);
+      } else {
+        res = await post('/api/v1/store', payload);
+      }
+
+      if (res.ok) {
+        dashToast((isEdit ? '✅ تم تحديث' : '✅ تم إضافة') + ' عنصر المتجر بنجاح');
+        closeStoreModal();
+        await loadStore();
+      } else {
+        showStoreMsg('❌ ' + (res.error || 'فشل العملية'), true);
+      }
+    } catch (e) {
+      showStoreMsg('❌ ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 حفظ العنصر';
+    }
+  }
+
+  function showStoreMsg(text, isError) {
+    const msg = document.getElementById('store-item-msg');
+    msg.innerHTML = '<span class="' + (isError ? 'err' : 'ok') + '">' + text + '</span>';
+  }
+
+  async function deleteStoreItem(id, name) {
+    if (!confirm('حذف عنصر المتجر «' + name + '» نهائياً؟')) return;
+    try {
+      const res = await fetch(API_BASE + '/api/v1/store/' + id, {
+        method: 'DELETE', headers: headers()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      dashToast('🗑 تم حذف عنصر المتجر');
+      await loadStore();
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+    }
+  }
+
+  /* ── Drag & Drop for Reorder ── */
+  function enableDragDrop() {
+    const rows = document.querySelectorAll('#store-tbody .store-row');
+    rows.forEach(row => {
+      row.addEventListener('dragstart', handleDragStart);
+      row.addEventListener('dragend', handleDragEnd);
+      row.addEventListener('dragover', handleDragOver);
+      row.addEventListener('dragleave', handleDragLeave);
+      row.addEventListener('drop', handleDrop);
+    });
+  }
+
+  function handleDragStart(e) {
+    if (!storeReorderMode) { e.preventDefault(); return; }
+    draggedRow = e.target.closest('.store-row');
+    draggedRow.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragEnd(e) {
+    if (draggedRow) {
+      draggedRow.classList.remove('dragging');
+      document.querySelectorAll('.store-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+      draggedRow = null;
+    }
+  }
+
+  function handleDragOver(e) {
+    if (!storeReorderMode || !draggedRow) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('.store-row');
+    if (target && target !== draggedRow) {
+      document.querySelectorAll('.store-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+      target.classList.add('drag-over');
+    }
+  }
+
+  function handleDragLeave(e) {
+    const target = e.target.closest('.store-row');
+    if (target) target.classList.remove('drag-over');
+  }
+
+  function handleDrop(e) {
+    if (!storeReorderMode || !draggedRow) return;
+    e.preventDefault();
+    const target = e.target.closest('.store-row');
+    if (target && target !== draggedRow) {
+      const tbody = document.getElementById('store-tbody');
+      const rows = Array.from(tbody.querySelectorAll('.store-row'));
+      const fromIdx = rows.indexOf(draggedRow);
+      const toIdx = rows.indexOf(target);
+      if (fromIdx !== toIdx) {
+        if (fromIdx < toIdx) {
+          target.parentNode.insertBefore(draggedRow, target.nextSibling);
+        } else {
+          target.parentNode.insertBefore(draggedRow, target);
+        }
+      }
+    }
+    document.querySelectorAll('.store-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+  }
+
+  function enterReorderMode() {
+    storeReorderMode = true;
+    document.getElementById('store-reorder-hint').style.display = 'block';
+    // Show order inputs
+    document.querySelectorAll('.store-order-input').forEach(inp => inp.style.display = 'inline-block');
+    // Disable normal action buttons
+    document.querySelectorAll('#store-tbody .btn-icon').forEach(btn => btn.style.display = 'none');
+  }
+
+  function exitReorderMode(save = false) {
+    storeReorderMode = false;
+    document.getElementById('store-reorder-hint').style.display = 'none';
+    document.querySelectorAll('.store-order-input').forEach(inp => inp.style.display = 'none');
+    document.querySelectorAll('#store-tbody .btn-icon').forEach(btn => btn.style.display = 'inline-block');
+
+    if (save) {
+      // Collect new order from visible rows (filtered)
+      const rows = document.querySelectorAll('#store-tbody .store-row');
+      const itemIds = Array.from(rows).map(r => parseInt(r.dataset.id, 10));
+      saveReorder(itemIds);
+    } else {
+      // Reload to restore original order
+      renderStoreTable();
+    }
+  }
+
+  async function saveReorder(itemIds) {
+    try {
+      dashToast('⏳ جارٍ حفظ الترتيب الجديد...');
+      const res = await post('/api/v1/store/reorder', { item_ids: itemIds });
+      if (res.ok) {
+        dashToast('✅ تم حفظ الترتيب (' + res.reordered + ' عنصر)');
+        await loadStore();
+      } else {
+        dashToast('❌ ' + (res.error || 'فشل حفظ الترتيب'));
+        renderStoreTable(); // restore
+      }
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+      renderStoreTable();
+    }
+  }
+
+  /* ── Store Pipeline: Catalog, Build, Publish ── */
+  async function runStoreCatalog() {
+    try {
+      dashToast('📋 جارٍ توليد Catalog.json...');
+      const res = await get('/api/v1/store/catalog');
+      if (res.ok) {
+        dashToast('✅ تم توليد الكتالوج (' + res.catalog_items + ' عنصر)');
+      } else {
+        dashToast('❌ ' + (res.error || 'فشل التوليد'));
+      }
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  async function runStoreBuild() {
+    const btn = document.getElementById('store-btn-build');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ البناء...';
+    try {
+      dashToast('🔨 جارٍ بناء صفحات Mini App...');
+      const res = await post('/api/v1/store/build');
+      if (res.ok) {
+        dashToast('✅ ' + (res.stdout || 'تم بناء الصفحات بنجاح'));
+      } else {
+        dashToast('❌ ' + (res.error || 'فشل البناء'));
+      }
+    } catch (e) { dashToast('❌ ' + e.message); }
+    finally {
+      btn.disabled = false;
+      btn.textContent = '🔨 بناء الصفحات (Build)';
+    }
+  }
+
+  async function runStorePublish() {
+    const btn = document.getElementById('store-btn-publish');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ النشر...';
+    try {
+      dashToast('🚀 جارٍ النشر على GitHub Pages...');
+      const res = await post('/api/v1/store/publish');
+      if (res.ok) {
+        dashToast('✅ ' + (res.message || 'تم النشر بنجاح'));
+        if (res.changed_files?.length) {
+          console.log('Changed files:', res.changed_files);
+        }
+      } else {
+        dashToast('❌ ' + (res.error || 'فشل النشر'));
+        if (res.manual_fallback) {
+          console.log('Manual fallback:', res.manual_fallback.join(' && '));
+        }
+      }
+    } catch (e) { dashToast('❌ ' + e.message); }
+    finally {
+      btn.disabled = false;
+      btn.textContent = '🚀 نشر (GitHub Pages)';
+    }
+  }
+
+  async function runFullPublish() {
+    const btn = document.getElementById('store-btn-full-publish');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ التنفيذ الكامل...';
+    try {
+      dashToast('⚡ بدء النشر الكامل: كتالوج + بناء + نشر...');
+      const res = await post('/api/v1/store/full-publish');
+      if (res.ok) {
+        dashToast('🎉 اكتمل النشر الكامل! (' + res.catalog_items + ' عنصر، ' + (res.changed_files?.length || 0) + ' ملف متغير)');
+      } else {
+        dashToast('❌ ' + (res.error || 'فشل النشر الكامل'));
+        if (res.manual_fallback) {
+          console.log('Manual fallback:', res.manual_fallback.join(' && '));
+        }
+      }
+    } catch (e) { dashToast('❌ ' + e.message); }
+    finally {
+      btn.disabled = false;
+      btn.textContent = '⚡ كامل: كتالوج + بناء + نشر';
+    }
+  }
+
+  /* ── 6b. Store Enhancements ── */
+  async function uploadStoreImage(inputId, urlInputId) {
+    const fileInput = document.getElementById(inputId);
+    const urlInput = document.getElementById(urlInputId);
+    if (!fileInput.files.length) return;
+    
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      dashToast('⏳ جارٍ رفع الصورة...');
+      const res = await fetch(API_BASE + '/api/v1/store/upload-image', {
+        method: 'POST',
+        headers: { 'X-API-Key': apiKey() },
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الرفع');
+      urlInput.value = data.url;
+      dashToast('✅ تم رفع الصورة: ' + data.filename);
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+    } finally {
+      fileInput.value = ''; // Reset for next upload
+    }
+  }
+
+  async function previewStoreItem() {
+    const btn = document.getElementById('store-btn-preview');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ توليد المعاينة...';
+    
+    // Collect form data
+    const payload = {
+      bot_id: document.getElementById('si-bot_id').value,
+      title_ar: document.getElementById('si-title_ar').value,
+      title_en: document.getElementById('si-title_en').value,
+      short_desc_ar: document.getElementById('si-short_desc_ar').value,
+      short_desc_en: document.getElementById('si-short_desc_en').value,
+      long_desc_ar: document.getElementById('si-long_desc_ar').value,
+      long_desc_en: document.getElementById('si-long_desc_en').value,
+      category: document.getElementById('si-category').value,
+      badges: document.getElementById('si-badges').value.split(',').map(s => s.trim()).filter(Boolean),
+      cover_url: document.getElementById('si-cover_url').value,
+      icon_url: document.getElementById('si-icon_url').value,
+      deep_link: document.getElementById('si-deep_link').value,
+      miniapp_url: document.getElementById('si-miniapp_url').value,
+    };
+    
+    try {
+      const res = await post('/api/v1/store/preview', payload);
+      if (!res.ok) throw new Error(res.error || 'فشل توليد المعاينة');
+      
+      // Show preview in modal iframe
+      const frame = document.getElementById('preview-frame');
+      frame.srcdoc = res.html;
+      document.getElementById('modal-preview').classList.remove('hide');
+      
+      dashToast('✅ تم توليد المعاينة');
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '👁️ معاينة';
+    }
+  }
+
+  function closePreview() {
+    document.getElementById('modal-preview').classList.add('hide');
+    document.getElementById('preview-frame').srcdoc = '';
+  }
+
+  function getSelectedStoreIds() {
+    return Array.from(document.querySelectorAll('.store-row-checkbox:checked'))
+      .map(cb => parseInt(cb.value, 10));
+  }
+
+  function updateSelectAllCheckbox() {
+    const checkboxes = document.querySelectorAll('.store-row-checkbox');
+    const selectAll = document.getElementById('store-select-all');
+    const checked = document.querySelectorAll('.store-row-checkbox:checked');
+    
+    if (checkboxes.length === 0) {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+    } else if (checked.length === checkboxes.length) {
+      selectAll.checked = true;
+      selectAll.indeterminate = false;
+    } else if (checked.length > 0) {
+      selectAll.checked = false;
+      selectAll.indeterminate = true;
+    } else {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+    }
+    
+    // Show/hide bulk actions bar
+    const bulkBar = document.getElementById('store-bulk-bar');
+    const bulkCount = document.getElementById('store-bulk-count');
+    if (checked.length > 0) {
+      bulkBar.style.display = 'block';
+      bulkCount.textContent = checked.length;
+    } else {
+      bulkBar.style.display = 'none';
+    }
+  }
+
+  function clearStoreSelection() {
+    document.querySelectorAll('.store-row-checkbox').forEach(cb => cb.checked = false);
+    updateSelectAllCheckbox();
+  }
+
+  async function applyBulkAction() {
+    const actionSelect = document.getElementById('store-bulk-action');
+    const action = actionSelect.value;
+    const ids = getSelectedStoreIds();
+    
+    if (!ids.length) return dashToast('⚠️ لا توجد عناصر محددة');
+    if (!action) return dashToast('⚠️ اختر إجراء');
+    
+    const btn = document.getElementById('store-btn-apply-bulk');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ التطبيق...';
+    
+    let payload = { item_ids: ids };
+    if (action.startsWith('status:')) {
+      payload.action = 'status';
+      payload.status = action.split(':')[1];
+    } else {
+      payload.action = action;
+    }
+    
+    try {
+      const res = await post('/api/v1/store/bulk', payload);
+      if (!res.ok) throw new Error(res.error || 'فشل الإجراء الجماعي');
+      
+      dashToast('✅ تم تطبيق الإجراء على ' + res.processed + ' عنصر');
+      clearStoreSelection();
+      await loadStore();
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'تطبيق';
+      actionSelect.value = '';
+    }
+  }
+
+  async function exportStore(format = 'json') {
+    const btn = document.getElementById('store-btn-export');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ التصدير...';
+    
+    try {
+      const res = await fetch(API_BASE + '/api/v1/store/export?format=' + format, {
+        headers: headers()
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'فشل التصدير');
+      }
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'store_export.' + (format === 'csv' ? 'csv' : 'json');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      
+      dashToast('✅ تم تصدير ' + (format === 'csv' ? 'CSV' : 'JSON'));
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📤 تصدير (JSON/CSV)';
+    }
+  }
+
+  function openImportModal() {
+    document.getElementById('import-file').value = '';
+    document.getElementById('import-msg').textContent = '';
+    document.getElementById('modal-import').classList.remove('hide');
+  }
+
+  function closeImportModal() {
+    document.getElementById('modal-import').classList.add('hide');
+  }
+
+  async function importStore() {
+    const fileInput = document.getElementById('import-file');
+    const msg = document.getElementById('import-msg');
+    
+    if (!fileInput.files.length) return showImportMsg('⚠️ اختر ملف JSON أولاً', true);
+    
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const btn = document.getElementById('import-btn-confirm');
+    btn.disabled = true;
+    btn.textContent = '⏳ جارٍ الاستيراد...';
+    
+    try {
+      const res = await fetch(API_BASE + '/api/v1/store/import', {
+        method: 'POST',
+        headers: { 'X-API-Key': apiKey() },
+        body: formData
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'فشل الاستيراد');
+      
+      showImportMsg('✅ تم الاستيراد: ' + data.created + ' جديد، ' + data.updated + ' محدث' + 
+        (data.errors.length ? '، ' + data.errors.length + ' خطأ' : ''), data.errors.length > 0);
+      
+      if (data.created > 0 || data.updated > 0) {
+        closeImportModal();
+        await loadStore();
+      }
+    } catch (e) {
+      showImportMsg('❌ ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📥 استيراد';
+    }
+  }
+
+  function showImportMsg(text, isError) {
+    const msg = document.getElementById('import-msg');
+    msg.innerHTML = '<span class="' + (isError ? 'err' : 'ok') + '">' + text + '</span>';
+  }
+
+  /* ── 6. Tab Switching ── */
   function switchTab(name) {
+    document.getElementById('tab-bots').classList.toggle('hide', name !== 'bots');
+    document.getElementById('tab-store').classList.toggle('hide', name !== 'store');
     document.getElementById('tab-analytics').classList.toggle('hide', name !== 'analytics');
     document.getElementById('tab-ads').classList.toggle('hide', name !== 'ads');
     document.querySelectorAll('.tabs button').forEach(b =>
       b.classList.toggle('active', b.dataset.tab === name));
+
+    if (name === 'bots') loadBots();
+    if (name === 'store') loadStore();
     if (name === 'ads') loadAds();
+    if (name === 'analytics') refreshAnalytics();
   }
 
+  /* ── 7. Event Wiring ── */
   document.getElementById('ad-bot').addEventListener('change', fillAdForm);
   document.getElementById('ad-save').addEventListener('click', saveAds);
   document.getElementById('ad-clear').addEventListener('click', clearAds);
 
+  document.getElementById('btn-start-all').addEventListener('click', startAllBots);
+  document.getElementById('btn-stop-all').addEventListener('click', stopAllBots);
+  document.getElementById('btn-refresh-bots').addEventListener('click', loadBots);
+  document.getElementById('bot-search').addEventListener('input', renderBotsGrid);
 
-  async function refresh() {
-    try {
-      const [ov, st] = await Promise.all([get('/api/overview'), get('/api/stats')]);
-      renderOverview(ov);
-      renderStats(st);
-    } catch (e) {
-      document.getElementById('cards').innerHTML =
-        '<div class="card"><div class="v err">—</div><div class="l">' +
-        esc(e.message) + '</div></div>';
-    }
-  }
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTierFilter = btn.dataset.tier || 'all';
+      renderBotsGrid();
+    });
+  });
+
+  // Store tab events
+  document.getElementById('store-btn-add').addEventListener('click', () => openStoreModal());
+  document.getElementById('store-btn-preview').addEventListener('click', previewStoreItem);
+  document.getElementById('store-btn-catalog').addEventListener('click', runStoreCatalog);
+  document.getElementById('store-btn-build').addEventListener('click', runStoreBuild);
+  document.getElementById('store-btn-publish').addEventListener('click', runStorePublish);
+  document.getElementById('store-btn-full-publish').addEventListener('click', runFullPublish);
+  document.getElementById('store-btn-export').addEventListener('click', () => exportStore('json'));
+  document.getElementById('store-btn-import').addEventListener('click', openImportModal);
+  document.getElementById('store-search').addEventListener('input', renderStoreTable);
+  document.getElementById('store-status-filter').addEventListener('change', renderStoreTable);
+  document.getElementById('store-category-filter').addEventListener('change', renderStoreTable);
+  document.getElementById('store-btn-save-order').addEventListener('click', () => exitReorderMode(true));
+  document.getElementById('store-btn-cancel-order').addEventListener('click', () => exitReorderMode(false));
+  document.getElementById('store-btn-save-item').addEventListener('click', saveStoreItem);
+  document.getElementById('store-btn-delete-item').addEventListener('click', () => {
+    const id = document.getElementById('store-item-id').value;
+    const name = document.getElementById('si-title_ar').value || document.getElementById('store-item-original-bot').value;
+    if (id) deleteStoreItem(parseInt(id, 10), name);
+  });
+  document.getElementById('btn-close-store-modal').addEventListener('click', closeStoreModal);
+
+  // Image upload handlers
+  document.getElementById('si-icon_upload').addEventListener('change', (e) => {
+    if (e.target.files.length) uploadStoreImage('si-icon_upload', 'si-icon_url');
+  });
+  document.getElementById('si-cover_upload').addEventListener('change', (e) => {
+    if (e.target.files.length) uploadStoreImage('si-cover_upload', 'si-cover_url');
+  });
+
+  // Bulk actions
+  document.getElementById('store-select-all').addEventListener('change', (e) => {
+    document.querySelectorAll('.store-row-checkbox').forEach(cb => cb.checked = e.target.checked);
+    updateSelectAllCheckbox();
+  });
+  document.getElementById('store-btn-apply-bulk').addEventListener('click', applyBulkAction);
+  document.getElementById('store-btn-clear-selection').addEventListener('click', clearStoreSelection);
+
+  // Preview modal
+  document.getElementById('btn-close-preview').addEventListener('click', closePreview);
+
+  // Import modal
+  document.getElementById('import-btn-confirm').addEventListener('click', importStore);
+  document.getElementById('import-btn-cancel').addEventListener('click', closeImportModal);
+  document.getElementById('btn-close-import').addEventListener('click', closeImportModal);
+
+  document.getElementById('btn-close-logs').addEventListener('click', closeLogsModal);
+  document.getElementById('btn-clear-terminal').addEventListener('click', () => {
+    document.getElementById('terminal-content').innerHTML = '';
+  });
+
+  document.getElementById('btn-close-token').addEventListener('click', closeTokenModal);
+  document.getElementById('btn-verify-token').addEventListener('click', verifyToken);
+  document.getElementById('btn-save-token').addEventListener('click', saveToken);
+
 
   document.getElementById('save').addEventListener('click', function () {
     try { localStorage.setItem(KEY_STORE, document.getElementById('key').value); } catch (e) {}
-    refresh();
+    loadBots();
     if (!document.getElementById('tab-ads').classList.contains('hide')) loadAds();
+    if (!document.getElementById('tab-store').classList.contains('hide')) loadStore();
+    if (!document.getElementById('tab-analytics').classList.contains('hide')) refreshAnalytics();
   });
-  document.getElementById('refresh').addEventListener('click', refresh);
+  document.getElementById('refresh').addEventListener('click', function () {
+    loadBots();
+    if (!document.getElementById('tab-ads').classList.contains('hide')) loadAds();
+    if (!document.getElementById('tab-store').classList.contains('hide')) loadStore();
+    if (!document.getElementById('tab-analytics').classList.contains('hide')) refreshAnalytics();
+  });
   document.querySelectorAll('.tabs button').forEach(function (b) {
     b.addEventListener('click', function () { switchTab(b.dataset.tab); });
   });
   try { document.getElementById('key').value = apiKey(); } catch (e) {}
-  refresh();
-  setInterval(refresh, 60000);
+
+  // Initial Boot
+  loadBots();
+  setInterval(loadBots, 15000);
 })();
 </script>
 </body>
