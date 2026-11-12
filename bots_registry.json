@@ -10,7 +10,8 @@
     "tag": "أدوات 🛠️",
     "hidden": false,
     "file": "bot_currency.py",
-    "category": "أدوات"
+    "category": "أدوات",
+    "tier": "external_api"
   },
   {
     "id": "fun_name",
@@ -23,7 +24,8 @@
     "tag": "ترفيه 🎪",
     "hidden": false,
     "file": "bot_fun_name.py",
-    "category": "ترفيه"
+    "category": "ترفيه",
+    "tier": "light"
   },
   {
     "id": "random_suggest",
@@ -36,7 +38,8 @@
     "tag": "ترفيه 🎲",
     "hidden": false,
     "file": "bot_random_suggest.py",
-    "category": "ترفيه"
+    "category": "ترفيه",
+    "tier": "light"
   },
   {
     "id": "vidload",
@@ -49,7 +52,8 @@
     "tag": "تحميل 📥",
     "hidden": false,
     "file": "bot_vidload.py",
-    "category": "تحميل"
+    "category": "تحميل",
+    "tier": "heavy"
   },
   {
     "id": "cleantok",
@@ -62,7 +66,8 @@
     "tag": "تيك توك 🎵",
     "hidden": false,
     "file": "bot_cleantok.py",
-    "category": "تيك"
+    "category": "تيك",
+    "tier": "heavy"
   },
   {
     "id": "stickerx",
@@ -75,7 +80,8 @@
     "tag": "تصميم 🎨",
     "hidden": false,
     "file": "bot_stickerx.py",
-    "category": "تصميم"
+    "category": "تصميم",
+    "tier": "heavy"
   },
   {
     "id": "backdrop",
@@ -88,7 +94,8 @@
     "tag": "ذكاء اصطناعي 🤖",
     "hidden": false,
     "file": "bot_backdrop.py",
-    "category": "ذكاء"
+    "category": "ذكاء",
+    "tier": "heavy"
   },
   {
     "id": "qrgen",
@@ -101,7 +108,8 @@
     "tag": "أدوات 🛠️",
     "hidden": false,
     "file": "bot_qrgen.py",
-    "category": "أدوات"
+    "category": "أدوات",
+    "tier": "light"
   },
   {
     "id": "transbot",
@@ -114,7 +122,8 @@
     "tag": "ترجمة 🌐",
     "hidden": false,
     "file": "bot_transbot.py",
-    "category": "ترجمة"
+    "category": "ترجمة",
+    "tier": "external_api"
   },
   {
     "id": "formatfix",
@@ -127,7 +136,8 @@
     "tag": "أدوات 🛠️",
     "hidden": false,
     "file": "bot_formatfix.py",
-    "category": "أدوات"
+    "category": "أدوات",
+    "tier": "light"
   },
   {
     "id": "birth_age",
@@ -140,7 +150,8 @@
     "username": "@CalcMyAge_Bot",
     "tag": "أدوات 🛠️",
     "file": "bot_birth_age.py",
-    "category": "أدوات"
+    "category": "أدوات",
+    "tier": "light"
   },
   {
     "id": "store",
@@ -153,7 +164,8 @@
     "tag": "دليل 🌟",
     "hidden": false,
     "file": "bot_store.py",
-    "category": "دليل"
+    "category": "دليل",
+    "tier": "light"
   },
   {
     "id": "iqtest",
@@ -166,7 +178,8 @@
     "hidden": false,
     "username": "@GeniusCheck1Bot",
     "file": "bot_iqtest.py",
-    "category": "اختبارات"
+    "category": "اختبارات",
+    "tier": "light"
   },
   {
     "id": "lovecalculator",
@@ -179,7 +192,8 @@
     "hidden": false,
     "username": "@LoveMatchRBot",
     "file": "bot_lovecalculator.py",
-    "category": "ترفيه"
+    "category": "ترفيه",
+    "tier": "light"
   },
   {
     "id": "mentalage",
@@ -192,7 +206,8 @@
     "hidden": false,
     "username": "@MentalAgeBot",
     "file": "bot_mentalage.py",
-    "category": "ترفيه"
+    "category": "ترفيه",
+    "tier": "light"
   },
   {
     "id": "personalityanalyzer",
@@ -205,7 +220,8 @@
     "hidden": false,
     "username": "@PsycheAnalyzeBot",
     "file": "bot_personalityanalyzer.py",
-    "category": "اختبارات"
+    "category": "اختبارات",
+    "tier": "light"
   },
   {
     "id": "cashier",
@@ -218,7 +234,8 @@
     "tag": "أدوات 🛠️",
     "hidden": false,
     "file": "bot_cashier.py",
-    "category": "أدوات"
+    "category": "أدوات",
+    "tier": "light"
   },
   {
     "id": "safepass",
@@ -231,7 +248,8 @@
     "tag": "أمان 🔒",
     "hidden": false,
     "file": "bot_safepass.py",
-    "category": "أمان"
+    "category": "أمان",
+    "tier": "light"
   },
   {
     "id": "doctrans",
@@ -244,7 +262,8 @@
     "tag": "ترجمة 🌐",
     "hidden": false,
     "file": "bot_doctrans.py",
-    "category": "ترجمة"
+    "category": "ترجمة",
+    "tier": "external_api"
   },
   {
     "id": "shortlink",
@@ -257,7 +276,8 @@
     "tag": "أدوات 🛠️",
     "hidden": false,
     "file": "bot_shortlink.py",
-    "category": "أدوات"
+    "category": "أدوات",
+    "tier": "external_api"
   },
   {
     "id": "fitcheck",
@@ -270,7 +290,8 @@
     "tag": "صحة 💪",
     "hidden": false,
     "file": "bot_fitcheck.py",
-    "category": "صحة"
+    "category": "صحة",
+    "tier": "light"
   },
   {
     "id": "logotext",
@@ -283,7 +304,8 @@
     "tag": "تصميم 🎨",
     "hidden": false,
     "file": "bot_logotext.py",
-    "category": "تصميم"
+    "category": "تصميم",
+    "tier": "light"
   },
   {
     "id": "silentcut",
@@ -296,7 +318,8 @@
     "tag": "فيديو 🎬",
     "hidden": false,
     "file": "bot_silentcut.py",
-    "category": "فيديو"
+    "category": "فيديو",
+    "tier": "heavy"
   },
   {
     "id": "weathernow",
@@ -309,7 +332,8 @@
     "tag": "معلومات 🌦️",
     "hidden": false,
     "file": "bot_weathernow.py",
-    "category": "معلومات"
+    "category": "معلومات",
+    "tier": "external_api"
   },
   {
     "id": "textspeak",
@@ -322,7 +346,8 @@
     "tag": "صوت 🔊",
     "hidden": false,
     "file": "bot_textspeak.py",
-    "category": "صوت"
+    "category": "صوت",
+    "tier": "external_api"
   },
   {
     "id": "braintwist",
@@ -335,7 +360,8 @@
     "tag": "ترفيه 🎪",
     "hidden": false,
     "file": "bot_braintwist.py",
-    "category": "ترفيه"
+    "category": "ترفيه",
+    "tier": "light"
   },
   {
     "id": "colorpick",
@@ -348,7 +374,8 @@
     "tag": "تصميم 🎨",
     "hidden": false,
     "file": "bot_colorpick.py",
-    "category": "تصميم"
+    "category": "تصميم",
+    "tier": "light"
   },
   {
     "id": "cvbuilder",
@@ -361,7 +388,8 @@
     "tag": "مهني 💼",
     "hidden": false,
     "file": "bot_cvbuilder.py",
-    "category": "مهني"
+    "category": "مهني",
+    "tier": "light"
   },
   {
     "id": "caltrack",
@@ -374,7 +402,8 @@
     "tag": "صحة 💪",
     "hidden": false,
     "file": "bot_caltrack.py",
-    "category": "صحة"
+    "category": "صحة",
+    "tier": "light"
   },
   {
     "id": "luckybox",
@@ -387,7 +416,8 @@
     "tag": "ترفيه 🎲",
     "hidden": false,
     "file": "bot_luckybox.py",
-    "category": "ترفيه"
+    "category": "ترفيه",
+    "tier": "light"
   },
   {
     "id": "memoryvault",
@@ -400,7 +430,8 @@
     "tag": "إنتاجية 📋",
     "hidden": false,
     "file": "bot_memoryvault.py",
-    "category": "إنتاجية"
+    "category": "إنتاجية",
+    "tier": "light"
   },
   {
     "id": "cryptorate",
@@ -413,7 +444,8 @@
     "tag": "مالية 💰",
     "hidden": false,
     "file": "bot_cryptorate.py",
-    "category": "مالية"
+    "category": "مالية",
+    "tier": "external_api"
   },
   {
     "id": "photoboost",
@@ -426,7 +458,8 @@
     "tag": "صور 📸",
     "hidden": false,
     "file": "bot_photoboost.py",
-    "category": "صور"
+    "category": "صور",
+    "tier": "heavy"
   },
   {
     "id": "alarmbot",
@@ -439,6 +472,7 @@
     "tag": "إنتاجية ⏰",
     "hidden": false,
     "file": "bot_alarmbot.py",
-    "category": "إنتاجية"
+    "category": "إنتاجية",
+    "tier": "needs_scheduler"
   }
 ]

@@ -197,3 +197,90 @@ def resolve_token(bot_id: str) -> str:
 def token_display(bot_id: str) -> str:
     """A masked representation of the effective token, safe for the UI."""
     return crypto.mask_token(resolve_token(bot_id))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bot Profile Fields (per-language) — Phase 1.5
+# ─────────────────────────────────────────────────────────────────────────────
+
+PROFILE_FIELDS = (
+    "profile_name_ar", "profile_name_en",
+    "profile_desc_ar", "profile_desc_en",
+    "profile_short_ar", "profile_short_en",
+    "profile_commands_ar", "profile_commands_en",
+    "profile_menu_ar", "profile_menu_en",
+)
+
+# Length limits from Telegram API (validated client-side before apply)
+PROFILE_LIMITS = {
+    "profile_name_ar": 64, "profile_name_en": 64,
+    "profile_desc_ar": 512, "profile_desc_en": 512,
+    "profile_short_ar": 120, "profile_short_en": 120,
+    # commands: validated separately (100 commands, each cmd 32 chars, desc 256)
+    # menu: text 16 chars, url validated separately
+}
+
+
+def get_profile(bot_id: str) -> dict:
+    """Return the stored profile fields of a bot (per-language)."""
+    db = get_db()
+    if db is None:
+        return {}
+    try:
+        with db._get_conn() as conn:
+            row = conn.execute(
+                f"SELECT {', '.join(PROFILE_FIELDS)} FROM bot_config WHERE bot_id=?",
+                (bot_id,)
+            ).fetchone()
+            if row is None:
+                return {f: "" for f in PROFILE_FIELDS}
+            return {f: row[f] or "" for f in PROFILE_FIELDS}
+    except Exception:
+        return {f: "" for f in PROFILE_FIELDS}
+
+
+def update_profile(bot_id: str, **fields) -> dict:
+    """
+    Update the profile fields of a bot.
+    Accepted keys: all PROFILE_FIELDS.
+    """
+    db = get_db()
+    if db is None:
+        return {"ok": False, "error": "database unavailable"}
+
+    ensure(bot_id)
+    assignments, params = [], []
+
+    for field in PROFILE_FIELDS:
+        if field in fields:
+            limit = PROFILE_LIMITS.get(field, 4096)
+            val = str(fields[field] or "")[:limit]
+            assignments.append(f"{field}=?")
+            params.append(val)
+
+    if not assignments:
+        return {"ok": True, "updated": False}
+
+    assignments.append("updated_at=?")
+    params.append(_now())
+    params.append(bot_id)
+
+    try:
+        with db._get_conn() as conn:
+            conn.execute(
+                f"UPDATE bot_config SET {', '.join(assignments)} WHERE bot_id=?",
+                params,
+            )
+        return {"ok": True, "updated": True}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def validate_profile_limits(profile: dict) -> list:
+    """Validate profile fields against Telegram API limits. Returns list of errors."""
+    errors = []
+    for field, limit in PROFILE_LIMITS.items():
+        val = profile.get(field, "")
+        if val and len(val) > limit:
+            errors.append(f"{field}: {len(val)} chars exceeds limit {limit}")
+    return errors

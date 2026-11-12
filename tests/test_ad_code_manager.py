@@ -45,7 +45,12 @@ def test_migration_002_creates_tables(cc_db):
 
 def test_migration_002_rollback(cc_db):
     conn = connect(cc_db)
-    migrations.rollback(conn, steps=1)
+    # Migration 002 created the ads tables, but the catalogue has grown since
+    # (gate foundation, store manager, ...). Rolling back "1 step" only undoes
+    # the newest migration, so compute how many steps are needed to actually
+    # undo version 2 and verify its down script drops the ads tables.
+    current = migrations.current_version(conn)
+    migrations.rollback(conn, steps=max(1, current - 1))
     tables = {r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
     conn.close()

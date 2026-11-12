@@ -199,9 +199,311 @@ MIGRATIONS: tuple = (
             "DROP TABLE IF EXISTS ads",
         ),
     ),
+    # ── Phase 1.3: Gate Foundation (Subscription Gate Core) ────────────────────
+    Migration(
+        version=3,
+        name="gate_foundation",
+        up=(
+            # ── Gate Channels Library ─────────────────────────────────────────
+            """
+            CREATE TABLE IF NOT EXISTS sub_channels (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                title               TEXT NOT NULL,
+                chat_type           TEXT NOT NULL CHECK(chat_type IN ('channel','group','supergroup')),
+                chat_id             INTEGER NOT NULL UNIQUE,
+                username            TEXT,
+                invite_link         TEXT,
+                language            TEXT NOT NULL DEFAULT 'ar',
+                is_active           INTEGER NOT NULL DEFAULT 1,
+                checker_bot_admin   INTEGER NOT NULL DEFAULT 0,
+                last_validated      TEXT,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_sub_channels_active ON sub_channels(is_active)",
+            "CREATE INDEX IF NOT EXISTS idx_sub_channels_chat_id ON sub_channels(chat_id)",
+            # ── Gate Profiles (Global / Bot / Category) ───────────────────────
+            """
+            CREATE TABLE IF NOT EXISTS gate_profiles (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                name                TEXT NOT NULL UNIQUE,
+                scope_type          TEXT NOT NULL CHECK(scope_type IN ('global','bot','category')),
+                scope_value         TEXT,
+                mode                TEXT NOT NULL DEFAULT 'all' CHECK(mode IN ('all','at_least_n','soft')),
+                required_count      INTEGER NOT NULL DEFAULT 5,
+                soft_free_uses      INTEGER NOT NULL DEFAULT 0,
+                is_active           INTEGER NOT NULL DEFAULT 1,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_gate_profiles_scope ON gate_profiles(scope_type, scope_value)",
+            # ── Gate Slots (5 positions per profile) ──────────────────────────
+            """
+            CREATE TABLE IF NOT EXISTS gate_slots (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id          INTEGER NOT NULL REFERENCES gate_profiles(id) ON DELETE CASCADE,
+                position            INTEGER NOT NULL CHECK(position BETWEEN 1 AND 5),
+                channel_id          INTEGER NOT NULL REFERENCES sub_channels(id) ON DELETE CASCADE,
+                is_required         INTEGER NOT NULL DEFAULT 1,
+                is_pinned           INTEGER NOT NULL DEFAULT 0,
+                display_order       INTEGER NOT NULL DEFAULT 0,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                UNIQUE(profile_id, position)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_gate_slots_profile ON gate_slots(profile_id)",
+            # ── Shared Membership Cache (cross-bot) ───────────────────────────
+            """
+            CREATE TABLE IF NOT EXISTS membership_cache (
+                user_id             INTEGER NOT NULL,
+                channel_id          INTEGER NOT NULL REFERENCES sub_channels(id) ON DELETE CASCADE,
+                status              TEXT NOT NULL CHECK(status IN ('member','not_member','unknown')),
+                checked_at          TEXT NOT NULL,
+                expires_at          TEXT NOT NULL,
+                PRIMARY KEY (user_id, channel_id)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_membership_expires ON membership_cache(expires_at)",
+            # ── Gate Events (Audit & Funnel Analytics) ────────────────────────
+            """
+            CREATE TABLE IF NOT EXISTS gate_events (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_id              TEXT NOT NULL,
+                user_id_hash        TEXT NOT NULL,
+                event               TEXT NOT NULL CHECK(event IN (
+                    'gate_shown','join_clicked','verify_clicked','verified','failed_open','skipped_admin'
+                )),
+                channel_id          INTEGER,
+                profile_id          INTEGER,
+                metadata            TEXT,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_gate_events_bot_time ON gate_events(bot_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_gate_events_user_time ON gate_events(user_id_hash, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_gate_events_channel ON gate_events(channel_id)",
+        ),
+        down=(
+            "DROP INDEX IF EXISTS idx_gate_events_channel",
+            "DROP INDEX IF EXISTS idx_gate_events_user_time",
+            "DROP INDEX IF EXISTS idx_gate_events_bot_time",
+            "DROP TABLE IF EXISTS gate_events",
+            "DROP INDEX IF EXISTS idx_membership_expires",
+            "DROP TABLE IF EXISTS membership_cache",
+            "DROP INDEX IF EXISTS idx_gate_slots_profile",
+            "DROP TABLE IF EXISTS gate_slots",
+            "DROP INDEX IF EXISTS idx_gate_profiles_scope",
+            "DROP TABLE IF EXISTS gate_profiles",
+            "DROP INDEX IF EXISTS idx_sub_channels_chat_id",
+            "DROP INDEX IF EXISTS idx_sub_channels_active",
+            "DROP TABLE IF EXISTS sub_channels",
+        ),
+    ),
+    # ── Phase 1.4: Store Manager ──────────────────────────────────────────────
+    Migration(
+        version=4,
+        name="store_manager",
+        up=(
+            """
+            CREATE TABLE IF NOT EXISTS store_items (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_id              TEXT NOT NULL UNIQUE REFERENCES bot_config(bot_id) ON DELETE CASCADE,
+                title_ar            TEXT NOT NULL,
+                title_en            TEXT,
+                short_desc_ar       TEXT,
+                short_desc_en       TEXT,
+                long_desc_ar        TEXT,
+                long_desc_en        TEXT,
+                icon_url            TEXT,
+                cover_url           TEXT,
+                category            TEXT NOT NULL DEFAULT 'أخرى',
+                tags                TEXT,
+                badges              TEXT,
+                display_order       INTEGER NOT NULL DEFAULT 0,
+                status              TEXT NOT NULL DEFAULT 'live' CHECK(status IN ('live','hidden','coming_soon')),
+                deep_link           TEXT,
+                miniapp_url         TEXT,
+                views               INTEGER NOT NULL DEFAULT 0,
+                opens               INTEGER NOT NULL DEFAULT 0,
+                clicks              INTEGER NOT NULL DEFAULT 0,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_store_items_status ON store_items(status)",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_category ON store_items(category)",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_order ON store_items(display_order)",
+        ),
+        down=(
+            "DROP INDEX IF EXISTS idx_store_items_order",
+            "DROP INDEX IF EXISTS idx_store_items_category",
+            "DROP INDEX IF EXISTS idx_store_items_status",
+            "DROP TABLE IF EXISTS store_items",
+        ),
+    ),
+    # ── Phase 1.5: Bot Profile Fields (per-language) ──────────────────────────
+    Migration(
+        version=5,
+        name="bot_profile_fields",
+        up=(
+            # Add per-language profile fields to bot_config
+            "ALTER TABLE bot_config ADD COLUMN profile_name_ar TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_name_en TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_desc_ar TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_desc_en TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_short_ar TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_short_en TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_commands_ar TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_commands_en TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_menu_ar TEXT",
+            "ALTER TABLE bot_config ADD COLUMN profile_menu_en TEXT",
+        ),
+        down=(
+            # SQLite doesn't support DROP COLUMN directly; recreate table without these columns
+            "PRAGMA foreign_keys=OFF",
+            """
+            CREATE TABLE bot_config_old AS
+            SELECT bot_id, display_name, category, enabled, token_enc, token_hint, token_env,
+                   features, ad_group, created_at, updated_at
+            FROM bot_config
+            """,
+            "DROP TABLE bot_config",
+            """
+            CREATE TABLE bot_config (
+                bot_id       TEXT PRIMARY KEY,
+                display_name TEXT,
+                category     TEXT,
+                enabled      INTEGER NOT NULL DEFAULT 1,
+                token_enc    TEXT,
+                token_hint   TEXT,
+                token_env    TEXT,
+                features     TEXT,
+                ad_group     TEXT,
+                created_at   TEXT NOT NULL,
+                updated_at   TEXT NOT NULL
+            )
+            """,
+            "INSERT INTO bot_config SELECT * FROM bot_config_old",
+            "DROP TABLE bot_config_old",
+            "PRAGMA foreign_keys=ON",
+        ),
+    ),
+    # ── Phase 1.6: Gate Config Defaults & Indexes ─────────────────────────────
+    Migration(
+        version=6,
+        name="gate_config_defaults",
+        up=(
+            # Default global gate profile (disabled by default, will be enabled via dashboard)
+            """
+            INSERT OR IGNORE INTO gate_profiles (name, scope_type, scope_value, mode, required_count, soft_free_uses, is_active, created_at, updated_at)
+            VALUES ('global_default', 'global', NULL, 'all', 5, 0, 0, datetime('now'), datetime('now'))
+            """,
+            # Default Store channel entry (placeholder - real chat_id set via dashboard)
+            """
+            INSERT OR IGNORE INTO sub_channels (id, title, chat_type, chat_id, username, language, is_active, checker_bot_admin, created_at, updated_at)
+            VALUES (1, 'متجر بودا', 'channel', 0, '@BodaStoreeBot', 'ar', 0, 0, datetime('now'), datetime('now'))
+            """,
+            # Pin Store channel to slot 1 in global profile
+            """
+            INSERT OR IGNORE INTO gate_slots (profile_id, position, channel_id, is_required, is_pinned, display_order, created_at)
+            SELECT 1, 1, 1, 1, 1, 0, datetime('now')
+            WHERE EXISTS (SELECT 1 FROM gate_profiles WHERE id=1)
+              AND EXISTS (SELECT 1 FROM sub_channels WHERE id=1)
+            """,
+        ),
+        down=(
+            "DELETE FROM gate_slots WHERE profile_id=1 AND position=1 AND channel_id=1",
+            "DELETE FROM sub_channels WHERE id=1",
+            "DELETE FROM gate_profiles WHERE name='global_default'",
+        ),
+    ),
+    # ── Phase 2.1: store_items accepts 'draft' status ─────────────────────────
+    # The dashboard & API already expose a "draft" (مسودة) status, but the v4
+    # CHECK constraint only allowed ('live','hidden','coming_soon'), so any
+    # create/update with status='draft' failed at the DB level. SQLite cannot
+    # ALTER a CHECK, so the table is rebuilt with the extended constraint.
+    Migration(
+        version=7,
+        name="store_items_draft_status",
+        up=(
+            "PRAGMA foreign_keys=OFF",
+            """
+            CREATE TABLE store_items_new (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_id              TEXT NOT NULL UNIQUE REFERENCES bot_config(bot_id) ON DELETE CASCADE,
+                title_ar            TEXT NOT NULL,
+                title_en            TEXT,
+                short_desc_ar       TEXT,
+                short_desc_en       TEXT,
+                long_desc_ar        TEXT,
+                long_desc_en        TEXT,
+                icon_url            TEXT,
+                cover_url           TEXT,
+                category            TEXT NOT NULL DEFAULT 'أخرى',
+                tags                TEXT,
+                badges              TEXT,
+                display_order       INTEGER NOT NULL DEFAULT 0,
+                status              TEXT NOT NULL DEFAULT 'live' CHECK(status IN ('live','hidden','coming_soon','draft')),
+                deep_link           TEXT,
+                miniapp_url         TEXT,
+                views               INTEGER NOT NULL DEFAULT 0,
+                opens               INTEGER NOT NULL DEFAULT 0,
+                clicks              INTEGER NOT NULL DEFAULT 0,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "INSERT INTO store_items_new SELECT * FROM store_items",
+            "DROP TABLE store_items",
+            "ALTER TABLE store_items_new RENAME TO store_items",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_status ON store_items(status)",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_category ON store_items(category)",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_order ON store_items(display_order)",
+            "PRAGMA foreign_keys=ON",
+        ),
+        down=(
+            "PRAGMA foreign_keys=OFF",
+            # draft rows cannot exist under the old constraint; fold them into hidden
+            "UPDATE store_items SET status='hidden' WHERE status='draft'",
+            """
+            CREATE TABLE store_items_old (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_id              TEXT NOT NULL UNIQUE REFERENCES bot_config(bot_id) ON DELETE CASCADE,
+                title_ar            TEXT NOT NULL,
+                title_en            TEXT,
+                short_desc_ar       TEXT,
+                short_desc_en       TEXT,
+                long_desc_ar        TEXT,
+                long_desc_en        TEXT,
+                icon_url            TEXT,
+                cover_url           TEXT,
+                category            TEXT NOT NULL DEFAULT 'أخرى',
+                tags                TEXT,
+                badges              TEXT,
+                display_order       INTEGER NOT NULL DEFAULT 0,
+                status              TEXT NOT NULL DEFAULT 'live' CHECK(status IN ('live','hidden','coming_soon')),
+                deep_link           TEXT,
+                miniapp_url         TEXT,
+                views               INTEGER NOT NULL DEFAULT 0,
+                opens               INTEGER NOT NULL DEFAULT 0,
+                clicks              INTEGER NOT NULL DEFAULT 0,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "INSERT INTO store_items_old SELECT * FROM store_items",
+            "DROP TABLE store_items",
+            "ALTER TABLE store_items_old RENAME TO store_items",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_status ON store_items(status)",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_category ON store_items(category)",
+            "CREATE INDEX IF NOT EXISTS idx_store_items_order ON store_items(display_order)",
+            "PRAGMA foreign_keys=ON",
+        ),
+    ),
+
 )
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────

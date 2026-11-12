@@ -182,3 +182,4 @@ The 34 bots are grouped into 4 distinct execution **Tiers**:
 3. **Define Mini App**: Add the HTML/JS definition inside `tools/app_defs.py` under `"mybot"`.
 4. **Compile Static Apps**: Run `python tools/build_mini_apps.py`.
 5. **Set Token & Launch**: In Control Center, click "🔑 التوكن" on the new bot card, test with `getMe`, and click "▶ تشغيل".
+
