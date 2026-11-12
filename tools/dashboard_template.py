@@ -1956,9 +1956,13 @@ def build_dashboard(api_base: str = "") -> str:
 (function () {{
   const API_BASE = {api};
   const KEY_STORE = 'boda_api_key';
+  /* مفتاح الإدارة المحلي — يُحقنه الخادم عند تقديم الصفحة (نفس الأصل فقط) */
+  window.__BODA_LOCAL_KEY__ = '__BODA_LOCAL_TOKEN__';
 
   function apiKey() {{
-    try {{ return localStorage.getItem(KEY_STORE) || ''; }} catch (e) {{ return ''; }}
+    try {{
+      return localStorage.getItem(KEY_STORE) || window.__BODA_LOCAL_KEY__ || '';
+    }} catch (e) {{ return ''; }}
   }}
   function headers() {{
     const h = {{ 'Content-Type': 'application/json' }};

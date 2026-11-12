@@ -25,10 +25,16 @@ from tests.cc_fixtures import cc_supervisor  # noqa: F401  (fixture)
 import api_server
 
 
+# Shared with the _post helper below — matches BODA_LOCAL_TOKEN in the fixture.
+LOCAL_TEST_TOKEN = "test-local-token"
+
+
 @pytest.fixture()
 def live_api(tmp_path, monkeypatch, cc_supervisor):
     """A real HTTP server on a free port with an isolated database."""
     monkeypatch.setenv("BODA_DB_PATH", str(tmp_path / "api.db"))
+    # Phase 1: state-changing requests require the local admin token.
+    monkeypatch.setenv("BODA_LOCAL_TOKEN", LOCAL_TEST_TOKEN)
     import database
     from control_center import db as cc_db_module
 
@@ -55,7 +61,8 @@ def _get(base, path):
 def _post(base, path, payload=None):
     data = json.dumps(payload or {}).encode("utf-8")
     req = urllib.request.Request(base + path, data=data,
-                                 headers={"Content-Type": "application/json"},
+                                 headers={"Content-Type": "application/json",
+                                          "X-API-Key": LOCAL_TEST_TOKEN},
                                  method="POST")
     with urllib.request.urlopen(req, timeout=15) as resp:
         return resp.status, json.loads(resp.read().decode("utf-8"))

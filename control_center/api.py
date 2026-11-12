@@ -34,11 +34,21 @@ from datetime import datetime
 
 from . import audit, botconfig, config, crypto, db, migrations, store, gate
 from .auth import authorize
-from .http import Response, Router, SSESession
+from .http import Response, Router, SSESession, redact_secrets
 
 ROUTER = Router()
 
 _supervisor = None
+
+
+def _redact_entry(entry):
+    """Mask token-looking strings before log lines reach an HTTP client."""
+    if isinstance(entry, dict):
+        return {k: (redact_secrets(v) if isinstance(v, str) else v)
+                for k, v in entry.items()}
+    if isinstance(entry, str):
+        return redact_secrets(entry)
+    return entry
 
 
 def get_supervisor():
@@ -309,17 +319,21 @@ def update_bot_config(request) -> Response:
 
 
 def bot_logs(request) -> Response:
-    """Recent log lines of a bot."""
+    """Recent log lines of a bot (secrets redacted)."""
     bot_id = request.param("bot_id")
     limit = request.q_int("limit", 200)
     level = request.q("level", "")
-    lines = get_supervisor().logs(bot_id, limit=limit, level=level)
+    lines = [_redact_entry(l) for l in
+             get_supervisor().logs(bot_id, limit=limit, level=level)]
     return _ok({"ok": True, "bot_id": bot_id, "count": len(lines),
                 "lines": lines})
 
 
 def bot_logs_stream(request) -> Response:
-    """Live log stream (Server-Sent Events)."""
+    """Live log stream (Server-Sent Events) — authorised, secrets redacted."""
+    denied = _guard(request)
+    if denied:
+        return denied
     bot_id = request.param("bot_id")
     supervisor = get_supervisor()
     session = SSESession(request.handler)
@@ -329,12 +343,12 @@ def bot_logs_stream(request) -> Response:
 
     def _on_line(entry):
         with lock:
-            pending.append(entry)
+            pending.append(_redact_entry(entry))
 
     supervisor.subscribe(bot_id, _on_line)
     try:
         for entry in supervisor.logs(bot_id, limit=100):
-            session.send("log", entry)
+            session.send("log", _redact_entry(entry))
         session.send("ready", {"bot_id": bot_id})
         last_ping = time.time()
         while True:
@@ -1135,7 +1149,7 @@ def upload_store_image_api(request) -> Response:
     
     try:
         # Parse multipart form data
-        content_type = request.headers.get("Content-Type", "")
+        content_type = request.header("Content-Type", "")
         if "multipart/form-data" not in content_type:
             return _err("Content-Type must be multipart/form-data", status=400)
         
@@ -1371,7 +1385,7 @@ def import_store_api(request) -> Response:
         return denied
     
     try:
-        content_type = request.headers.get("Content-Type", "")
+        content_type = request.header("Content-Type", "")
         if "multipart/form-data" in content_type:
             # Parse file upload
             import re
