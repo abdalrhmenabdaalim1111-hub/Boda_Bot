@@ -14,6 +14,9 @@ BODA_CC_PORT           port of the Control Center API
 BODA_CC_LOG_TAIL       number of log lines kept in memory per bot
 BODA_CC_AUTO_RESTART   default auto-restart policy for managed bots (1/0)
 BODA_CC_BACKOFF_MAX    maximum auto-restart backoff in seconds
+BODA_GATE_SALT         salt for privacy-safe hashing of user IDs in gate_events
+                       (shared with Bots_Folder so both sides emit identical
+                       hashes for the same user — see gate.py::_user_id_hash)
 """
 
 import os
@@ -185,6 +188,17 @@ def ad_max_size_bytes() -> int:
         return max(1024, int(os.getenv("BODA_AD_MAX_BYTES", "65536")))
     except ValueError:
         return 65536
+
+
+# ── Gate (Subscription Gate) ─────────────────────────────────────────────────
+def gate_salt() -> str:
+    """
+    Salt used to hash user IDs before they land in ``gate_events``.
+
+    The same ``BODA_GATE_SALT`` variable is read by ``Bots_Folder`` code so
+    control-center and bot-side events hash identically for one user.
+    """
+    return os.getenv("BODA_GATE_SALT", "").strip() or "boda_gate_salt_2026"
 
 
 # ── Revenue (optional, owner-supplied rates) ────────────────────────────────
