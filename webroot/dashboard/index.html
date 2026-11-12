@@ -934,11 +934,11 @@
         '</div>' +
         '<div class="bot-card-actions">' +
           (isRunning
-            ? '<button class="btn-sm btn-stop" onclick="stopBot(\\'' + esc(b.id) + '\\')">⏹ إيقاف</button>' +
-              '<button class="btn-sm btn-restart" onclick="restartBot(\\'' + esc(b.id) + '\\')">🔄 إعادة تشغيل</button>'
-            : '<button class="btn-sm btn-start" onclick="startBot(\\'' + esc(b.id) + '\\')">▶ تشغيل</button>') +
-          '<button class="btn-sm btn-secondary" onclick="openTokenModal(\\'' + esc(b.id) + '\\',\\'' + esc(b.name) + '\\',\\'' + esc(b.token_masked || '') + '\\')">🔑 التوكن</button>' +
-          '<button class="btn-sm btn-secondary" onclick="openLogsModal(\\'' + esc(b.id) + '\\',\\'' + esc(b.name) + '\\',\\'' + esc(b.emoji || '🤖') + '\\')">📜 السجلات</button>' +
+            ? '<button class="btn-sm btn-stop" data-action="stop" data-id="' + esc(b.id) + '">⏹ إيقاف</button>' +
+              '<button class="btn-sm btn-restart" data-action="restart" data-id="' + esc(b.id) + '">🔄 إعادة تشغيل</button>'
+            : '<button class="btn-sm btn-start" data-action="start" data-id="' + esc(b.id) + '">▶ تشغيل</button>') +
+          '<button class="btn-sm btn-secondary" data-action="token" data-id="' + esc(b.id) + '" data-name="' + esc(b.name) + '" data-token="' + esc(b.token_masked || '') + '">🔑 التوكن</button>' +
+          '<button class="btn-sm btn-secondary" data-action="logs" data-id="' + esc(b.id) + '" data-name="' + esc(b.name) + '" data-emoji="' + esc(b.emoji || '🤖') + '">📜 السجلات</button>' +
           '<a class="btn-sm btn-secondary" href="../' + encodeURIComponent(b.id) + '/" target="_blank" style="text-decoration:none; display:inline-flex; align-items:center;">🔗 التطبيق</a>' +
         '</div>' +
       '</div>';
@@ -2008,6 +2008,36 @@
   document.getElementById('btn-close-token').addEventListener('click', closeTokenModal);
   document.getElementById('btn-verify-token').addEventListener('click', verifyToken);
   document.getElementById('btn-save-token').addEventListener('click', saveToken);
+
+  // Bots Grid Event Delegation
+  const botsGrid = document.getElementById('bots-grid');
+  if (botsGrid) {
+    botsGrid.addEventListener('click', function (e) {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      if (action === 'start') startBot(id);
+      else if (action === 'stop') stopBot(id);
+      else if (action === 'restart') restartBot(id);
+      else if (action === 'token') openTokenModal(id, btn.dataset.name, btn.dataset.token);
+      else if (action === 'logs') openLogsModal(id, btn.dataset.name, btn.dataset.emoji);
+    });
+  }
+
+  // Global window exports
+  window.startBot = startBot;
+  window.stopBot = stopBot;
+  window.restartBot = restartBot;
+  window.openTokenModal = openTokenModal;
+  window.closeTokenModal = closeTokenModal;
+  window.verifyToken = verifyToken;
+  window.saveToken = saveToken;
+  window.openLogsModal = openLogsModal;
+  window.closeLogsModal = closeLogsModal;
+  window.openStoreModal = openStoreModal;
+  window.closeStoreModal = closeStoreModal;
+  window.deleteStoreItem = deleteStoreItem;
 
 
   document.getElementById('save').addEventListener('click', function () {
