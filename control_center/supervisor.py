@@ -174,7 +174,7 @@ class BotSupervisor:
                 bot_id = path.stem[4:]
                 if not bot_id or bot_id in seen:
                     continue
-                if bot_id in ("template",):
+                if bot_id in ("template", "base", "integration"):
                     continue
                 seen.add(bot_id)
                 entries.append({
