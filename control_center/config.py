@@ -144,6 +144,57 @@ def api_server_key() -> str:
     return os.getenv("API_SERVER_KEY", "").strip()
 
 
+LOCAL_TOKEN_FILE = DATA_DIR / ".local_admin_token"
+
+
+def local_admin_token() -> str:
+    """
+    Local admin token for *state-changing* requests (Phase 1 hardening).
+
+    Replaces blind localhost trust: a request from 127.0.0.1 may still READ,
+    but POST/PUT/PATCH/DELETE must carry this token (``X-API-Key`` or
+    ``Authorization: Bearer``). Order of preference:
+
+      1. ``BODA_LOCAL_TOKEN`` environment variable (tests / explicit config)
+      2. a generated token persisted in ``Data/.local_admin_token`` (0600)
+
+    An empty string means "no token established" — enforcement is then
+    disabled and callers fall back to plain localhost trust. The server
+    calls :func:`ensure_local_admin_token` at startup so production always
+    has a token.
+    """
+    env = os.getenv("BODA_LOCAL_TOKEN", "").strip()
+    if env:
+        return env
+    try:
+        if LOCAL_TOKEN_FILE.exists():
+            stored = LOCAL_TOKEN_FILE.read_text(encoding="utf-8").strip()
+            if stored:
+                return stored
+    except OSError:
+        pass
+    return ""
+
+
+def ensure_local_admin_token() -> str:
+    """Return the local admin token, generating and persisting one if missing."""
+    existing = local_admin_token()
+    if existing:
+        return existing
+    import secrets
+    token = secrets.token_urlsafe(32)
+    try:
+        LOCAL_TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        LOCAL_TOKEN_FILE.write_text(token, encoding="utf-8")
+        try:
+            os.chmod(LOCAL_TOKEN_FILE, 0o600)
+        except OSError:
+            pass  # not supported on Windows
+    except OSError:
+        return ""
+    return token
+
+
 def session_ttl_seconds() -> int:
     """Lifetime of a Control Center session token."""
     try:

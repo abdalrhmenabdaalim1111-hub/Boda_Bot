@@ -25,6 +25,7 @@ def live_cli(tmp_path, monkeypatch, cc_supervisor):
     """A running Control Center API plus a CLI pointed at it."""
     monkeypatch.setenv("BODA_DB_PATH", str(tmp_path / "cli.db"))
     monkeypatch.setenv("BODA_CC_URL", "")
+    monkeypatch.setenv("BODA_LOCAL_TOKEN", "cli-test-token")
 
     import database
     from control_center import db as cc_db_module
@@ -68,7 +69,8 @@ def test_cc_audit_after_a_mutation(live_cli, capsys):
     body = json.dumps({"enabled": False}).encode("utf-8")
     req = urllib.request.Request(
         live_cli + "/api/v1/bots/currency/enable", data=body,
-        headers={"Content-Type": "application/json"}, method="POST")
+        headers={"Content-Type": "application/json",
+                 "X-API-Key": "cli-test-token"}, method="POST")
     urllib.request.urlopen(req, timeout=15).read()
 
     assert dev_tools.cmd_cc_audit(10) == 0

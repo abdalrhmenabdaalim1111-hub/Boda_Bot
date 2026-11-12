@@ -19,6 +19,16 @@ from urllib.parse import parse_qs
 
 JSON_CONTENT_TYPE = "application/json; charset=utf-8"
 
+# Telegram bot tokens look like "123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxx".
+SECRET_PATTERN = re.compile(r"\b(\d{8,10}:AA[A-Za-z0-9_-]{6})[A-Za-z0-9_-]{10,}\b")
+
+
+def redact_secrets(text: str) -> str:
+    """Mask Telegram-token-looking substrings before logs reach an HTTP client."""
+    if not text or not isinstance(text, str):
+        return text
+    return SECRET_PATTERN.sub(lambda m: m.group(1) + "****", text)
+
 
 class Response:
     """A prepared HTTP response."""

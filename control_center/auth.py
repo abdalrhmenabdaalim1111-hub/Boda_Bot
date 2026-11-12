@@ -1,11 +1,17 @@
 """
-control_center/auth.py — request authorisation.
+control_center/auth.py — request authorisation (role layer).
 
-Phase 1 keeps the **existing** security model of the project: requests from
-localhost are trusted, remote requests must carry the shared ``X-API-Key``
-header. Phase 5 replaces this module with JWT sessions and role checks
-without changing any route signature — every handler already goes through
-:func:`authorize`.
+Security model (Phase 1 hardening):
+
+* READ requests from loopback are trusted (dashboard convenience).
+* **State-changing requests** (POST/PUT/PATCH/DELETE) are gated at the HTTP
+  layer — ``api_server.py`` requires the local admin token for loopback
+  callers and the legacy ``X-API-Key`` for remote callers
+  (see :func:`control_center.config.ensure_local_admin_token`).
+* This module stays the per-route role layer: roles map to ``admin`` /
+  ``operator`` / ``viewer`` and are checked here. Phase 5 will add real
+  sessions without changing any route signature — every handler already
+  goes through :func:`authorize`.
 
 Role names used across the Control Center:
 
@@ -13,6 +19,8 @@ Role names used across the Control Center:
 ``operator`` may run bots, manage ads and read statistics
 ``viewer``   read-only
 """
+
+import hmac
 
 from . import config
 
@@ -32,13 +40,23 @@ def is_local(request) -> bool:
     return client_ip(request) in ("127.0.0.1", "::1", "localhost")
 
 
+def provided_key(request) -> str:
+    """The credential the client presented: ``X-API-Key`` or a Bearer token."""
+    key = request.header("X-API-Key", "").strip()
+    if not key:
+        auth = request.header("Authorization", "").strip()
+        if auth.lower().startswith("bearer "):
+            key = auth[7:].strip()
+    return key
+
+
 def legacy_key_ok(request) -> bool:
     """True when the shared ``X-API-Key`` header matches the configured key."""
     key = config.api_server_key()
     if not key:
         return False
-    provided = request.header("X-API-Key", "").strip()
-    return bool(provided) and provided == key
+    provided = provided_key(request)
+    return bool(provided) and hmac.compare_digest(provided, key)
 
 
 def session_user(request):
@@ -52,6 +70,10 @@ def authorize(request, roles=None) -> tuple:
 
     Returns ``(allowed, payload)``. When not allowed, ``payload`` is a dict
     with an ``error`` key and the HTTP status to answer with.
+
+    Local (loopback) requests may READ freely; state-changing requests must
+    carry the local admin token whenever one is established
+    (:func:`config.ensure_local_admin_token` runs at server startup).
     """
     required = tuple(roles or ())
 
@@ -66,6 +88,10 @@ def authorize(request, roles=None) -> tuple:
         return True, {}
 
     if is_local(request):
+        # Local (loopback) requests are trusted for role purposes here.
+        # State-changing requests are additionally gated at the HTTP layer
+        # (api_server.py) which requires the local admin token — see
+        # BodaAPIHandler._is_authorized / _dispatch_control_center.
         request.actor = "local"
         return True, {}
 

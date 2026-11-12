@@ -1273,6 +1273,15 @@ def _cc_api_request(method: str, path: str, payload: dict | None = None,
     data = json.dumps(payload or {}).encode("utf-8") if method != "GET" else None
     headers = {"Content-Type": "application/json"}
     key = os.getenv("API_SERVER_KEY", "").strip()
+    if not key:
+        key = os.getenv("BODA_LOCAL_TOKEN", "").strip()
+    if not key:
+        try:
+            token_file = DATA_DIR / ".local_admin_token"
+            if token_file.exists():
+                key = token_file.read_text(encoding="utf-8").strip()
+        except Exception:
+            key = ""
     if key:
         headers["X-API-Key"] = key
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
