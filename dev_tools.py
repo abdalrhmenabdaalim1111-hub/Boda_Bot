@@ -274,6 +274,47 @@ def cmd_health() -> int:
     return 0 if not missing_files else 1
 
 
+def cmd_ai_check() -> int:
+    """فحص اتصال واجهة الذكاء الاصطناعي (CoArena) — إعدادات + اختبار طلب حقيقي"""
+    print_banner()
+    sys.path.insert(0, str(BOTS_DIR))
+    try:
+        import ai_client
+    except Exception as e:
+        print(f"❌ تعذّر تحميل ai_client: {e}")
+        return 1
+
+    print("🤖 فحص واجهة الذكاء الاصطناعي (CoArena — متوافقة مع OpenAI)")
+    print("═" * 62)
+    print(f"   • العنوان:      {ai_client.base_url()}")
+    print(f"   • النموذج:      {ai_client.model_name()}")
+    print(f"   • المهلة:       {ai_client.timeout()} ثانية")
+    print(f"   • المفتاح:      {'مضبوط ✅' if ai_client.api_key() else 'غير مضبوط ❌ (أضفه في .env)'}")
+
+    if not ai_client.api_key():
+        print("\n❌ COARENA_API_KEY غير مضبوط — أضفه في ملف .env ثم أعد المحاولة.")
+        return 1
+
+    try:
+        models = ai_client.list_models()
+        print(f"   • النماذج المتاحة: {len(models)}")
+        for name in models[:8]:
+            print(f"       • {name}")
+        if len(models) > 8:
+            print(f"       … و{len(models) - 8} أخرى")
+    except Exception as e:
+        print(f"\n❌ فشل جلب قائمة النماذج: {e}")
+        return 1
+
+    result = ai_client.ping()
+    if result["ok"]:
+        print(f"\n✅ الاتصال يعمل — استغرق {result['latency_ms']}ms")
+        print(f"   الرد: {result['reply'][:200]}")
+        return 0
+    print(f"\n❌ فشل الاتصال بعد {result['latency_ms']}ms: {result['reply']}")
+    return 1
+
+
 def cmd_bots_check() -> int:
     """فحص جودة شامل لكل البوتات (7 فحوصات لكل بوت) — بلا إنترنت ومناسب لـ CI
 
@@ -1252,6 +1293,166 @@ def cmd_backup_verify(path: Optional[str] = None) -> int:
     return 1
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Control Center CLI (Phase 1) — كل ما تفعله الواجهة يمكن تنفيذه من الطرفية
+# ─────────────────────────────────────────────────────────────────────────────
+def _cc_api_base() -> str:
+    """Base URL of a running Control Center API."""
+    return os.getenv("BODA_CC_URL", "http://127.0.0.1:8080").rstrip("/")
+
+
+def _cc_api_request(method: str, path: str, payload: dict | None = None,
+                    timeout: float = 20.0):
+    """
+    Call the Control Center API.
+
+    Returns ``(ok, data)``; ``ok`` is False when the server is unreachable.
+    """
+    import urllib.request
+    import urllib.error
+    url = _cc_api_base() + path
+    data = json.dumps(payload or {}).encode("utf-8") if method != "GET" else None
+    headers = {"Content-Type": "application/json"}
+    key = os.getenv("API_SERVER_KEY", "").strip()
+    if not key:
+        key = os.getenv("BODA_LOCAL_TOKEN", "").strip()
+    if not key:
+        try:
+            token_file = DATA_DIR / ".local_admin_token"
+            if token_file.exists():
+                key = token_file.read_text(encoding="utf-8").strip()
+        except Exception:
+            key = ""
+    if key:
+        headers["X-API-Key"] = key
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+            return True, json.loads(body) if body else {}
+    except urllib.error.HTTPError as exc:
+        try:
+            body = exc.read().decode("utf-8")
+            return False, json.loads(body) if body else {"error": str(exc)}
+        except Exception:
+            return False, {"error": f"HTTP {exc.code}"}
+    except Exception as exc:
+        return False, {"error": str(exc)}
+
+
+def cmd_cc_status() -> int:
+    """حالة مركز التحكم: صحة الخدمة، الترحيلات، الإعدادات"""
+    print_banner()
+    print("🧭 مركز التحكم (Control Center):")
+    ok, data = _cc_api_request("GET", "/api/v1/system/health")
+    if not ok:
+        print(f"  ❌ الخادم لا يستجيب على {_cc_api_base()} ({data.get('error')})")
+        print("     شغّله بـ:  python api_server.py")
+        return 1
+    print(f"  • الخدمة: {data.get('service')} v{data.get('version')}")
+    print(f"  • قاعدة البيانات: {'✅ جاهزة' if data.get('database_ready') else '❌ غير جاهزة'}")
+    print(f"  • المسار: {data.get('database_path')}")
+    print(f"  • تشفير التوكنات: {'✅ مفعّل' if data.get('encryption_available') else '⚠ التوكنات في .env'}")
+
+    ok, mig = _cc_api_request("GET", "/api/v1/system/migrations")
+    if ok:
+        print(f"  • الترحيلات: الإصدار {mig.get('current_version')}"
+              f" / {mig.get('latest_available')} — مطبّق {mig.get('applied_count')}")
+        if mig.get("pending"):
+            print(f"  ⚠️ معلّق: {', '.join(mig.get('pending', []))}")
+
+    ok, ov = _cc_api_request("GET", "/api/v1/overview")
+    if ok:
+        bots = ov.get("bots", {})
+        print(f"  • البوتات: {bots.get('running', 0)} يعمل / {bots.get('total', 0)} إجمالي")
+        print(f"  • سجل التدقيق: {ov.get('audit', {}).get('total', 0)} عملية")
+    return 0
+
+
+def cmd_cc_bots() -> int:
+    """قائمة البوتات مع حالتهم التشغيلية"""
+    ok, data = _cc_api_request("GET", "/api/v1/bots")
+    if not ok:
+        print(f"❌ تعذر جلب البوتات: {data.get('error')}")
+        return 1
+    bots = data.get("bots", [])
+    print(f"\n🤖 البوتات ({len(bots)}):")
+    print(f"   {'المعرف':<18}{'الحالة':<10}{'مدة التشغيل':<14}{'أخطاء':<8}الاسم")
+    print("   " + "-" * 78)
+    for bot in bots:
+        state = "يعمل" if bot.get("running") else "متوقف"
+        if not bot.get("enabled"):
+            state = "معطّل"
+        uptime = bot.get("uptime_seconds", 0)
+        up = f"{uptime // 3600}h {uptime % 3600 // 60}m" if uptime else "—"
+        err = "✅" if not bot.get("last_error") else "⚠️"
+        print(f"   {bot.get('bot_id', ''):<18}{state:<10}{up:<14}{err:<8}"
+              f"{bot.get('display_name') or bot.get('name', '')}")
+    return 0
+
+
+def cmd_cc_lifecycle(action: str, bot_id: str) -> int:
+    """تشغيل / إيقاف / إعادة تشغيل بوت"""
+    if not bot_id:
+        print("❌ الاستخدام: python dev_tools.py cc-<action> <bot_id>")
+        return 1
+    ok, data = _cc_api_request("POST", f"/api/v1/bots/{bot_id}/{action}")
+    if ok and data.get("ok"):
+        print(f"✅ {action} ناجح: {bot_id}")
+        return 0
+    print(f"❌ فشل {action} لـ {bot_id}: {data.get('error') or data}")
+    if "server_runner" in str(data.get("error", "")):
+        print("   💡 أوقف server_runner.py أولاً، أو شغّل مركز التحكم كمالك وحيد.")
+    return 1
+
+
+def cmd_cc_logs(bot_id: str = "", limit: int = 50) -> int:
+    """آخر سجلات بوت (أو كل البوتات)"""
+    path = f"/api/v1/bots/{bot_id}/logs?limit={limit}" if bot_id else \
+           f"/api/v1/overview"
+    if not bot_id:
+        print("ℹ️  لعرض سجل بوت محدد استخدم: cc-logs <bot_id> [عدد]")
+        return 0
+    ok, data = _cc_api_request("GET", path)
+    if not ok:
+        print(f"❌ تعذر جلب السجلات: {data.get('error')}")
+        return 1
+    lines = data.get("lines", [])
+    print(f"📄 آخر {len(lines)} سطر من سجل [{bot_id}]:")
+    for line in lines:
+        print(f"   [{line.get('level', 'info'):<7}] {line.get('line', '')}")
+    return 0
+
+
+def cmd_cc_migrate(rollback: bool = False) -> int:
+    """تطبيق الترحيلات أو التراجع عن آخرها"""
+    ok, data = _cc_api_request("GET", "/api/v1/system/migrations")
+    if not ok:
+        print(f"❌ الخادم لا يستجيب ({data.get('error')})")
+        return 1
+    print(f"📦 الحالة: الإصدار {data.get('current_version')} — مطبّق {data.get('applied_count')}")
+    if data.get("pending"):
+        print(f"   معلّق: {', '.join(data['pending'])}")
+    if not rollback:
+        print("   (الترحيلات تُطبَّق تلقائياً عند تشغيل api_server.py)")
+    return 0
+
+
+def cmd_cc_audit(limit: int = 30) -> int:
+    """سجل التدقيق"""
+    ok, data = _cc_api_request("GET", f"/api/v1/audit?limit={limit}")
+    if not ok:
+        print(f"❌ تعذر جلب سجل التدقيق: {data.get('error')}")
+        return 1
+    entries = data.get("entries", [])
+    print(f"\n📋 سجل التدقيق (الإجمالي {data.get('total', 0)}):")
+    for entry in entries:
+        target = f"{entry.get('target_type', '')}:{entry.get('target_id', '')}".strip(":")
+        print(f"   {entry.get('occurred_at', '')[:19]}  {entry.get('actor', ''):<10}"
+              f" {entry.get('action', ''):<24} {target}")
+    return 0
+
+
 def main():
     if len(sys.argv) < 2:
         if sys.stdin.isatty():
@@ -1277,11 +1478,21 @@ def main():
         print("  lint                         - فحص ملفات بايثون للتأكد من خلوها من الأخطاء")
         print("  clean                        - مسح ملفات الكاش والملفات المؤقتة")
         print("  health                       - فحص صحة وتكامل البوتات المسجلة")
+        print("  ai-check                     - فحص اتصال واجهة الذكاء الاصطناعي (CoArena)")
         print("  bots-check                   - فحص جودة شامل (7 فحوصات لكل بوت، بلا إنترنت)")
         print("  repos-sync                   - رفع صفحات البوتات لكل مستودعاتها + تفعيل Pages + تحقق حي")
         print("  backup [--no-zip]            - إنشاء نسخة احتياطية فورية")
         print("  backup-verify [file]         - اختبار استعادة فعلي للنسخة (الأحدث افتراضياً)")
         print("  secret-scan [--cached|--history N] - فحص أسرار المستودع (توكِنات/مفاتيح)")
+        print("  ab-report                    - تقرير اختبار A/B للإعلانات (مجموعات A/B وCTR)")
+        print("  cc-status                    - حالة مركز التحكم (صحة + ترحيلات + إعدادات)")
+        print("  cc-bots                      - جدول البوتات مع حالة التشغيل ومدة التشغيل")
+        print("  cc-start <bot_id>            - تشغيل بوت عبر مركز التحكم")
+        print("  cc-stop <bot_id>             - إيقاف بوت عبر مركز التحكم")
+        print("  cc-restart <bot_id>          - إعادة تشغيل بوت (يحمّل آخر الكود)")
+        print("  cc-logs <bot_id> [n]         - آخر أسطر سجل بوت")
+        print("  cc-migrate                   - حالة ترحيلات قاعدة البيانات")
+        print("  cc-audit [n]                 - سجل التدقيق (من فعل ماذا ومتى)")
         return
 
     cmd = sys.argv[1].lower()
@@ -1332,6 +1543,8 @@ def main():
         sys.exit(cmd_clean())
     elif cmd == "health":
         sys.exit(cmd_health())
+    elif cmd in ("ai-check", "ai", "aicheck"):
+        sys.exit(cmd_ai_check())
     elif cmd in ("bots-check", "quality", "audit"):
         sys.exit(cmd_bots_check())
     elif cmd in ("repos-sync", "repo-sync"):
@@ -1350,6 +1563,41 @@ def main():
         sys.path.insert(0, str(BASE_DIR / "tools"))
         import secret_scan
         sys.exit(secret_scan.main(sys.argv[2:]))
+    elif cmd in ("ab-report", "ab"):
+        sys.path.insert(0, str(BASE_DIR / "Bots_Folder"))
+        from database import get_db
+        try:
+            report = get_db().get_ab_report()
+        except Exception as e:
+            print(f"❌ تعذر توليد تقرير A/B: {e}")
+            sys.exit(1)
+        print("🧪 تقرير اختبار A/B للإعلانات — آخر 30 يوماً")
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    elif cmd in ("cc-status", "cc_status"):
+        sys.exit(cmd_cc_status())
+    elif cmd in ("cc-bots", "cc_bots"):
+        sys.exit(cmd_cc_bots())
+    elif cmd in ("cc-start", "cc_start"):
+        sys.exit(cmd_cc_lifecycle("start", sys.argv[2] if len(sys.argv) > 2 else ""))
+    elif cmd in ("cc-stop", "cc_stop"):
+        sys.exit(cmd_cc_lifecycle("stop", sys.argv[2] if len(sys.argv) > 2 else ""))
+    elif cmd in ("cc-restart", "cc_restart"):
+        sys.exit(cmd_cc_lifecycle("restart", sys.argv[2] if len(sys.argv) > 2 else ""))
+    elif cmd in ("cc-logs", "cc_logs"):
+        bot = sys.argv[2] if len(sys.argv) > 2 else ""
+        try:
+            n = int(sys.argv[3]) if len(sys.argv) > 3 else 50
+        except ValueError:
+            n = 50
+        sys.exit(cmd_cc_logs(bot, n))
+    elif cmd in ("cc-migrate", "cc_migrate"):
+        sys.exit(cmd_cc_migrate())
+    elif cmd in ("cc-audit", "cc_audit"):
+        try:
+            n = int(sys.argv[2]) if len(sys.argv) > 2 else 30
+        except ValueError:
+            n = 30
+        sys.exit(cmd_cc_audit(n))
     elif cmd == "new-bot":
         if len(sys.argv) < 4:
             print("❌ الاستخدام: python dev_tools.py new-bot <bot_id> <bot_name> [category]")

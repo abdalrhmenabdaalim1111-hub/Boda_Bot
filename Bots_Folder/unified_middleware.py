@@ -73,23 +73,37 @@ def setup_menu_button(bot, bot_id: str):
         return False
 
 
+from Bots_Folder.gate_middleware import GateMiddleware
+
+# ... (rest of imports)
+
 # ── البرمجية الوسيطة ──────────────────────────────────────────────────────────
 class UnifiedBotMiddleware(BaseMiddleware):
     """
     تعمل قبل معالجات الرسائل لكل تحديث:
       • تتبع المستخدمين الخاصين في قاعدة البيانات
       • إرسال بطاقة التطبيق مرة واحدة لكل مستخدم عند /start
+      • فحص بوابة الاشتراك (Gate)
     """
     def __init__(self, bot, bot_name: str):
         self.bot = bot
         self.bot_name = bot_name
-        self.update_types = ["message"]
-        self._promo_sent = set()          # مستخدمو /start الذين استلموا البطاقة
+        self.update_types = ["message", "callback_query"]
+        self._promo_sent = set()
         self._lock = threading.Lock()
         self.log = get_logger(bot_name)
+        # Gate middleware
+        self.gate = GateMiddleware(bot, bot_name)
 
     def pre_process(self, message, data: dict):
         """تُستدعى قبل أي معالج رسائل في البوت"""
+        # Handle callback queries for gate verification
+        if message.content_type == "callback_query":
+            if message.data.startswith("gate_verify:"):
+                self.gate.handle_verify_callback(message)
+                return # Stop processing
+            return
+
         if data is not None:
             data["_t0"] = time.time()
 
@@ -108,6 +122,11 @@ class UnifiedBotMiddleware(BaseMiddleware):
                            f"{getattr(user, 'last_name', '') or ''}".strip(),
                            getattr(user, "username", "") or "")
 
+            # Check gate before any other processing if private message
+            if is_private and self.gate.check_and_show_gate(message):
+                from telebot.handler_backends import CancelMiddleware
+                raise CancelMiddleware("Subscription Gate active")
+
             # 2) بطاقة التطبيق عند /start (مرة واحدة لكل مستخدم)
             text = (getattr(message, "text", "") or "").strip()
             if is_private and text.split()[0].lower() in ("/start", "/start@app"):
@@ -123,7 +142,11 @@ class UnifiedBotMiddleware(BaseMiddleware):
                         ).start()
 
         except Exception as e:
-            self.log.debug(f"middleware: {e}")
+            if "Subscription Gate active" not in str(e):
+                self.log.debug(f"middleware: {e}")
+            else:
+                raise # Re-raise CancelMiddleware to actually cancel
+
 
     def post_process(self, message, data: dict, exception):
         """تُستدعى بعد انتهاء معالجة التحديث لالتقاط الأخطاء وتتبع الأداء تلقائياً."""

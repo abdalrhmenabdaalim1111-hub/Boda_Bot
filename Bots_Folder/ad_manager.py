@@ -101,6 +101,18 @@ class AdManager:
         with open(self.monetag_file, "w", encoding="utf-8") as f:
             json.dump(new_config, f, ensure_ascii=False, indent=2)
 
+    def reload_from_disk(self) -> dict:
+        """إعادة تحميل إعدادات Monetag من القرص.
+
+        ضرورية للخوادم طويلة العمر (api_server) حتى لا تكتب نسخة قديمة
+        فوق تعديلات أُجريت من Manager أو من ملف الإعدادات مباشرة.
+        """
+        try:
+            self.monetag_config = self._load_monetag_config()
+        except Exception as e:
+            logger.debug(f"reload_from_disk: {e}")
+        return self.monetag_config
+
     def get_monetag_config(self, bot_id: str) -> dict:
         """الحصول على إعدادات Monetag لبوت معين مع استخدام الشفرة العامة كـ fallback."""
         clean_id = bot_id.replace("bot_", "")
@@ -195,6 +207,44 @@ class AdManager:
                 db.record_ad_click(bot_id, format_type)
         except Exception as e:
             logger.debug(f"record_ad_click error: {e}")
+
+    # ── A/B Testing: تعيين ثابت لكل مستخدم + تسجيل بُعد المجموعة ─────────────
+    @staticmethod
+    def compute_ab_variant(user_id: int) -> str:
+        """
+        تعيين A/B ثابت للمستخدم — نفس المستخدم = نفس المجموعة دائماً.
+        تجزئة md5 على "boda:<user_id>" → توزيع متوازن تقريباً 50/50
+        ومستقل عن ترتيب التسجيل أو حفظ أي شيء.
+        """
+        import hashlib
+        digest = hashlib.md5(f"boda:{user_id}".encode()).hexdigest()
+        return "A" if int(digest[:8], 16) % 2 == 0 else "B"
+
+    def record_ab_view(self, bot_id: str, user_id: int,
+                       format_type: str = "direct_link") -> str:
+        """تسجيل ظهور إعلان مع مجموعة A/B للمستخدم — يعيد المجموعة."""
+        variant = self.compute_ab_variant(user_id)
+        try:
+            from database import get_db
+            db = get_db()
+            if db:
+                db.record_ab_event(bot_id, format_type, variant, is_click=False)
+        except Exception as e:
+            logger.debug(f"record_ab_view error: {e}")
+        return variant
+
+    def record_ab_click(self, bot_id: str, user_id: int,
+                        format_type: str = "direct_link") -> str:
+        """تسجيل نقرة إعلان مع مجموعة A/B للمستخدم — يعيد المجموعة."""
+        variant = self.compute_ab_variant(user_id)
+        try:
+            from database import get_db
+            db = get_db()
+            if db:
+                db.record_ab_event(bot_id, format_type, variant, is_click=True)
+        except Exception as e:
+            logger.debug(f"record_ab_click error: {e}")
+        return variant
 
     def get_all_monetag_statuses(self) -> Dict[str, dict]:
         """إرجاع تقرير شامل بحالة إعلانات Monetag لجميع البوتات الـ 36."""
