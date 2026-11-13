@@ -213,5 +213,171 @@ class TestAllowedUpdates:
                 drop_pending_updates=True)
 
 
+class TestBotBaseRemainingBranches:
+    """تغطية الفروع المتبقية: fallbacks ومعالجات الأعطال"""
+
+    def test_get_logger_import_error_fallback(self):
+        """49-60: غياب logger_config → logger محلي بسيط بنفس الواجهة"""
+        import logging
+        import bot_base
+        with patch.dict(sys.modules, {"logger_config": None}):
+            log = bot_base.get_logger("fallback_bot")
+        assert isinstance(log, logging.Logger)
+        assert len(log.handlers) > 0
+
+    def test_get_db_import_error_returns_none(self):
+        """71-72: فشل استيراد database → None (لا يرفع)"""
+        import bot_base
+        with patch.dict(sys.modules, {"database": None}):
+            assert bot_base.get_db() is None
+
+    def test_record_error_calls_db(self):
+        """110: record_error يسجل الخطأ في DB عند توفرها"""
+        import bot_base
+        mock_db = MagicMock()
+        with patch("bot_base.get_db", return_value=mock_db):
+            bot_base.record_error("b", ValueError("boom"), user_id=5)
+        mock_db.record_error.assert_called_once_with("b", "boom", 5)
+
+    def test_record_error_swallows_db_exception(self):
+        """111-112: استثناء داخل record_error يُبتلع"""
+        import bot_base
+        with patch("bot_base.get_db", side_effect=RuntimeError("db down")):
+            bot_base.record_error("b", ValueError("boom"))  # لا يرفع
+
+    def test_prepare_bot_import_errors_isolated(self):
+        """126-141: فشل استيراد أي نظام موحد لا يوقف الباقي"""
+        import bot_base
+
+        # ad_manager مفقود → الباقي يعمل
+        bot1 = MagicMock()
+        with patch.dict(sys.modules, {"ad_manager": None}), \
+                patch("growth_engine.attach_growth_engine") as ge, \
+                patch("unified_middleware.install_unified_layer") as ul:
+            bot_base.prepare_bot(bot1, "b")
+            ge.assert_called_once_with(bot1, "b")
+            ul.assert_called_once_with(bot1, "b")
+
+        # growth_engine مفقود → الباقي يعمل
+        bot2 = MagicMock()
+        with patch.dict(sys.modules, {"growth_engine": None}), \
+                patch("ad_manager.attach_unified_ads") as ads, \
+                patch("unified_middleware.install_unified_layer") as ul2:
+            bot_base.prepare_bot(bot2, "b")
+            ads.assert_called_once_with(bot2, "b")
+            ul2.assert_called_once_with(bot2, "b")
+
+        # unified_middleware مفقود → الباقي يعمل
+        bot3 = MagicMock()
+        with patch.dict(sys.modules, {"unified_middleware": None}), \
+                patch("ad_manager.attach_unified_ads") as ads3, \
+                patch("growth_engine.attach_growth_engine") as ge3:
+            bot_base.prepare_bot(bot3, "b")
+            ads3.assert_called_once_with(bot3, "b")
+            ge3.assert_called_once_with(bot3, "b")
+
+    def test_start_polling_crash_tracks_and_reraises(self):
+        """195-202: خطأ فادح في polling → track_exception ثم إعادة الرفع"""
+        import bot_base
+        bot = MagicMock()
+        bot.get_me.return_value = MagicMock(username="T")
+        bot.infinity_polling.side_effect = RuntimeError("crash")
+        with patch("bot_base.get_db", return_value=None), \
+                patch("error_tracker.track_exception") as tr:
+            with pytest.raises(RuntimeError):
+                bot_base.start_polling(bot, "b")
+            tr.assert_called_once()
+            assert tr.call_args.kwargs.get("context") == "polling_crash"
+
+    def test_start_polling_session_lifecycle(self):
+        """175-176 + 204-208: تسجيل الجلسة/إيقافها، وفشل record_bot_start لا يوقف"""
+        import bot_base
+        bot = MagicMock()
+        bot.get_me.return_value = MagicMock(username="T")
+        bot.infinity_polling.side_effect = KeyboardInterrupt
+
+        db = MagicMock()
+        db.record_bot_start.return_value = 42
+        with patch("bot_base.get_db", return_value=db):
+            bot_base.start_polling(bot, "b")
+        db.record_bot_stop.assert_called_once_with(42)
+
+        # فشل record_bot_start → الجلسة None ولا يُسجل إيقاف، لكن البوت يعمل
+        db2 = MagicMock()
+        db2.record_bot_start.side_effect = RuntimeError("db")
+        with patch("bot_base.get_db", return_value=db2):
+            bot_base.start_polling(bot, "b")  # KeyboardInterrupt داخلياً
+        db2.record_bot_stop.assert_not_called()
+
+    def test_start_webhook_exits_on_connection_failure(self):
+        """240-247: فشل الاتصال في webhook → SystemExit(1)"""
+        import bot_base
+        bot = MagicMock()
+        bot.get_me.side_effect = Exception("no net")
+        with patch("bot_base.get_db", return_value=None):
+            with pytest.raises(SystemExit) as ei:
+                bot_base.start_webhook(bot, "b", "https://x.example", serve=False)
+        assert ei.value.code == 1
+
+    def test_start_webhook_record_start_failure(self):
+        """254-255: فشل record_bot_start لا يوقف الويب هوك"""
+        import bot_base
+        bot = MagicMock()
+        bot.get_me.return_value = MagicMock(username="T")
+        db = MagicMock()
+        db.record_bot_start.side_effect = RuntimeError("db")
+        with patch("bot_base.get_db", return_value=db), \
+                patch.dict(os.environ, {"WEBHOOK_SECRET": ""}):
+            bot_base.start_webhook(bot, "b", "https://x.example", serve=False)
+        bot.set_webhook.assert_called_once()
+
+    def test_start_webhook_serve_true_lifecycle(self):
+        """263-265 + 274 + 279-285 + 296-301: دورة خادم webhook كاملة مع سر"""
+        import bot_base
+        bot = MagicMock()
+        bot.get_me.return_value = MagicMock(username="T")
+        db = MagicMock()
+        db.record_bot_start.return_value = 7
+        server = MagicMock()
+        server.webhook_path.return_value = "/webhook/b"
+        server.actual_port = 8443
+
+        with patch("webhook_server.WebhookServer", return_value=server), \
+                patch("bot_base.get_db", return_value=db), \
+                patch.dict(os.environ, {"WEBHOOK_SECRET": "s3cret"}), \
+                patch("bot_base.time.sleep", side_effect=KeyboardInterrupt):
+            bot_base.start_webhook(bot, "b", "https://x.example", serve=True)
+
+        server.register.assert_called_once_with("b", bot)
+        server.start.assert_called_once()
+        bot.set_webhook.assert_called_once_with(
+            url="https://x.example/webhook/b",
+            drop_pending_updates=True, secret_token="s3cret")
+        bot.remove_webhook.assert_called_once()
+        server.stop.assert_called_once()
+        db.record_bot_stop.assert_called_once_with(7)
+
+    def test_start_webhook_crash_tracks_and_reraises(self):
+        """286-293: خطأ في webhook → track_exception ثم إعادة الرفع"""
+        import bot_base
+        bot = MagicMock()
+        bot.get_me.return_value = MagicMock(username="T")
+        bot.set_webhook.side_effect = RuntimeError("hook fail")
+        with patch("bot_base.get_db", return_value=None), \
+                patch.dict(os.environ, {"WEBHOOK_SECRET": ""}), \
+                patch("error_tracker.track_exception") as tr:
+            with pytest.raises(RuntimeError):
+                bot_base.start_webhook(bot, "b", "https://x.example", serve=False)
+            tr.assert_called_once()
+            assert tr.call_args.kwargs.get("context") == "webhook_crash"
+
+    def test_miniapps_helpers_import_error(self):
+        """336-340 + 345-349: غياب unified_middleware → قيم احتياطية آمنة"""
+        import bot_base
+        with patch.dict(sys.modules, {"unified_middleware": None}):
+            assert bot_base.get_miniapps_url("x") == ""
+            assert bot_base.webapp_keyboard("x") is None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

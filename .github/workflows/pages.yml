@@ -26,6 +26,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Guard — never publish the admin dashboard
+        run: |
+          if [ -e webroot/dashboard ]; then
+            echo "::error::webroot/dashboard is tracked in git and would be published — remove it from the repo (it is gitignored)"
+            exit 1
+          fi
+          echo "OK: no dashboard in the Pages artifact"
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

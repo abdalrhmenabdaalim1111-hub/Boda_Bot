@@ -150,7 +150,31 @@ class BodaDatabase:
                     UNIQUE(bot_name, date, ad_format)
                 );
 
+                -- جدول إحصائيات الإعلانات مع تقسيم اختبار A/B (مخطط استباقي مستقل)
+                CREATE TABLE IF NOT EXISTS ab_ad_stats (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    bot_name    TEXT    NOT NULL,
+                    ad_format   TEXT    NOT NULL DEFAULT 'direct_link',
+                    date        TEXT    NOT NULL,
+                    variant     TEXT    NOT NULL,
+                    impressions INTEGER DEFAULT 0,
+                    clicks      INTEGER DEFAULT 0,
+                    UNIQUE(bot_name, ad_format, date, variant)
+                );
+
                 -- جدول أحداث الأخطاء المتقدمة مع البصمة والتتبع الكامل
+                CREATE TABLE IF NOT EXISTS ab_ad_stats (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    bot_name    TEXT    NOT NULL,
+                    ad_format   TEXT    NOT NULL DEFAULT 'direct_link',
+                    date        TEXT    NOT NULL,
+                    variant     TEXT    NOT NULL,
+                    impressions INTEGER DEFAULT 0,
+                    clicks      INTEGER DEFAULT 0,
+                    UNIQUE(bot_name, ad_format, date, variant)
+                );
+
+                -- ???? ????? ??????? ???????? ?? ?????? ??????? ??????
                 CREATE TABLE IF NOT EXISTS error_events (
                     id            INTEGER PRIMARY KEY AUTOINCREMENT,
                     bot_name      TEXT    NOT NULL,
@@ -516,6 +540,69 @@ class BodaDatabase:
                         clicks = clicks + 1,
                         ctr_percent = ROUND(((clicks + 1) * 100.0) / MAX(impressions, 1), 2)
                 """, (clean_bot, today, ad_format))
+
+    # ── A/B Testing (تقسيم ثبت لكل مستخدم — أساس اختبار أماكن الإعلانات) ────
+    def record_ab_event(self, bot_name: str, ad_format: str, variant: str,
+                        is_click: bool = False):
+        """تسجيل ظهور أو نقرة إعلان ضمن مجموعة A/B محددة (نفس اليوم/المجموعة تُجمع)."""
+        clean_bot = str(bot_name).replace("bot_", "")
+        clean_variant = "A" if str(variant).upper().startswith("A") else "B"
+        today = datetime.now().strftime("%Y-%m-%d")
+        imp_delta = 0 if is_click else 1   # النقرة لا تُعد ظهوراً
+        click_delta = 1 if is_click else 0
+        with self._conn_lock:
+            with self._get_conn() as conn:
+                conn.execute("""
+                    INSERT INTO ab_ad_stats
+                        (bot_name, ad_format, date, variant, impressions, clicks)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(bot_name, ad_format, date, variant) DO UPDATE SET
+                        impressions = impressions + ?,
+                        clicks      = clicks + ?
+                """, (clean_bot, ad_format, today, clean_variant,
+                      imp_delta, click_delta, imp_delta, click_delta))
+
+    def get_ab_report(self) -> Dict[str, Any]:
+        """تقرير A/B: مجمّع لكل مجموعة + تفصيل لكل بوت (آخر 30 يوماً)."""
+        since = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        with self._get_conn() as conn:
+            variants: Dict[str, Dict[str, Any]] = {}
+            for letter in ("A", "B"):
+                row = conn.execute("""
+                    SELECT COALESCE(SUM(impressions), 0) AS im,
+                           COALESCE(SUM(clicks), 0)      AS cl
+                    FROM ab_ad_stats
+                    WHERE variant = ? AND date >= ?
+                """, (letter, since)).fetchone()
+                im = int(row["im"] or 0)
+                cl = int(row["cl"] or 0)
+                variants[letter] = {
+                    "impressions": im,
+                    "clicks": cl,
+                    "ctr_percent": round(cl * 100.0 / im, 2) if im else 0.0,
+                }
+            rows = conn.execute("""
+                SELECT bot_name, variant,
+                       SUM(impressions) AS impressions,
+                       SUM(clicks)      AS clicks,
+                       ROUND(SUM(clicks) * 100.0 / MAX(SUM(impressions), 1), 2) AS ctr_percent
+                FROM ab_ad_stats
+                WHERE date >= ?
+                GROUP BY bot_name, variant
+                ORDER BY SUM(impressions) DESC
+                LIMIT 25
+            """, (since,)).fetchall()
+        per_bot = []
+        for r in rows:
+            per_bot.append({
+                "bot_name": r["bot_name"],
+                "variant": r["variant"],
+                "impressions": int(r["impressions"] or 0),
+                "clicks": int(r["clicks"] or 0),
+                "ctr_percent": float(r["ctr_percent"] or 0.0),
+            })
+        return {"variants": variants, "per_bot": per_bot,
+                "days": 30, "assignment": "md5(user_id) ثابت لكل مستخدم"}
 
     def get_ad_stats(self, bot_name: Optional[str] = None, days: int = 30) -> List[Dict]:
         """إرجاع إحصائيات الإعلانات لبوت معين أو لجميع البوتات لآخر N أيام."""
