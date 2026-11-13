@@ -482,7 +482,7 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             return True
 
         body = b""
-        if method == "POST":
+        if method in WRITE_METHODS:
             try:
                 length = min(int(self.headers.get("Content-Length", 0)), 1024 * 1024)
                 body = self.rfile.read(length) if length else b""
@@ -736,6 +736,24 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(404, {"error": "Not Found"})
+
+    def _handle_write_method(self, method: str):
+        violation = self._policy_violation(method)
+        if violation:
+            self._send_json(403, {"error": violation})
+            return
+        if self._dispatch_control_center(method):
+            return
+        self._send_json(404, {"error": "Not Found"})
+
+    def do_PUT(self):
+        self._handle_write_method("PUT")
+
+    def do_PATCH(self):
+        self._handle_write_method("PATCH")
+
+    def do_DELETE(self):
+        self._handle_write_method("DELETE")
 
     def log_message(self, format, *args):
         # تعطيل طباعة الطلبات في terminal للحفاظ على نظافة المخرجات

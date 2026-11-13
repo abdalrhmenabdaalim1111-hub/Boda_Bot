@@ -274,6 +274,47 @@ def cmd_health() -> int:
     return 0 if not missing_files else 1
 
 
+def cmd_ai_check() -> int:
+    """فحص اتصال واجهة الذكاء الاصطناعي (CoArena) — إعدادات + اختبار طلب حقيقي"""
+    print_banner()
+    sys.path.insert(0, str(BOTS_DIR))
+    try:
+        import ai_client
+    except Exception as e:
+        print(f"❌ تعذّر تحميل ai_client: {e}")
+        return 1
+
+    print("🤖 فحص واجهة الذكاء الاصطناعي (CoArena — متوافقة مع OpenAI)")
+    print("═" * 62)
+    print(f"   • العنوان:      {ai_client.base_url()}")
+    print(f"   • النموذج:      {ai_client.model_name()}")
+    print(f"   • المهلة:       {ai_client.timeout()} ثانية")
+    print(f"   • المفتاح:      {'مضبوط ✅' if ai_client.api_key() else 'غير مضبوط ❌ (أضفه في .env)'}")
+
+    if not ai_client.api_key():
+        print("\n❌ COARENA_API_KEY غير مضبوط — أضفه في ملف .env ثم أعد المحاولة.")
+        return 1
+
+    try:
+        models = ai_client.list_models()
+        print(f"   • النماذج المتاحة: {len(models)}")
+        for name in models[:8]:
+            print(f"       • {name}")
+        if len(models) > 8:
+            print(f"       … و{len(models) - 8} أخرى")
+    except Exception as e:
+        print(f"\n❌ فشل جلب قائمة النماذج: {e}")
+        return 1
+
+    result = ai_client.ping()
+    if result["ok"]:
+        print(f"\n✅ الاتصال يعمل — استغرق {result['latency_ms']}ms")
+        print(f"   الرد: {result['reply'][:200]}")
+        return 0
+    print(f"\n❌ فشل الاتصال بعد {result['latency_ms']}ms: {result['reply']}")
+    return 1
+
+
 def cmd_bots_check() -> int:
     """فحص جودة شامل لكل البوتات (7 فحوصات لكل بوت) — بلا إنترنت ومناسب لـ CI
 
@@ -1437,6 +1478,7 @@ def main():
         print("  lint                         - فحص ملفات بايثون للتأكد من خلوها من الأخطاء")
         print("  clean                        - مسح ملفات الكاش والملفات المؤقتة")
         print("  health                       - فحص صحة وتكامل البوتات المسجلة")
+        print("  ai-check                     - فحص اتصال واجهة الذكاء الاصطناعي (CoArena)")
         print("  bots-check                   - فحص جودة شامل (7 فحوصات لكل بوت، بلا إنترنت)")
         print("  repos-sync                   - رفع صفحات البوتات لكل مستودعاتها + تفعيل Pages + تحقق حي")
         print("  backup [--no-zip]            - إنشاء نسخة احتياطية فورية")
@@ -1501,6 +1543,8 @@ def main():
         sys.exit(cmd_clean())
     elif cmd == "health":
         sys.exit(cmd_health())
+    elif cmd in ("ai-check", "ai", "aicheck"):
+        sys.exit(cmd_ai_check())
     elif cmd in ("bots-check", "quality", "audit"):
         sys.exit(cmd_bots_check())
     elif cmd in ("repos-sync", "repo-sync"):

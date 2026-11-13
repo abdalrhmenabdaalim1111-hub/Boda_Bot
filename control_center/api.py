@@ -32,9 +32,10 @@ import os
 import time
 from datetime import datetime
 
-from . import audit, botconfig, config, crypto, db, migrations, store, gate
+from . import audit, ads, botconfig, config, crypto, db, migrations, store, gate
 from .auth import authorize
 from .http import Response, Router, SSESession, redact_secrets
+from .ads import parser, model, resolver, injector, validator
 
 ROUTER = Router()
 
@@ -1692,8 +1693,227 @@ def compliance_check_api(request) -> Response:
     return _ok({"ok": True, "warnings": warnings, "safe": len(warnings) == 0})
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Ad Studio — API (الواجهة الخلفية لمكتبة الإعلانات والحقن)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def ads_parse_snippet_api(request) -> Response:
+    """حلل snippet إعلاني وأعد ملخص المنطقة/الدالة بدون أي تعديل على النص."""
+    payload = request.json()
+    snippet = payload.get("snippet", "")
+    if not snippet:
+        return _err("Missing snippet", status=400)
+    parsed = parser.parse_snippet(snippet)
+    return _ok(parsed.to_dict())
+
+
+def ads_library_list_api(request) -> Response:
+    """قائمة الإعلانات في المكتبة."""
+    lib = model.get_ad_library()
+    enabled_only = request.q_bool("enabled_only", False)
+    slot = request.q("slot", "")
+    ads = lib.list(enabled_only=enabled_only, slot=slot)
+    return _ok({"ok": True, "count": len(ads), "ads": [a.to_dict() for a in ads]})
+
+
+def ads_library_create_api(request) -> Response:
+    """إنشاء إعلان جديد من snippet (يُحلل ويُخزن كما هو)."""
+    payload = request.json()
+    snippet = payload.get("snippet", "")
+    name = payload.get("name", "").strip() or "Ad"
+    fmt = payload.get("format", "custom")
+    slot = payload.get("slot", "body_end")
+    if not snippet:
+        return _err("Missing snippet", status=400)
+    parsed = parser.parse_snippet(snippet)
+    if not parsed.ok:
+        return _err("Snippet invalid", status=400, **{"errors": parsed.errors,
+                                                     "warnings": parsed.warnings})
+    ad = model.Ad(name=name, provider="monetag", format=fmt, slot=slot,
+                  snippet=parsed.snippet, zone_id=parsed.zone_id,
+                  notes="; ".join(parsed.warnings) if parsed.warnings else None,
+                  enabled=True)
+    lib = model.get_ad_library()
+    created = lib.create(ad, actor=request.actor)
+    return _ok({"ok": True, "ad": created.to_dict(),
+                "parse": parsed.to_dict()})
+
+
+def ads_library_update_api(request) -> Response:
+    """تعديل إعلان موجود."""
+    payload = request.json()
+    ad_id = payload.get("ad_id", "")
+    if not ad_id:
+        return _err("Missing ad_id", status=400)
+    lib = model.get_ad_library()
+    fields = {k: v for k, v in payload.items()
+              if k in ("name", "format", "slot", "snippet", "zone_id",
+                       "direct_link", "notes", "enabled", "cpm_rate")}
+    if "snippet" in fields:
+        parsed = parser.parse_snippet(fields["snippet"])
+        if not parsed.ok:
+            return _err("Snippet invalid", status=400,
+                        **{"errors": parsed.errors,
+                           "warnings": parsed.warnings})
+        fields["snippet"] = parsed.snippet
+        fields["zone_id"] = parsed.zone_id
+    updated = lib.update(ad_id, **fields)
+    if not updated:
+        return _err("Ad not found", status=404)
+    return _ok({"ok": True, "ad": updated.to_dict()})
+
+
+def ads_library_delete_api(request) -> Response:
+    """حذف إعلان من المكتبة."""
+    payload = request.json()
+    ad_id = payload.get("ad_id", "")
+    if not ad_id:
+        return _err("Missing ad_id", status=400)
+    lib = model.get_ad_library()
+    ok = lib.delete(ad_id)
+    return _ok({"ok": ok})
+
+
+def ads_assign_api(request) -> Response:
+    """سنّد إعلان لبوت/تصنيف/عام."""
+    payload = request.json()
+    ad_id = payload.get("ad_id", "")
+    scope = payload.get("scope", "bot")
+    target_id = payload.get("target_id", None) or None
+    priority = int(payload.get("priority", 0) or 0)
+    if not ad_id:
+        return _err("Missing ad_id", status=400)
+    if scope not in ("bot", "category", "global"):
+        return _err("Invalid scope", status=400)
+    lib = model.get_ad_library()
+    ok = lib.assign(ad_id, scope, target_id, priority=priority)
+    return _ok({"ok": ok})
+
+
+def ads_unassign_api(request) -> Response:
+    """إلغاء سناد إعلان."""
+    payload = request.json()
+    ad_id = payload.get("ad_id", "")
+    scope = payload.get("scope", "bot")
+    target_id = payload.get("target_id", None) or None
+    lib = model.get_ad_library()
+    n = lib.unassign(ad_id, scope, target_id)
+    return _ok({"ok": True, "removed": n})
+
+
+def ads_effective_api(request) -> Response:
+    """الاعلان الفعّال لكل فتحية لبوت معين (للواجهة الأمامية)."""
+    bot_id = request.param("bot_id")
+    category = request.q("category", "")
+    if not bot_id:
+        return _err("Missing bot_id", status=400)
+    result = resolver.effective_map(bot_id, category)
+    return _ok({"ok": True, "bot_id": bot_id, "category": category,
+                "slots": result})
+
+
+def ads_preview_diff_api(request) -> Response:
+    """معاينة الفروقات (Diff) قبل تطبيق الإعلان على صفحة البوت."""
+    payload = request.json()
+    bot_id = payload.get("bot_id", "currency")
+    slot = payload.get("slot", "body_end")
+    snippet = payload.get("snippet", "")
+    ad_id = payload.get("ad_id", "preview_ad")
+    if not snippet:
+        return _err("Missing snippet", status=400)
+
+    target_file = config.WEBROOT_DIR / bot_id / "index.html"
+    if not target_file.exists():
+        return _err(f"App file for {bot_id} not found", status=404)
+
+    try:
+        original_html = target_file.read_text(encoding="utf-8")
+        new_html = injector.inject_markers(original_html, [(slot, ad_id, snippet)])
+        diff = injector.dry_run(target_file, new_html)
+        return _ok({"ok": True, "bot_id": bot_id, "diff": diff, "changed": bool(diff.strip())})
+    except Exception as exc:
+        return _err(f"Preview failed: {exc}", status=500)
+
+
+def ads_build_apply_api(request) -> Response:
+    """طبّق الإعلانات على التطبيقات المصغّرة (بناء + حقن علامات مع نسخ احتياطي)."""
+    payload = request.json()
+    bot_id = payload.get("bot_id", "")
+    if bot_id:
+        p = config.WEBROOT_DIR / bot_id / "index.html"
+        if p.exists():
+            try:
+                import shutil
+                b_dir = injector._backup_dir(p)
+                b_dir.mkdir(parents=True, exist_ok=True)
+                b_path = injector._backup_path(p)
+                shutil.copy2(p, b_path)
+            except Exception:
+                pass
+    res = store.build_store_pages()
+    if not res.get("ok"):
+        return _err(res.get("error", "Build failed"), status=500, stdout=res.get("stdout"))
+    return _ok({"ok": True, "message": "Pages regenerated successfully", "stdout": res.get("stdout")})
+
+
+def ads_rollback_api(request) -> Response:
+    """استرجاع النسخة الاحتياطية السابقة لصفحة البوت."""
+    payload = request.json()
+    bot_id = payload.get("bot_id", "")
+    if not bot_id:
+        return _err("Missing bot_id", status=400)
+    target_file = config.WEBROOT_DIR / bot_id / "index.html"
+    res = injector.rollback_file(target_file)
+    if not res.get("ok"):
+        return _err(res.get("error", "Rollback failed"), status=400)
+    return _ok(res)
+
+
+def ads_backups_list_api(request) -> Response:
+    """قائمة النسخ الاحتياطية لصفحة البوت."""
+    bot_id = request.param("bot_id")
+    if not bot_id:
+        return _err("Missing bot_id", status=400)
+    target_file = config.WEBROOT_DIR / bot_id / "index.html"
+    backups = injector.list_backups(target_file)
+    items = []
+    for b in backups:
+        try:
+            mtime = datetime.fromtimestamp(b.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            size = b.stat().st_size
+        except Exception:
+            mtime = ""
+            size = 0
+        items.append({"name": b.name, "size": size, "time": mtime})
+    return _ok({"ok": True, "bot_id": bot_id, "backups": items})
+
+
+def ads_publish_api(request) -> Response:
+    """نشر التعديلات عبر Git إلى GitHub Pages بنقرة واحدة."""
+    payload = request.json()
+    msg = payload.get("message") or "feat(ads): update ad units via Ad Studio"
+    res = store.publish_to_github_pages(msg)
+    if not res.get("ok"):
+        return _err(res.get("error", "Publish failed"), status=500, **res)
+    return _ok(res)
+
+
+def ads_stats_api(request) -> Response:
+    """إحصائيات الإعلانات لكل بوت."""
+    lib = model.get_ad_library()
+    ad_id = request.q("ad_id", "")
+    stats = lib.stats(ad_id)
+    per_bot = lib.per_bot_stats(ad_id)
+    return _ok({"ok": True, "stats": stats, "per_bot": per_bot})
+
+
+REG_PATH = None  # تُضبط في register_routes
+
+
 def register_routes(router: Router) -> Router:
     """Register every Control Center route on ``router``."""
+    global REG_PATH
+    REG_PATH = config.BASE_DIR / "bots_registry.json"
     router.get("/openapi.json", openapi_document, summary="OpenAPI document",
                tags=("meta",))
     router.get("/docs", swagger_ui, summary="Swagger UI", tags=("meta",))
@@ -1862,6 +2082,38 @@ def register_routes(router: Router) -> Router:
     # Compliance
     router.post("/api/v1/gate/compliance/check", compliance_check_api,
                 summary="Check text for compliance risks")
+
+    # ════════════════════════════════════════════════════════════════════════
+    # Ad Studio — Core API (الكتاب يتطلب التوكن المحلي)
+    # ════════════════════════════════════════════════════════════════════════
+    router.post("/api/v1/ads/parse", ads_parse_snippet_api,
+                summary="Parse ad snippet (zone/sdk extraction)", roles=("admin",))
+    router.get("/api/v1/ads/library", ads_library_list_api,
+               summary="List ads in library", roles=("admin",))
+    router.post("/api/v1/ads/library", ads_library_create_api,
+                summary="Create ad from snippet", roles=("admin",))
+    router.patch("/api/v1/ads/library", ads_library_update_api,
+                 summary="Update ad", roles=("admin",))
+    router.delete("/api/v1/ads/library", ads_library_delete_api,
+                  summary="Delete ad", roles=("admin",))
+    router.post("/api/v1/ads/assign", ads_assign_api,
+                summary="Assign ad to bot/category/global", roles=("admin",))
+    router.delete("/api/v1/ads/assign", ads_unassign_api,
+                  summary="Unassign ad", roles=("admin",))
+    router.get("/api/v1/ads/effective/<bot_id>", ads_effective_api,
+               summary="Effective ad map for a bot", roles=("admin",))
+    router.post("/api/v1/ads/preview-diff", ads_preview_diff_api,
+                summary="Preview ad injection diff", roles=("admin",))
+    router.post("/api/v1/ads/build-apply", ads_build_apply_api,
+                summary="Apply ads to mini apps (build + inject)", roles=("admin",))
+    router.post("/api/v1/ads/rollback", ads_rollback_api,
+                summary="Rollback ad changes for bot", roles=("admin",))
+    router.get("/api/v1/ads/backups/<bot_id>", ads_backups_list_api,
+               summary="List backups for bot", roles=("admin",))
+    router.post("/api/v1/ads/publish", ads_publish_api,
+                summary="Publish ad changes to GitHub Pages", roles=("admin",))
+    router.get("/api/v1/ads/stats", ads_stats_api,
+               summary="Ad statistics", roles=("admin",))
 
     return router
 
