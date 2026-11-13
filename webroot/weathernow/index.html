@@ -557,7 +557,7 @@ window.__BODA_GROUP__    = "tools";
 window.__BODA_BRAND__    = "#3b82f6";
 window.__BODA_API__      = "";
 window.__BODA_SHARE__    = "https://t.me/WeatherNow1XBot";
-window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "──────────────\n📢 <b>برعاية:</b> <a href=\"https://t.me/BodaStoreeBot\">متجر تطبيقات بودا</a> — حمّل أقوى البوتات مجاناً!"}, "sponsor": {"title": "🌟 قناة الراعي الرسمي", "text": "أقوى البوتات والتطبيقات مجاناً — جرّب المتجر الآن!", "url": "https://t.me/BodaStoreeBot", "button": "🏪 زيارة المتجر"}, "every": 2, "monetag_script": "", "monetag_zone": "", "has_monetag": false};
+window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "──────────────\n📢 <b>برعاية:</b> <a href=\"https://t.me/BodaStoreeBot\">متجر تطبيقات بودا</a> — حمّل أقوى البوتات مجاناً!"}, "sponsor": {"title": "🌟 قناة الراعي الرسمي", "text": "أقوى البوتات والتطبيقات مجاناً — جرّب المتجر الآن!", "url": "https://t.me/BodaStoreeBot", "button": "🏪 زيارة المتجر"}, "every": 2, "monetag_script": "", "monetag_zone": "", "has_monetag": false, "ads": []};
 </script>
 <script>
 /* ═════════ Boda MiniApp SDK v2 ═════════
@@ -896,6 +896,162 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
     maybeSponsor: function () { /* intentionally no-op */ }
   };
 
+  /* ═════════ BodaAds — واجهة الإعلانات الآمنة ═════════
+     규칙:
+       • rewarded يبدأ فقط من ضغطة المستخدم (reward/popup).
+       • المكافأة تُستدعى فقط عند نجاح promise السهم SDK.
+       • أي فشل يُرجع {ok:false, reason} ولا يُعطل الأداة.
+       • لا alert() إطلاقاً، وحماية من الضغط المزدوج. */
+  var BodaAds = {
+    cfg: window.__BODA_ADS__ || {},
+    _tappedUntil: 0,
+
+    _slotAds: function (slot) {
+      var ads = (this.cfg && this.cfg.ads) || [];
+      return ads.filter(function (a) { return a && a.slot === slot && a.enabled !== false; });
+    },
+
+    /* انتظر حتى تصبح window[sdkName] دالة (أو rifusal بعد مهلة) */
+    _resolveSdk: function (sdkName) {
+      var self = this;
+      return new Promise(function (resolve, reject) {
+        if (!sdkName) { reject("no sdk name"); return; }
+        var fn = window[sdkName];
+        if (typeof fn === "function") { resolve(fn); return; }
+        var tried = 0;
+        var iv = setInterval(function () {
+          tried += 1;
+          fn = window[sdkName];
+          if (typeof fn === "function") { clearInterval(iv); resolve(fn); return; }
+          if (tried > 20) { clearInterval(iv); reject("SDK not available: " + sdkName); }
+        }, 100);
+      });
+    },
+
+    /* حماية من الضغط المزدوج (1.5 ثانية) */
+    _tapOk: function () {
+      var now = Date.now();
+      if (now - this._tappedUntil < 1500) return false;
+      this._tappedUntil = now + 1500;
+      return true;
+    },
+
+    /* منع الإعلانات أثناء العمليات أو شاشة الاشتراك */
+    _isBusyOrGate: function () {
+      if (typeof document === "undefined" || !document.body) return false;
+      var cl = document.body.classList;
+      return cl.contains('processing') || cl.contains('gate-screen') || document.body.dataset.processing === 'true';
+    },
+
+    ready: function () {
+      var self = this;
+      return new Promise(function (resolve) {
+        var sdkName = self.cfg && self.cfg.sdk_name;
+        if (!sdkName) { resolve(false); return; }
+        self._resolveSdk(sdkName).then(function () { resolve(true); })
+          .catch(function () { resolve(false); });
+      });
+    },
+
+    /* rewarded interstitial — يبدأ فقط من ضغطة المستخدم */
+    reward: function (cb) {
+      var self = this;
+      return new Promise(function (resolve) {
+        try {
+          if (typeof cb !== "function") { resolve({ok:false, reason:"no callback"}); return; }
+          if (self._isBusyOrGate()) { resolve({ok:false, reason:"busy"}); return; }
+          if (!self._tapOk()) { resolve({ok:false, reason:"double tap"}); return; }
+          var ad = self._slotAds("interstitial")[0];
+          if (!ad) { resolve({ok:false, reason:"no rewarded ad"}); return; }
+          var sdkName = ad.sdk_name || (self.cfg && self.cfg.sdk_name);
+          self._resolveSdk(sdkName).then(function (fn) {
+            return Promise.resolve(fn()).then(function () {
+              cb();
+              track('ad_reward', { placement: 'rewarded', format: 'interstitial', ad_id: ad.ad_id });
+              resolve({ok:true});
+            }).catch(function (err) {
+              track('ad_error', { placement: 'rewarded', format: 'interstitial', ad_id: ad.ad_id, reason: String(err) });
+              resolve({ok:false, reason:"sdk rejected"});
+            });
+          }).catch(function (err) {
+            track('sdk_unavailable', { sdk: sdkName, bot: BOT_ID });
+            resolve({ok:false, reason:"sdk missing"});
+          });
+        } catch (e) {
+          resolve({ok:false, reason:"exception"});
+        }
+      });
+    },
+
+    /* rewarded popup — show_X('pop') */
+    popup: function (cb) {
+      var self = this;
+      return new Promise(function (resolve) {
+        try {
+          if (typeof cb !== "function") { resolve({ok:false, reason:"no callback"}); return; }
+          if (self._isBusyOrGate()) { resolve({ok:false, reason:"busy"}); return; }
+          if (!self._tapOk()) { resolve({ok:false, reason:"double tap"}); return; }
+          var ad = self._slotAds("interstitial")[0];
+          if (!ad) { resolve({ok:false, reason:"no popup ad"}); return; }
+          var sdkName = ad.sdk_name || (self.cfg && self.cfg.sdk_name);
+          self._resolveSdk(sdkName).then(function (fn) {
+            return Promise.resolve(fn('pop')).then(function () {
+              cb();
+              track('ad_reward', { placement: 'popup', format: 'popup', ad_id: ad.ad_id });
+              resolve({ok:true});
+            }).catch(function (err) {
+              track('ad_error', { placement: 'popup', format: 'popup', ad_id: ad.ad_id, reason: String(err) });
+              resolve({ok:false, reason:"sdk rejected"});
+            });
+          }).catch(function (err) {
+            track('sdk_unavailable', { sdk: sdkName, bot: BOT_ID });
+            resolve({ok:false, reason:"sdk missing"});
+          });
+        } catch (e) {
+          resolve({ok:false, reason:"exception"});
+        }
+      });
+    },
+
+    /* in-app interstitial — الإعدادات من لوحة التحكم */
+    inApp: function (settings) {
+      var self = this;
+      return new Promise(function (resolve) {
+        try {
+          if (self._isBusyOrGate()) { resolve({ok:false, reason:"busy"}); return; }
+          settings = settings || {};
+          var s = self._slotAds("interstitial")[0] || {};
+          if (!s.snippet) { resolve({ok:false, reason:"no in-app ad"}); return; }
+          var sdkName = s.sdk_name || (self.cfg && self.cfg.sdk_name);
+          self._resolveSdk(sdkName).then(function (fn) {
+            var opts = {
+              type: 'inApp',
+              inAppSettings: {
+                frequency: settings.frequency || 1,
+                capping: settings.capping || 12,
+                interval: settings.interval || 600,
+                timeout: settings.timeout || 30,
+                everyPage: settings.everyPage !== false
+              }
+            };
+            return Promise.resolve(fn(opts)).then(function () {
+              track('ad_reward', { placement: 'inApp', format: 'inApp', ad_id: s.ad_id });
+              resolve({ok:true});
+            }).catch(function (err) {
+              track('ad_error', { placement: 'inApp', format: 'inApp', ad_id: s.ad_id, reason: String(err) });
+              resolve({ok:false, reason:"sdk rejected"});
+            });
+          }).catch(function (err) {
+            track('sdk_unavailable', { sdk: sdkName, bot: BOT_ID });
+            resolve({ok:false, reason:"sdk missing"});
+          });
+        } catch (e) {
+          resolve({ok:false, reason:"exception"});
+        }
+      });
+    }
+  };
+
   /* ── رصد اكتمال النتائج تلقائياً في كل التطبيقات ── */
   function observeResults() {
     function onShown(el) {
@@ -956,7 +1112,8 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
     track: track, api: api, toast: toast, haptic: haptic, copy: copy, share: share,
     getUser: getUser, initData: initData, ready: ready, tg: tg,
     isTelegram: isTelegram,
-    MainButton: MainButton, BackButton: BackButton, Cloud: Cloud, Ad: Ad
+    MainButton: MainButton, BackButton: BackButton, Cloud: Cloud, Ad: Ad,
+    BodaAds: BodaAds
   };
 })();
 </script>
