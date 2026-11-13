@@ -273,60 +273,66 @@ BOTS_HTML = """
 ADS_HTML = """
 <div id="tab-ads" class="hide">
   <div class="note">
-    <b>ضبط الإعلانات لكل بوت عمليًا:</b> أدخل <code>Direct Link</code> أو
-    <code>Zone ID</code> من لوحة Monetag، ثم احفظ. يُحدّث الحفظ
-    <code>Data/monetag_config.json</code> ويعيد توليد صفحات التطبيقات تلقائيًا
-    (بانر ثابت أسفل الشاشة + إعلان بيني بعد النتيجة فقط).
+    <b>Ad Studio:</b> لصق شفرة Monetag الخام، إدارتها في المكتبة، وتعيينها للبوتات أو التصنيفات.
   </div>
   <div class="ads-grid">
     <div class="panel">
-      <h2>⚙️ إعدادات الإعلان للبوت</h2>
+      <h2>➕ إضافة/تحرير إعلان</h2>
       <div class="form-grid">
         <div class="full">
-          <label class="fl" for="ad-bot">البوت</label>
-          <select id="ad-bot"></select>
+          <label class="fl" for="ad-name">اسم الإعلان (للمكتبة)</label>
+          <input id="ad-name" type="text" placeholder="مثال: Monetag Interstitial">
         </div>
         <div class="full">
-          <label class="fl" for="ad-link">Direct Link (Monetag)</label>
-          <input id="ad-link" type="url" dir="ltr" placeholder="https://…">
+          <label class="fl" for="ad-snippet">Monetag Snippet (خام)</label>
+          <textarea id="ad-snippet" rows="4" placeholder="<script ...></script>"></textarea>
         </div>
-        <div>
-          <label class="fl" for="ad-zone">Zone ID</label>
-          <input id="ad-zone" type="text" dir="ltr" placeholder="1234567">
+        <div class="full">
+          <button id="ad-parse" class="btn-secondary">🔍 تحليل الشفرة</button>
         </div>
+        <div id="ad-parsed-result" class="hintline"></div>
         <div>
-          <label class="fl" for="ad-format">الصيغة</label>
-          <select id="ad-format">
-            <option value="direct_link">Direct Link</option>
-            <option value="in_page_push">In-Page Push</option>
-            <option value="interstitial">Interstitial</option>
-            <option value="popunder">Popunder</option>
+          <label class="fl" for="ad-slot">مكان الحقن (Slot)</label>
+          <select id="ad-slot">
+            <option value="head">Head</option>
+            <option value="body_end" selected>Body End</option>
+            <option value="banner_top">Banner Top</option>
           </select>
         </div>
-        <div class="full">
-          <label class="fl" for="ad-script">Script URL (اختياري)</label>
-          <input id="ad-script" type="url" dir="ltr" placeholder="https://…">
-        </div>
         <div>
-          <label class="fl" for="ad-freq">التكرار (كل كم نتيجة)</label>
-          <input id="ad-freq" type="number" min="1" max="20" value="3">
-        </div>
-        <div>
-          <label class="fl">الحالة</label>
-          <label class="switch"><input id="ad-active" type="checkbox" checked>
-            تفعيل الإعلانات لهذا البوت</label>
+          <label class="fl" for="ad-enabled">الحالة</label>
+          <label class="switch"><input id="ad-enabled" type="checkbox" checked> مُفعّل</label>
         </div>
       </div>
       <div class="ad-actions">
-        <button id="ad-save" class="primary">💾 حفظ وإعادة توليد الصفحات</button>
-        <button id="ad-clear" class="danger" type="button">🗑 إزالة إعلان البوت</button>
-        <a id="ad-open" class="hintline" target="_blank" rel="noopener">🔗 فتح صفحة البوت</a>
+        <button id="ad-save-lib" class="primary">💾 حفظ في المكتبة</button>
+        <button id="ad-preview" class="btn-secondary">👁️ معاينة التغييرات</button>
       </div>
       <div id="ad-msg" class="hintline" style="margin-top:10px"></div>
     </div>
     <div class="panel">
-      <h2>📋 حالة الإعلانات لكل البوتات</h2>
-      <div id="ad-rows"><span class="muted">جارٍ التحميل…</span></div>
+      <h2>📢 مكتبة الإعلانات</h2>
+      <div id="ad-library-list"><span class="muted">جارٍ التحميل…</span></div>
+    </div>
+    <div class="panel">
+      <h2>🔗 تعيين الإعلانات للبوتات</h2>
+      <div class="form-grid">
+        <div class="full">
+          <label class="fl" for="assign-ad">الإعلان</label>
+          <select id="assign-ad"></select>
+        </div>
+        <div class="full">
+          <label class="fl" for="assign-bot">البوت المستهدف</label>
+          <select id="assign-bot"></select>
+        </div>
+        <div>
+          <label class="fl" for="assign-priority">الأولوية (أعلى = أهم)</label>
+          <input id="assign-priority" type="number" value="0">
+        </div>
+        <div class="full">
+          <button id="ad-assign" class="primary">🔗 تعيين الإعلان</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -878,128 +884,78 @@ DASHBOARD_JS = r"""
     } catch (e) { dashToast('❌ ' + e.message); }
   }
 
-  /* ── 4. Ads Editor Logic (Preserved) ── */
-  let ADS = {};
-
-  function renderAds() {
-    const ids = Object.keys(ADS).sort();
-    const sel = document.getElementById('ad-bot');
-    const cur = sel.value;
-    sel.innerHTML = ids.map(id => {
-      const a = ADS[id] || {};
-      return '<option value="' + esc(id) + '">' + esc(a.bot_name || id) +
-             ' — ' + esc(id) + '</option>';
-    }).join('');
-    if (cur && ids.includes(cur)) sel.value = cur;
-    fillAdForm();
-    document.getElementById('ad-rows').innerHTML = ids.length ? (
-      '<table><thead><tr><th>البوت</th><th>الحالة</th><th>الصيغة</th>' +
-      '<th>ظهور</th><th>نقر</th><th>CTR</th></tr></thead><tbody>' +
-      ids.map(id => {
-        const a = ADS[id] || {};
-        const pill = a.is_custom ? '<span class="pill ok">مخصص</span>' :
-                     a.is_global ? '<span class="pill warn">عام</span>' :
-                     '<span class="pill off">بدون</span>';
-        return '<tr><td>' + esc(a.bot_name || id) +
-               '<div class="muted" style="font-size:10.5px">' + esc(id) + '</div></td>' +
-               '<td>' + pill + '</td><td>' + esc(a.format || '—') + '</td>' +
-               '<td>' + (a.impressions || 0) + '</td><td>' + (a.clicks || 0) +
-               '</td><td>' + (a.ctr_percent || 0) + '%</td></tr>';
-      }).join('') + '</tbody></table>'
-    ) : '<span class="muted">لا توجد إعدادات إعلانات بعد — احفظ أول بوت من اليسار.</span>';
-  }
-
-  function fillAdForm() {
-    const id = document.getElementById('ad-bot').value;
-    const a = ADS[id] || {};
-    document.getElementById('ad-link').value = a.direct_link || '';
-    document.getElementById('ad-zone').value = a.zone_id || '';
-    document.getElementById('ad-script').value = a.script_url || '';
-    document.getElementById('ad-format').value = a.format || 'direct_link';
-    document.getElementById('ad-freq').value = a.frequency || 3;
-    document.getElementById('ad-active').checked = a.has_ad !== false;
-    document.getElementById('ad-open').href = '../' + encodeURIComponent(id) + '/';
-    document.getElementById('ad-msg').textContent = a.is_custom
-      ? 'هذا البوت يستخدم إعدادات مخصصة (تعديلها يستبدل الإعداد العام).'
-      : a.is_global
-        ? 'هذا البوت يرث الإعداد العام حالياً — أي حفظ هنا يجعله مخصصاً.'
-        : 'لا يوجد إعلان لهذا البوت حالياً.';
-  }
-
-  async function loadAds() {
+  /* ── 4. Ad Studio Logic ── */
+  async function parseSnippet() {
+    const snippet = document.getElementById('ad-snippet').value.trim();
+    if (!snippet) return dashToast('⚠️ الصق الشفرة أولاً');
     try {
-      const data = await get('/api/ads/status');
-      ADS = data.apps || {};
-      renderAds();
-    } catch (e) {
-      document.getElementById('ad-rows').innerHTML =
-        '<span class="err">تعذر تحميل حالة الإعلانات: ' + esc(e.message) + '</span>';
+      const res = await post('/api/v1/ads/parse', { snippet });
+      const r = document.getElementById('ad-parsed-result');
+      if (res.ok) {
+        r.innerHTML = '<span class="ok">✅ الشفرة سليمة: المنطقة ' + (res.zone_id || '—') + '، الدالة ' + (res.sdk_name || '—') + '</span>';
+      } else {
+        r.innerHTML = '<span class="err">❌ الشفرة غير صالحة: ' + res.errors.join(', ') + '</span>';
+      }
+    } catch (e) { dashToast('❌ ' + e.message); }
+  }
+
+  async function loadAdsLibrary() {
+    try {
+      const res = await get('/api/v1/ads/library');
+      const list = document.getElementById('ad-library-list');
+      if (!res.ads || res.ads.length === 0) {
+        list.innerHTML = '<span class="muted">المكتبة فارغة.</span>';
+        return;
+      }
+      window._all_ads = res.ads;
+      list.innerHTML = '<table><thead><tr><th>الاسم</th><th>المنطقة/الدالة</th><th>الحالة</th></tr></thead><tbody>' +
+        res.ads.map(a => '<tr><td>' + esc(a.name) + '</td><td>' + esc(a.zone_id || a.format) + '</td>' +
+          '<td>' + (a.enabled ? '✅' : '🚫') + '</td></tr>').join('') + '</tbody></table>';
+      populateAdAssignSelects();
+    } catch (e) { dashToast('❌ فشل تحميل المكتبة'); }
+  }
+
+  function populateAdAssignSelects() {
+    const adSel = document.getElementById('assign-ad');
+    const botSel = document.getElementById('assign-bot');
+    if (window._all_ads && adSel) {
+      adSel.innerHTML = window._all_ads.map(a => '<option value="' + esc(a.ad_id) + '">' + esc(a.name) + '</option>').join('');
+    }
+    if (BOTS && botSel) {
+      botSel.innerHTML = '<option value="">-- جميع البوتات (عام) --</option>' +
+        BOTS.map(b => '<option value="' + esc(b.id) + '">' + esc(b.name || b.id) + '</option>').join('');
     }
   }
 
-  async function saveAds() {
-    const botId = document.getElementById('ad-bot').value;
-    if (!botId) return;
-    const payload = {
-      bot_id: botId,
-      direct_link: document.getElementById('ad-link').value.trim(),
-      zone_id: document.getElementById('ad-zone').value.trim(),
-      script_url: document.getElementById('ad-script').value.trim(),
-      format: document.getElementById('ad-format').value,
-      frequency: parseInt(document.getElementById('ad-freq').value, 10) || 3,
-      active: document.getElementById('ad-active').checked
-    };
-    const btn = document.getElementById('ad-save');
-    btn.disabled = true;
-    btn.textContent = '⏳ جارٍ الحفظ وإعادة التوليد…';
+  async function assignAd() {
+    const adId = document.getElementById('assign-ad').value;
+    const botId = document.getElementById('assign-bot').value;
+    const priority = document.getElementById('assign-priority').value;
+    if (!adId) return dashToast('⚠️ اختر الإعلان أولاً');
     try {
-      const res = await fetch(API_BASE + '/api/ads/set', {
-        method: 'POST', headers: headers(), body: JSON.stringify(payload)
+      await post('/api/v1/ads/assign', {
+        ad_id: adId,
+        scope: botId ? 'bot' : 'global',
+        target_id: botId || null,
+        priority: parseInt(priority, 10) || 0
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
-      dashToast('✅ حُفظت إعلانات ' + botId + ' وأُعيد توليد الصفحات');
-      document.getElementById('ad-msg').textContent =
-        (data.message || 'تم الحفظ') + ' — تمت مزامنة ملفات HTML.';
-      await loadAds();
-    } catch (e) {
-      dashToast('❌ ' + e.message);
-      document.getElementById('ad-msg').textContent = 'فشل الحفظ: ' + e.message;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '💾 حفظ وإعادة توليد الصفحات';
-    }
+      dashToast('✅ تم تعيين الإعلان بنجاح!');
+      await post('/api/v1/ads/build-apply', { bot_id: botId });
+      dashToast('⚡ تم إعادة بناء التطبيقات وتطبيق الإعلان!');
+    } catch (e) { dashToast('❌ ' + e.message); }
   }
 
-  async function clearAds() {
-    const botId = document.getElementById('ad-bot').value;
-    if (!botId) return;
-    if (!confirm('إزالة إعلان «' + botId + '» وإعادة توليد الصفحات؟')) return;
-    const btn = document.getElementById('ad-clear');
-    btn.disabled = true;
-    btn.textContent = '⏳ جارٍ الإزالة…';
+  async function saveAdToLibrary() {
+    const name = document.getElementById('ad-name').value.trim();
+    const snippet = document.getElementById('ad-snippet').value.trim();
+    if (!name || !snippet) return dashToast('⚠️ الاسم والشفرة مطلوبان');
     try {
-      const res = await fetch(API_BASE + '/api/ads/set', {
-        method: 'POST', headers: headers(),
-        body: JSON.stringify({
-          bot_id: botId, direct_link: '', zone_id: '', script_url: '',
-          format: 'direct_link', frequency: 3, active: false
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
-      dashToast('🗑 أُزيل إعلان ' + botId + ' وأُعيد توليد الصفحات');
-      document.getElementById('ad-msg').textContent =
-        'أُزيل الإعلان المخصص — سيعود البوت للإعداد العام إن وُجد.';
-      await loadAds();
-    } catch (e) {
-      dashToast('❌ ' + e.message);
-      document.getElementById('ad-msg').textContent = 'فشل الإزالة: ' + e.message;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '🗑 إزالة إعلان البوت';
-    }
+      await post('/api/v1/ads/library', { name, snippet, slot: document.getElementById('ad-slot').value, enabled: document.getElementById('ad-enabled').checked });
+      dashToast('✅ تم حفظ الإعلان في المكتبة');
+      loadAdsLibrary();
+    } catch (e) { dashToast('❌ ' + e.message); }
   }
+
 
   /* ── 5. Store Manager Logic ── */
   let STORE_ITEMS = [];
@@ -1713,14 +1669,14 @@ DASHBOARD_JS = r"""
 
     if (name === 'bots') loadBots();
     if (name === 'store') loadStore();
-    if (name === 'ads') loadAds();
+    if (name === 'ads') loadAdsLibrary();
     if (name === 'analytics') refreshAnalytics();
   }
 
   /* ── 7. Event Wiring ── */
-  document.getElementById('ad-bot').addEventListener('change', fillAdForm);
-  document.getElementById('ad-save').addEventListener('click', saveAds);
-  document.getElementById('ad-clear').addEventListener('click', clearAds);
+  document.getElementById('ad-parse').addEventListener('click', parseSnippet);
+  document.getElementById('ad-save-lib').addEventListener('click', saveAdToLibrary);
+  document.getElementById('ad-assign').addEventListener('click', assignAd);
 
   document.getElementById('btn-start-all').addEventListener('click', startAllBots);
   document.getElementById('btn-stop-all').addEventListener('click', stopAllBots);
@@ -1819,7 +1775,8 @@ DASHBOARD_JS = r"""
   window.closeLogsModal = closeLogsModal;
   window.openStoreModal = openStoreModal;
   window.closeStoreModal = closeStoreModal;
-  window.deleteStoreItem = deleteStoreItem;
+  window.parseSnippet = parseSnippet;
+  window.saveAdToLibrary = saveAdToLibrary;
 """
 
 

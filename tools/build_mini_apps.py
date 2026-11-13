@@ -20,6 +20,15 @@ from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# Windows cp1252 guard: when stdout is a pipe (tests/CI), Python falls back to
+# cp1252 which cannot encode Arabic/emoji output — force UTF-8 (PLAN_V3 risk).
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None and hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from app_template import build_html          # noqa: E402
@@ -105,14 +114,37 @@ def build_ads_cfg(bot_id: str = None) -> dict:
     if not script_url and zone_id:
         script_url = f"https://thubanoa.com/1?z={zone_id}"
 
-    return {
+    result = {
         "banner": banner,
         "sponsor": sponsor,
         "every": every,
         "monetag_script": script_url,
         "monetag_zone": zone_id,
-        "has_monetag": bool(direct_link or zone_id or script_url)
+        "has_monetag": bool(direct_link or zone_id or script_url),
+        "ads": [],
     }
+
+    # إعلانات bibliothèque (ال DB مصدر الحقيقة) حسب الفتحية للبوت هذا
+    try:
+        from control_center.ads.model import get_ad_library
+        from control_center.ads.resolver import resolve_ads_for_bot
+        lib = get_ad_library()
+        ads = resolve_ads_for_bot(bot_id or "", "", library=lib)
+        for ad in ads:
+            if ad.snippet:
+                result["ads"].append({
+                    "slot": ad.slot,
+                    "ad_id": ad.ad_id,
+                    "snippet": ad.snippet,
+                    "zone_id": ad.zone_id,
+                    "name": ad.name,
+                    "format": ad.format,
+                    "enabled": bool(ad.enabled),
+                })
+    except Exception:
+        pass
+
+    return result
 
 
 # ── الإحصائيات من قاعدة البيانات + الأحداث ──────────────────────────────────
@@ -376,39 +408,30 @@ def main():
                 shutil.rmtree(target, ignore_errors=True)
             elif target.exists():
                 target.unlink(missing_ok=True)
-        # Preserve ad markers: read old files BEFORE removing directories.
-        # Stored in a dict for carry-over during regeneration below.
+        # إعادة إنشاء مجلدات البوتات مع الحفاظ على علامات الإعلانات المحقونة (Carry-over)
         _preserved_markers = {}
-        try:
-            import json as _j
-            _apps = _j.loads(REG.read_text(encoding="utf-8"))
-            for _a in (_apps if isinstance(_apps, list) else _apps.get("bots", [])):
-                _bid = _a.get("id")
-                if _bid:
-                    _old = out_dir / _bid / "index.html"
-                    if _old.exists():
-                        try:
-                            from control_center.ads.injector import list_blocks as _lb
-                            import re as _re
-                            _old_text = _old.read_text(encoding="utf-8")
-                            _carried = []
-                            for _blk in _lb(_old_text):
-                                _m = _re.search(
-                                    r"<!-- AD:BEGIN slot=" + _re.escape(_blk["slot"]) +
-                                    r" id=" + _re.escape(_blk["ad_id"]) + r" -->(.*?)"
-                                    r"<!-- AD:END slot=" + _re.escape(_blk["slot"]) + r" -->",
-                                    _old_text, _re.DOTALL)
-                                if _m:
-                                    _carried.append((_blk["slot"], _blk["ad_id"], _m.group(1).strip()))
-                            if _carried:
-                                _preserved_markers[_bid] = _carried
-                        except Exception:
-                            pass
-                    _d = out_dir / _bid
-                    if _d.is_dir():
-                        shutil.rmtree(_d, ignore_errors=True)
-        except Exception:
-            pass
+        for child in out_dir.iterdir():
+            if child.is_dir() and child.name not in ("data", "store", "assets", "dashboard"):
+                _old = child / "index.html"
+                if _old.exists():
+                    try:
+                        from control_center.ads.injector import list_blocks as _lb
+                        import re as _re
+                        _old_text = _old.read_text(encoding="utf-8")
+                        _carried = []
+                        for _blk in _lb(_old_text):
+                            _m = _re.search(
+                                r"<!-- AD:BEGIN slot=" + _re.escape(_blk["slot"]) +
+                                r" id=" + _re.escape(_blk["ad_id"]) + r" -->(.*?)"
+                                r"<!-- AD:END slot=" + _re.escape(_blk["slot"]) + r" -->",
+                                _old_text, _re.DOTALL)
+                            if _m:
+                                _carried.append((_blk["slot"], _blk["ad_id"], _m.group(1).strip()))
+                        if _carried:
+                            _preserved_markers[child.name] = _carried
+                    except Exception:
+                        pass
+                shutil.rmtree(child, ignore_errors=True)
     (out_dir / "data").mkdir(parents=True, exist_ok=True)
 
     # catalog.json — مصدر المتجر (نفس بنية النسخة المضمنة في store/index.html)
@@ -429,8 +452,6 @@ def main():
         json.dumps(stats, ensure_ascii=False, indent=1), encoding="utf-8")
 
     # كل تطبيق — بما فيها المخفية (المتجر يعرض الجميع مع وسم "قريباً" للمخفي)
-    webapps_dir = ROOT / "webapps"
-    webapps_dir.mkdir(exist_ok=True)
     n_interactive = 0
     for app in apps:
         if not app.get("id"):
@@ -443,18 +464,30 @@ def main():
             n_interactive += 1
         d = out_dir / bid
         d.mkdir(exist_ok=True)
-        # Marker-aware: carry over ad markers preserved before the directory
-        # was removed (D7).
-        carried_markers = _preserved_markers.get(bid, [])
-        if carried_markers:
+        # مرحلة 2: حقن علامات الإعلانات
+        # 1. العلامات المحفوظة من الملف السابق للبوت
+        _blocks = list(_preserved_markers.get(bid, []))
+        _seen_slots = {b[0] for b in _blocks}
+        # 2. علامات مكتبة الإعلانات (DB) للمسارات التي لم تُحجز
+        try:
+            from control_center.ads.model import get_ad_library
+            from control_center.ads.resolver import resolve_ads_for_bot
+            lib = get_ad_library()
+            category = app.get("tag", "")
+            ads = resolve_ads_for_bot(bid, category, library=lib)
+            for ad in ads:
+                if ad.snippet and ad.slot not in _seen_slots:
+                    _blocks.append((ad.slot, ad.ad_id, ad.snippet))
+                    _seen_slots.add(ad.slot)
+        except Exception:
+            pass
+        if _blocks:
             try:
                 from control_center.ads.injector import inject_markers as _inj
-                html = _inj(html, carried_markers)
+                html = _inj(html, _blocks)
             except Exception:
                 pass
         (d / "index.html").write_text(html, encoding="utf-8")
-        # نسخة ملف فردي في webapps/
-        (webapps_dir / f"{bid}.html").write_text(html, encoding="utf-8")
 
     # المتجر
     (out_dir / "store").mkdir(exist_ok=True)

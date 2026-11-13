@@ -79,3 +79,5 @@ webroot/data/stats.json
 # Admin dashboard is served ONLY by the local API server — never published
 # to GitHub Pages (the deploy workflow also guards against it)
 webroot/dashboard/
+# Flat mirror of mini apps — removed (single source of truth is webroot/)
+webapps/
