@@ -1005,7 +1005,7 @@ DASHBOARD_JS = r"""
               (hasToken ? '<span class="token-pill ok">✔ مفعّل</span>' : '<span class="token-pill warn">⚠️ مفقود</span>') +
             '</span></div>' +
           '</div>' +
-          (st.last_error ? '<div class="bot-err-msg">⚠️ ' + esc(st.last_error) + '</div>' : '') +
+          (st.last_error && !st.running ? '<div class="bot-err-msg">⚠️ ' + esc(st.last_error) + '</div>' : '') +
         '</div>' +
         '<div class="bot-card-actions">' +
           (isRunning
@@ -2429,8 +2429,6 @@ DASHBOARD_JS = r"""
   window.closeLogsModal = closeLogsModal;
   window.openStoreModal = openStoreModal;
   window.closeStoreModal = closeStoreModal;
-  window.parseSnippet = parseSnippet;
-  window.saveAdToLibrary = saveAdToLibrary;
 """
 
 

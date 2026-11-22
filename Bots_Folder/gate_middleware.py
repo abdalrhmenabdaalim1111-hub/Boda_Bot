@@ -1,190 +1,141 @@
+# -*- coding: utf-8 -*-
 """
-Bots_Folder/gate_middleware.py — Subscription Gate Enforcement.
+Bots_Folder/gate_middleware.py — بوابة الاشتراك الإجبارية (القناتان فقط).
 
-Middleware-like logic to be called by bots to check membership
-and show the subscription gate message if needed.
+تعتمد على gate_check.py كمصدر وحيد:
+    @Stick_boda  +  @ebdo_4
 
-Notes:
-- Events written here MUST be one of the gate_events CHECK values:
-  gate_shown / join_clicked / verify_clicked / verified / failed_open / skipped_admin.
-- User hashing goes through gate_core.user_id_hash so both sides of the
-  system produce identical hashes (shared BODA_GATE_SALT).
+تُركّب تلقائياً على كل بوت عبر unified_middleware، لذا لا تحتاج أي بوت
+لتعديل كوده. زر «تحقق» يعيد الفحص فوراً (بدون كاش) ليكتشف إلغاء الاشتراك.
 """
-
-import json
 import logging
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import List, Dict, Optional
 
-from telebot import TeleBot, types
+from telebot import types
 
-from .gate_core import GateCore, user_id_hash
-from .database import BodaDatabase
+try:
+    from . import gate_check
+except ImportError:  # تشغيل مباشر من داخل Bots_Folder
+    import gate_check
+
+try:
+    from .database import BodaDatabase
+except ImportError:
+    from database import BodaDatabase
 
 logger = logging.getLogger("GateMiddleware")
 
 
 class GateMiddleware:
-    def __init__(self, bot: TeleBot, bot_id: str, db: Optional[BodaDatabase] = None):
+    def __init__(self, bot, bot_id: str, db: Optional[BodaDatabase] = None):
         self.bot = bot
         self.bot_id = bot_id
         self.db = db or BodaDatabase()
-        self.core = GateCore(self.db, bot_id=bot_id)
 
+    # ── الفحص ────────────────────────────────────────────────────────────
     def should_enforce(self, user_id: int) -> bool:
-        """Check if gate is enabled for this bot and user needs to see it."""
-        # Check bot_config for growth_gate feature flag
-        try:
-            with self.db._get_conn() as conn:
-                row = conn.execute(
-                    "SELECT features FROM bot_config WHERE bot_id=?",
-                    (self.bot_id,)
-                ).fetchone()
-                if not row:
-                    return False
-                features = json.loads(row["features"] or "{}")
-                if not features.get("growth_gate"):
-                    return False
-        except Exception:
-            return False
-
-        # Soft-gate logic: if profile mode is 'soft', check free uses
-        # (This is a Phase 4+ enhancement)
-
-        return True
+        """البوابة مفعّلة لكل البوتات (يمكن تعطيلها بـ BODA_SUB_GATE=0)."""
+        return gate_check.gate_enabled()
 
     def check_and_show_gate(self, message: types.Message) -> bool:
         """
-        Check if user is subscribed to required channels.
-        If not, show gate message and return True (indicating blocked).
-        If yes, return False (indicating allowed).
+        True  = محجوب (تم إرسال رسالة الاشتراك).
+        False = مسموح بالمتابعة.
         """
-        user_id = message.from_user.id
+        user = getattr(message, "from_user", None)
+        if not user or not getattr(user, "id", None):
+            return False
+        return self.check_user(user.id, message.chat.id,
+                               (getattr(user, "language_code", "") or "ar"))
+
+    def check_user(self, user_id: int, chat_id: int, lang: str = "ar") -> bool:
+        """فحص مستخدم عبر معرّفه (يُستخدم أيضاً داخل أزرار الكولباك)."""
         if not self.should_enforce(user_id):
             return False
 
-        profile = self.core.get_effective_profile(self.bot_id)
-        if not profile:
+        missing = gate_check.get_missing_channels(user_id, use_cache=True)
+        if not missing:
             return False
 
-        missing_slots = []
-        for slot in profile.get("slots", []):
-            if slot.get("is_required"):
-                # chat target for the API, DB id for the cache key
-                cid = slot.get("channel_chat_id") or slot.get("username")
-                if not cid:
-                    continue
-
-                if not self.core.is_subscribed(user_id, cid, channel_id=slot.get("channel_id")):
-                    missing_slots.append(slot)
-
-        if not missing_slots:
-            return False
-
-        # Show gate message
-        self.show_gate(message, profile, missing_slots)
-
-        # Record event
-        self.record_event(user_id, "gate_shown", profile["id"])
-
+        self.show_gate(chat_id, missing, lang)
+        self.record_event(user_id, "gate_shown")
         return True
 
-    @staticmethod
-    def _slot_url(slot: Dict) -> Optional[str]:
-        """Invite link or public username URL for a slot (None when unusable)."""
-        invite = (slot.get("invite_link") or "").strip()
-        if invite:
-            return invite
-        username = (slot.get("username") or "").strip().lstrip("@")
-        if username:
-            return f"https://t.me/{username}"
-        return None
+    def show_gate(self, chat_id: int, missing: List[Dict[str, str]], lang: str = "ar"):
+        """إرسال رسالة الاشتراك مع أزرار القناتين وزر التحقق."""
+        if lang.startswith("ar"):
+            text = gate_check.gate_text(missing)
+        else:
+            lines = ["⚠️ <b>Subscribe to both channels to use this bot:</b>", ""]
+            for i, channel in enumerate(missing, start=1):
+                lines.append(f"{i}. {channel['title']} — @{channel['username']}")
+            lines += ["", "Then press <b>Verify Subscription</b> ✅"]
+            text = "\n".join(lines)
 
-    def show_gate(self, message: types.Message, profile: Dict, missing: List[Dict]):
-        """Send the subscription gate message with buttons."""
-        # Text based on language (detect from message)
-        lang = (message.from_user.language_code or "ar").lower()
+        self.bot.send_message(
+            chat_id,
+            text,
+            reply_markup=gate_check.gate_markup(missing),
+            parse_mode="HTML",
+        )
+
+    # ── زر التحقق ────────────────────────────────────────────────────────
+    def handle_verify_callback(self, call: types.CallbackQuery):
+        """إعادة الفحص فوراً بعد ضغط «تحقق» (بدون كاش)."""
+        user = getattr(call, "from_user", None)
+        if not user:
+            return
+        user_id = user.id
+        lang = (getattr(user, "language_code", "") or "ar").lower()
+
+        gate_check.invalidate(user_id)
+        missing = gate_check.get_missing_channels(user_id, use_cache=False)
+
+        if not missing:
+            msg = ("✅ تم التحقق بنجاح! يمكنك الآن استخدام البوت."
+                   if lang.startswith("ar") else
+                   "✅ Verified successfully! You can now use the bot.")
+            try:
+                self.bot.answer_callback_query(call.id, msg)
+            except Exception:
+                pass
+            if getattr(call, "message", None):
+                try:
+                    self.bot.edit_message_text(
+                        msg,
+                        chat_id=call.message.chat.id,
+                        message_id=call.message.message_id,
+                    )
+                except Exception:
+                    pass
+            self.record_event(user_id, "verified")
+            return
 
         if lang.startswith("ar"):
-            # Telegram legacy Markdown bold is *text* — ** renders literally
-            text = "⚠️ *يجب عليك الاشتراك في القنوات التالية لاستخدام هذا البوت:*\n\n"
-            for i, slot in enumerate(missing, start=1):
-                text += f"{i}. {slot.get('title') or 'قناة'}\n"
-            text += "\nبعد الاشتراك، اضغط على زر *التحقق* بالأسفل."
-            verify_btn_text = "✅ تحقق من الاشتراك"
+            alert = f"❌ ما زلت غير مشترك في {len(missing)} قناة. اشترك ثم اضغط تحقق مجدداً."
         else:
-            text = "⚠️ *You must subscribe to the following channels to use this bot:*\n\n"
-            for i, slot in enumerate(missing, start=1):
-                text += f"{i}. {slot.get('title') or 'Channel'}\n"
-            text += "\nAfter subscribing, click the *Verify* button below."
-            verify_btn_text = "✅ Verify Subscription"
-
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for slot in missing:
-            url = self._slot_url(slot)
-            if not url:
-                # private channel with no invite link yet — nothing to open
-                logger.warning(
-                    "Gate slot '%s' (id=%s) has neither invite_link nor username",
-                    slot.get("title"), slot.get("channel_id"))
-                continue
-            markup.add(types.InlineKeyboardButton(f"📺 {slot.get('title') or 'قناة'}", url=url))
-
-        # Add verify button (callback)
-        markup.add(types.InlineKeyboardButton(verify_btn_text, callback_data=f"gate_verify:{profile['id']}"))
-
-        self.bot.send_message(message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
-
-    def handle_verify_callback(self, call: types.CallbackQuery):
-        """Handle the 'Verify' button click."""
-        user_id = call.from_user.id
+            alert = f"❌ You are still missing {len(missing)} channel(s). Subscribe and verify again."
         try:
-            profile_id = int(call.data.split(":")[1])
-        except (IndexError, ValueError):
-            self.bot.answer_callback_query(call.id, "❌ بيانات غير صالحة")
-            return
+            self.bot.answer_callback_query(call.id, alert, show_alert=True)
+        except Exception:
+            pass
 
-        # Fetch profile
-        profile = self.core.get_effective_profile(self.bot_id)
-        if not profile or profile["id"] != profile_id:
-            self.bot.answer_callback_query(call.id, "❌ خطأ في البروفايل")
-            return
-
-        # The verify attempt itself is a funnel step (always valid taxonomy)
-        self.record_event(user_id, "verify_clicked", profile_id)
-
-        missing = []
-        for slot in profile.get("slots", []):
-            if slot.get("is_required"):
-                cid = slot.get("channel_chat_id") or slot.get("username")
-                if not cid:
-                    continue
-                # Force skip cache to re-verify
-                if not self.core.is_subscribed(user_id, cid, channel_id=slot.get("channel_id"), use_cache=False):
-                    missing.append(slot)
-
-        lang = (call.from_user.language_code or "ar").lower()
-        if not missing:
-            # Success!
-            msg = "✅ تم التحقق بنجاح! يمكنك الآن استخدام البوت." if lang.startswith("ar") else "✅ Verified successfully! You can now use the bot."
-            self.bot.answer_callback_query(call.id, msg)
-            if call.message:
-                self.bot.edit_message_text(msg, chat_id=call.message.chat.id, message_id=call.message.message_id)
-            self.record_event(user_id, "verified", profile_id)
-        else:
-            # Still missing
-            msg = f"❌ ما زال هناك {len(missing)} قناة لم تشترك بها بعد!" if lang.startswith("ar") else f"❌ You are still missing {len(missing)} channels!"
-            self.bot.answer_callback_query(call.id, msg, show_alert=True)
-
-    def record_event(self, user_id: int, event: str, profile_id: int):
-        """Record gate event for analytics (shared salt with control_center)."""
+    # ── تحليلات (اختيارية، لا تعطّل البوابة عند أي خطأ) ─────────────────
+    def record_event(self, user_id: int, event: str):
         try:
-            now = datetime.now().isoformat()
-
+            from .gate_core import user_id_hash
+        except ImportError:
+            try:
+                from gate_core import user_id_hash
+            except Exception:
+                return
+        try:
             with self.db._get_conn() as conn:
                 conn.execute(
-                    "INSERT INTO gate_events (bot_id, user_id_hash, event, profile_id, created_at) VALUES (?, ?, ?, ?, ?)",
-                    (self.bot_id, user_id_hash(user_id), event, profile_id, now)
+                    "INSERT INTO gate_events (bot_id, user_id_hash, event, created_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (self.bot_id, user_id_hash(user_id), event, datetime.now().isoformat()),
                 )
-        except Exception as e:
-            logger.debug(f"Event record error: {e}")
+        except Exception as exc:
+            logger.debug("gate event record error: %s", exc)

@@ -122,6 +122,17 @@ def _audit(request, action: str, target_type: str = "", target_id: str = "",
 def system_health(request) -> Response:
     """Health of the control plane itself."""
     db_obj = db.get_db()
+    host = {}
+    try:
+        import psutil
+        vm = psutil.virtual_memory()
+        host = {
+            "memory_percent": round(vm.percent, 1),
+            "memory_used_mb": int((vm.total - vm.available) / (1024 * 1024)),
+            "cpu_percent": round(psutil.cpu_percent(interval=None), 1),
+        }
+    except Exception:
+        host = {}
     return _ok({
         "ok": True,
         "service": "boda-control-center",
@@ -132,6 +143,7 @@ def system_health(request) -> Response:
         "database_size": db.db_file_size(),
         "encryption_available": crypto.get_secret_box().available,
         "supervisor_running": True,
+        "host": host,
     })
 
 
@@ -219,6 +231,9 @@ def list_bots(request) -> Response:
         item["token_masked"] = botconfig.token_display(item["bot_id"])
         item["token_configured"] = bool(item["token_masked"])
         item["features"] = cfg.get("features", {})
+        # لا تعرض أخطاء قديمة على بوت يعمل حالياً
+        if item.get("running"):
+            item["last_error"] = ""
         bots.append(item)
     return _ok({"ok": True, "count": len(bots), "bots": bots})
 

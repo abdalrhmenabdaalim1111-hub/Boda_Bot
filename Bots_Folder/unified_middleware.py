@@ -98,9 +98,10 @@ class UnifiedBotMiddleware(BaseMiddleware):
         """تُستدعى قبل أي معالج رسائل في البوت"""
         # Handle callback queries for gate verification
         if message.content_type == "callback_query":
-            if message.data.startswith("gate_verify:"):
+            if (message.data or "").startswith("gate_verify"):
                 self.gate.handle_verify_callback(message)
-                return # Stop processing
+                from telebot.handler_backends import CancelMiddleware
+                raise CancelMiddleware("gate verify handled")
             return
 
         if data is not None:
@@ -143,6 +144,9 @@ class UnifiedBotMiddleware(BaseMiddleware):
                         ).start()
 
         except Exception as e:
+            from telebot.handler_backends import CancelMiddleware
+            if isinstance(e, CancelMiddleware):
+                raise
             if "Subscription Gate active" not in str(e):
                 self.log.debug(f"middleware: {e}")
             else:

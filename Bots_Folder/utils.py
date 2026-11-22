@@ -1,17 +1,21 @@
+# -*- coding: utf-8 -*-
 """
-Bots_Folder/utils.py — أدوات موحدة لبوابات الاشتراك
+Bots_Folder/utils.py — أدوات البوابة الموحدة (القناتان فقط).
 
-⚠️ تغيير جذري (إصلاح رسالة "البوت ليس أدمن"):
-الفحص القديم كان يستخدم get_chat_member على قناة — وهو ما يتطلب أن يكون البوت
-أدمن في القناة، ويفشل تماماً عند التحقق من الاشتراك في *بوتات* (تيليجرام لا يسمح
-لبوت بمعرفة ما إذا بدأ المستخدم بوتاً آخر عبر الـ API).
+كل البوتات التي تستورد is_subscribed / send_subscription_prompt من هنا
+تحصل تلقائياً على بوابة القناتين:
+    @Stick_boda  +  @ebdo_4
 
-النظام الجديد: نفس التوقيع القديم تماماً (is_subscribed / send_subscription_prompt)
-لكن التحقق يتم عبر شبكة الـ 5 بوتات وقاعدة البيانات المشتركة — كل بوت يسجل
-مستخدميه فيها، فالتحقق يصبح سؤالاً محلياً بلا قنوات وبلا صلاحيات أدمن.
+لا توجد أي بوابة "5 بوتات" بعد الآن.
 """
 import logging
+
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+try:
+    from . import gate_check
+except ImportError:  # تشغيل مباشر من داخل Bots_Folder
+    import gate_check
 
 log = logging.getLogger("utils")
 
@@ -19,76 +23,37 @@ STORE_URL = "https://t.me/BodaStoreeBot"
 
 
 def app_kb():
-    """Default keyboard with Store connection"""
+    """لوحة أزرار المتجر الافتراضية."""
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("🏪 متجر تطبيقات Boda", url=STORE_URL))
     return kb
 
 
-def _engine():
-    """تحميل محرك النمو (مرة واحدة عبر singleton)"""
-    try:
-        from growth_engine import get_growth_engine
-        return get_growth_engine()
-    except Exception as e:
-        log.error(f"تعذر تحميل محرك النمو: {e}")
-        return None
-
-
-def _current_bot_id(bot):
-    """استنتاج معرّف البوت الحالي من اليوزرنيم (مخزن مؤقتاً على الكائن)"""
-    cached = getattr(bot, "_boda_bot_id", None)
-    if cached:
-        return cached
-    try:
-        me = bot.get_me()
-        uname = (me.username or "").lower()
-        engine = _engine()
-        bot_id = ""
-        if engine:
-            for b in engine._load_registry_pool():
-                if b["username"].lstrip("@").lower() == uname:
-                    bot_id = b["id"]
-                    break
-        if not bot_id:
-            bot_id = uname
-        bot._boda_bot_id = bot_id
-        return bot_id
-    except Exception:
-        return ""
-
-
 def is_subscribed(bot, user_id):
     """
-    فحص تفعيل المستخدم في شبكة الـ 5 بوتات عبر قاعدة البيانات المشتركة.
+    فحص اشتراك المستخدم في القناتين المطلوبتين.
 
-    نفس توقيع النسخة القديمة — تعمل في كل البوتات دون أي تعديل.
-    ترجع True عند التفعيل أو عند أي خطأ (فشل مفتوح — لا نعطل البوتات).
+    نفس التوقيع القديم — تعمل في كل البوتات دون أي تعديل.
+    ترجع True عند الاشتراك أو عند عطل البنية (فشل مفتوح).
     """
-    engine = _engine()
-    if engine is None or not engine.is_enabled():
-        return True
     try:
-        allowed, _gate_text, _kb = engine.check_network_activation(
-            bot, user_id, current_bot=_current_bot_id(bot))
-        return allowed
-    except Exception as e:
-        log.error(f"خطأ فحص شبكة التفعيل: {e}")
+        return gate_check.is_subscribed(int(user_id))
+    except Exception as exc:
+        log.error("gate check error: %s", exc)
         return True
 
 
 def send_subscription_prompt(bot, chat_id):
-    """إرسال بوابة التفعيل الشخصية — البوتات الخمسة الخاصة بهذا المستخدم"""
-    engine = _engine()
-    if engine is None:
-        bot.send_message(chat_id, "⚠️ حدث خطأ تقني مؤقت، حاول مجدداً بعد قليل.")
-        return
+    """إرسال بوابة القناتين مع زر التحقق."""
     try:
-        # في المحادثات الخاصة chat_id == user_id
-        allowed, gate_text, kb = engine.check_network_activation(
-            bot, chat_id, current_bot=_current_bot_id(bot))
-        if allowed:
+        missing = gate_check.get_missing_channels(int(chat_id), use_cache=False)
+        if not missing:
             return
-        bot.send_message(chat_id, gate_text, reply_markup=kb, parse_mode="HTML")
-    except Exception as e:
-        log.error(f"خطأ إرسال بوابة التفعيل: {e}")
+        bot.send_message(
+            chat_id,
+            gate_check.gate_text(missing),
+            reply_markup=gate_check.gate_markup(missing),
+            parse_mode="HTML",
+        )
+    except Exception as exc:
+        log.error("gate prompt error: %s", exc)

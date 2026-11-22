@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+import json
 import socket
 import shutil
 import threading
@@ -134,6 +135,36 @@ def build_dashboard() -> None:
             print(f"⚠️  خطأ أثناء بناء اللوحة: {e}")
 
 
+def autostart_bots() -> None:
+    """تشغيل كل البوتات المفعلة تلقائياً بعد إقلاع الخادم (بدون تعطيل اللوحة)."""
+    if os.getenv("BODA_AUTOSTART_BOTS", "1").strip().lower() in ("0", "false", "no", "off"):
+        print("⏸️  التشغيل التلقائي للبوتات معطّل (BODA_AUTOSTART_BOTS=0).")
+        return
+
+    time.sleep(4)  # انتظر حتى يجهز خادم اللوحة
+    token = ""
+    try:
+        from control_center import config as cc
+        token = cc.local_admin_token()
+    except Exception:
+        pass
+
+    import urllib.request
+    req = urllib.request.Request(
+        "http://127.0.0.1:8080/api/v1/bots/actions/start-all",
+        data=b"{}",
+        method="POST",
+        headers={"Content-Type": "application/json", "X-API-Key": token},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "replace"))
+        started = payload.get("started", 0)
+        print(f"🤖 التشغيل التلقائي: تم تشغيل {started} بوت.")
+    except Exception as exc:
+        print(f"⚠️  تعذر التشغيل التلقائي للبوتات: {exc}")
+
+
 def open_browser_delayed(url: str, delay: float = 1.2) -> None:
     """Open browser after a short delay so the server has started."""
     def _open():
@@ -176,6 +207,9 @@ def main():
     # Schedule browser opening
     open_browser_delayed(dashboard_url, delay=1.5)
     print_banner(dashboard_url)
+
+    # تشغيل كل البوتات تلقائياً في الخلفية بعد جهوز الخادم
+    threading.Thread(target=autostart_bots, daemon=True, name="BodaAutoStart").start()
 
     # Start API server in foreground
     import api_server
