@@ -361,14 +361,6 @@ STORE_CSS = """
   background:var(--bd-bg);border-radius:12px;}
 .ads-bot h3{font-size:13px;margin:6px 0 2px;line-height:1.5;}
 .ads-bot p{font-size:10.5px;color:var(--bd-hint);line-height:1.6;margin:0;}
-.stat.ctr{color:var(--bd-brand);font-weight:800;}
-.ad-table{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:8px;}
-.ad-table .ad-card{display:flex;flex-direction:column;gap:3px;background:var(--bd-surface);
-  border:1.5px solid rgba(234,179,8,.35);border-radius:12px;padding:9px 10px;}
-.ad-table .ad-card b{font-size:12.5px;line-height:1.4;}
-.ad-table .ad-card span{font-size:10px;color:var(--bd-hint);}
-.feat-card:hover{transform:scale(1.02);}
-.app-card:hover{transform:scale(1.02);}
 .sub-card{display:flex;align-items:center;gap:10px;background:var(--bd-surface);
   border:1px solid var(--bd-brand-line);border-radius:14px;padding:12px;margin:14px 0 0;}
 .sub-card .ic{font-size:22px;flex:0 0 auto;}
@@ -404,7 +396,8 @@ const fmt=n=>{n=+n||0;return n>=1000?(n/1000).toFixed(1)+'K':n;};
 const CAT_ORDER=['daily','design','media','learn','fun','health','business'];
 
 async function boot(){
-  try{const r=await fetch('../data/stats.json');stats=await r.json();}catch(e){stats={};}
+  stats=window.__BODA_STATS__||{};
+  try{const r=await fetch('../data/stats.json');if(r.ok)stats=await r.json();}catch(e){}
   try{const r=await fetch('../data/catalog.json');APPS=await r.json();}
   catch(e){APPS=window.__BODA_CATALOG__||[];}
   if(!Array.isArray(APPS))APPS=[];
@@ -413,17 +406,10 @@ async function boot(){
   const el=id=>document.getElementById(id);
   if(el('s-apps'))el('s-apps').textContent=APPS.length;
   if(el('s-users'))el('s-users').textContent=fmt(stats.total_users||0);
-  const ads=stats.ads||{};
-  if(el('s-ads'))el('s-ads').textContent=fmt((ads.ad_bots||[]).length);
-  if(el('s-impressions'))el('s-impressions').textContent=fmt(ads.impressions||0);
   const ev=stats.events||{};
   if(el('s-opens'))el('s-opens').textContent=fmt(Object.entries(ev)
     .filter(([k])=>k.indexOf('app_open:')===0).reduce((s,x)=>s+(+x[1]||0),0));
   if(el('cat-hint'))el('cat-hint').textContent=CATS.length-1+' فئات';
-  renderAds();
-  renderAdsTable();
-  const imp=ads.impressions||0, cl=ads.clicks||0;
-  if(el('s-ctr'))el('s-ctr').textContent=imp?((cl*100/imp).toFixed(1)+'%'):'—';
   try{if(localStorage.getItem('boda_sub_dismiss')==='1')hideSub();}catch(e){}
 }
 function buildCats(){
@@ -496,40 +482,6 @@ function render(){
     '</div>';
   }).join(''):'<div class="empty">🔍 لا توجد نتائج مطابقة</div>';
   renderFeatured();
-}
-function renderAds(){
-  const box=document.getElementById('ads-list');
-  const count=document.getElementById('ads-count');
-  if(!box)return;
-  const ids=(stats.ads&&stats.ads.ad_bots)||[];
-  count.textContent=ids.length+' بوت';
-  box.innerHTML=ids.length?ids.map(id=>{
-    const a=byId(id);
-    if(!a)return '';
-    const st=(stats.bots||{})[id]||{};
-    return '<div class="ads-bot" onclick="openTg(\\''+a.url+'\\')">'+
-      '<div class="ic">'+(a.emoji||'📺')+'</div>'+
-      '<h3>'+esc(a.name)+'</h3>'+
-      '<p>'+(a.short_desc||a.description)+'<br>👥 '+(st.users?fmt(st.users)+' مستخدم':'')+'</p>'+
-    '</div>';
-  }).join(''):'<p style="color:var(--bd-hint);padding:20px 0;text-align:center;font-size:13px">📺 لا توجد بوتات تُجري الاعلانات بعد</p>';
-}
-function renderAdsTable(){
-  const box=document.getElementById('ads-table');
-  if(!box)return;
-  const ids=(stats.ads&&stats.ads.ad_bots)||[];
-  if(!ids.length){ box.innerHTML='<div class="empty">📺 لا توجد بوتات تُجري الاعلانات بعد</div>'; return; }
-  box.innerHTML=ids.map(id=>{
-    const a=byId(id);
-    if(!a)return '';
-    const st=(stats.bots||{})[id]||{};
-    const adb=(stats.ads&&stats.ads.per_bot&&stats.ads.per_bot[id])||{impressions:0,clicks:0,ctr_percent:0};
-    const ctr=adb.impressions?(adb.ctr_percent+'%'):'—';
-    return '<div class="ad-card">'+
-      '<b>'+(a.name||id)+'</b>'+
-      '<span>👥 '+(st.users?fmt(st.users):0)+' · 🚀 '+(st.active_30d?fmt(st.active_30d):0)+' · CTR '+ctr+'</span>'+
-    '</div>';
-  }).join('');
 }
 function openDetails(id){
   const a=byId(id);if(!a)return;
@@ -624,7 +576,7 @@ def build_catalog(apps: list) -> list:
     return [_catalog_entry(a) for a in visible_bots(apps)]
 
 
-def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
+def render_store(catalog: list, ads_cfg: dict, api_base: str, stats: dict | None = None) -> str:
     """Render the store mini-app page."""
     cat_count = len({a.get("category_key") for a in catalog if a.get("category_key")})
     body = f"""
@@ -637,9 +589,7 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
   <div class="stat-row">
     <div class="stat"><b id="s-apps">—</b><span>بوت</span></div>
     <div class="stat"><b id="s-users">—</b><span>مستخدم</span></div>
-    <div class="stat"><b id="s-ads">—</b><span>بوت اعلان</span></div>
-    <div class="stat"><b id="s-impressions">—</b><span>اعرضات</span></div>
-    <div class="stat ctr"><b id="s-ctr">—</b><span>CTR</span></div>
+    <div class="stat"><b id="s-opens">—</b><span>فتح تطبيق</span></div>
   </div>
 </div>
 <div class="search-wrap">
@@ -649,11 +599,6 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
 <div id="featured-sec">
   <div class="section-head"><h3>⭐ بوتات مميزة</h3><span>اختيارات فريق بودة</span></div>
   <div class="featured" id="featured"></div>
-</div>
-<div id="ads-sec">
-  <div class="section-head"><h3>📺 بوتات الاعلانات</h3><span id="ads-count"></span></div>
-  <div class="grid" id="ads-list"></div>
-  <div class="ad-table" id="ads-table"></div>
 </div>
 <div class="section-head"><h3>📂 تصفح حسب الفئة</h3><span id="cat-hint">—</span></div>
 <div class="cats" id="cats"></div>
@@ -670,6 +615,7 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
   <div class="sheet" id="sheetBody" onclick="event.stopPropagation()"></div>
 </div>"""
     catalog_json = json.dumps(catalog, ensure_ascii=False)
+    stats_json = json.dumps(stats or {}, ensure_ascii=False)
     return build_html(
         bot_id="store", emoji="🏪", title="متجر تطبيقات بودة",
         subtitle=f"{len(catalog)} بوتاً وتطبيقاً في {cat_count} فئات — بدون إعلانات",
@@ -680,7 +626,7 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
         page_url=f"{MINIAPPS_BASE}/store/" if MINIAPPS_BASE else "").replace(
         "window.__BODA_BOT_ID__   = \"store\";",
         "window.__BODA_BOT_ID__   = \"store\";\nwindow.__BODA_CATALOG__ = "
-        + catalog_json + ";")
+        + catalog_json + ";\nwindow.__BODA_STATS__ = " + stats_json + ";")
 
 
 def write_seo_files(out_dir: Path, apps: list) -> None:
@@ -814,7 +760,7 @@ def main():
     # المتجر
     (out_dir / "store").mkdir(exist_ok=True)
     (out_dir / "store" / "index.html").write_text(
-        render_store(catalog, ads_cfg, api_base), encoding="utf-8")
+        render_store(catalog, ads_cfg, api_base, stats), encoding="utf-8")
 
     # لوحة التحليلات (Control Center dashboard) — صفحة مستقلة
     try:
