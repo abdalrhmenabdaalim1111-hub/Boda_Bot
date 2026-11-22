@@ -1056,24 +1056,27 @@ renderList();
 
 APPS["alarmbot"] = dict(
     group="tools",
-    emoji="⏰", title="بوت المنبّه", subtitle="بومودورو 25 دقيقة مع تنبيه داخل تيليجرام",
+    emoji="⏰", title="المنبّه الذكي", subtitle="عدّات متعددة + Snooze ذكي + بومودورو",
     interactive=True,
     body="""
-<div class="card" style="text-align:center">
-  <div id="clock" style="font-size:56px;font-weight:800;font-variant-numeric:tabular-nums">25:00</div>
-  <div class="chips" style="justify-content:center">
-    <span class="chip active" data-m="25" onclick="pick(this)">pomodoro 25</span>
-    <span class="chip" data-m="5" onclick="pick(this)">استراحة 5</span>
-    <span class="chip" data-m="50" onclick="pick(this)">عميق 50</span>
+<div class="card">
+  <div style="display:flex;gap:8px;align-items:flex-end">
+    <div style="flex:1"><label>اسم المنبّه</label><input type="text" id="a-name" placeholder="شرب مية"></div>
+    <div style="width:92px"><label>دقائق</label><input type="number" id="a-min" value="25" min="1" max="240"></div>
   </div>
-  <button class="btn" id="start" onclick="toggle()">▶ ابدأ التركيز</button>
-  <p style="color:var(--bd-hint);font-size:12.5px;margin-top:10px" id="status">
-    عند اكتمال الوقت سيهتز التطبيق وينبّهك تلقائياً</p>
+  <div class="chips">
+    <span class="chip active" onclick="preset(25,this)">🎯 بومودورو 25</span>
+    <span class="chip" onclick="preset(5,this)">☕ استراحة 5</span>
+    <span class="chip" onclick="preset(50,this)">🧠 عميق 50</span>
+  </div>
+  <button class="btn" id="add" onclick="addAlarm()">➕ إضافة منبّه</button>
+  <h3 style="margin:14px 0 8px;font-size:14px">⏳ المنبّهات النشطة</h3>
+  <div id="alarm-list"><span class="muted">لا توجد منبّهات بعد</span></div>
+  <button class="btn ghost" id="stop-all" onclick="stopAll()">⏹ إيقاف الكل</button>
 </div>
 """,
-    js="""
-let M=25, left=M*60, iv=null;
-let uses=0;
+    js=r"""
+let alarms=[]; let uses=0;
 function loadMonetag(zoneId){
   if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
   const s=document.createElement('script');
@@ -1087,32 +1090,59 @@ function showAd(){
   loadMonetag('12322323');
   setTimeout(()=>{ try{ window.show_12322323 && window.show_12322323(); }catch(e){} }, 120);
 }
-function pick(el){ document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active'); M=+el.dataset.m; stop(); left=M*60; draw(); }
-function draw(){
-  const s=Math.floor(left%60), m=Math.floor(left/60);
-  document.getElementById('clock').textContent=
-    String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-  try{ Boda.tg.setHeaderColor(left<M*60*0.25?'bg_color':'secondary_bg_color'); }catch(e){}
+function fmt(s){const m=Math.floor(s/60),x=s%60;return String(m).padStart(2,'0')+':'+String(x).padStart(2,'0');}
+function save(){try{localStorage.setItem('boda_alarms',JSON.stringify(alarms.map(a=>({id:a.id,name:a.name,total:a.total,left:a.left}))));}catch(e){}}
+function load(){
+  try{alarms=(JSON.parse(localStorage.getItem('boda_alarms')||'[]')).map(a=>({...a,iv:null}));}catch(e){alarms=[];}
+  alarms.forEach(tickTimer); render();
 }
-function toggle(){ iv?stop():(start(),Boda.track('feature_use',{detail:'focus_'+M})); }
-function start(){
-  document.getElementById('start').textContent='⏸ إيقاف مؤقت';
-  iv=setInterval(()=>{
-    left--; draw();
-    if(left<=0){
-      stop(); Boda.haptic('heavy');
-      Boda.toast('⏰ انتهى الوقت! خد استراحة 🎉');
-      document.getElementById('status').textContent='✅ اكتملت الجلسة — شرب ميّة وقوم اتحرك!';
-      try{ Boda.tg.showAlert('⏰ انتهى وقت التركيز! أحسنت 👏'); }catch(e){}
+function preset(m,el){document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); document.getElementById('a-min').value=m;}
+function addAlarm(){
+  const name=document.getElementById('a-name').value.trim()||'منبّه';
+  const min=Math.max(1,Math.min(240,+document.getElementById('a-min').value||25));
+  loadMonetag('12322323');
+  alarms.push({id:Date.now(),name:name,total:min*60,left:min*60,iv:null});
+  document.getElementById('a-name').value='';
+  save(); tickTimer(alarms[alarms.length-1]); render();
+  Boda.haptic('success'); Boda.track('feature_use',{detail:'alarm_add'});
+}
+function tickTimer(a){
+  if(a.iv) clearInterval(a.iv);
+  a.iv=setInterval(function(){
+    a.left--; render();
+    if(a.left<=0){
+      clearInterval(a.iv); a.iv=null;
+      Boda.haptic('heavy'); Boda.toast('⏰ '+a.name+' — انتهى الوقت!');
+      try{Boda.tg.showAlert('⏰ '+a.name+' — أحسنت! خد استراحة 💧');}catch(e){}
       uses++;
-      if(uses%2===0){ Boda.track('ad_show',{detail:'alarmbot_interstitial', uses:uses}); showAd(); }
+      if(uses%2===0){Boda.track('ad_show',{detail:'alarmbot_interstitial',uses:uses});showAd();}
+      const idx=alarms.indexOf(a); if(idx>=0)alarms.splice(idx,1);
+      save(); render();
     }
   },1000);
 }
-function stop(){ if(iv) clearInterval(iv); iv=null;
-  document.getElementById('start').textContent='▶ ابدأ التركيز'; }
-draw();
+function snooze(id,a){
+  const min=+a.dataset.m||5; const x=alarms.find(v=>v.id===id); if(!x)return;
+  x.left=Math.min(x.total, x.left+min*60); tickTimer(x); save(); render();
+  Boda.toast('💤 Snooze +'+min+' دقيقة'); Boda.track('feature_use',{detail:'snooze_'+min});
+}
+function removeAlarm(id){
+  const x=alarms.find(v=>v.id===id); if(x&&x.iv)clearInterval(x.iv);
+  alarms=alarms.filter(v=>v.id!==id); save(); render();
+}
+function stopAll(){alarms.forEach(a=>{if(a.iv)clearInterval(a.iv);a.iv=null;});render();}
+function render(){
+  const box=document.getElementById('alarm-list'); if(!box)return;
+  box.innerHTML=alarms.length?alarms.map(a=>
+    '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:10px;background:var(--surface2);margin-bottom:6px">'+
+      '<div style="flex:1"><b>'+esc(a.name)+'</b><div class="muted" style="font-size:11px">'+fmt(a.left)+' متبقية</div></div>'+
+      '<button class="btn small" onclick="snooze('+a.id+',this)" data-m="5">💤 5د</button>'+
+      '<button class="btn small ghost" onclick="removeAlarm('+a.id+')">🗑</button>'+
+    '</div>').join(''):'<span class="muted">لا توجد منبّهات بعد</span>';
+}
+function esc(s){return String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+load();
 """,
 )
 
@@ -1381,6 +1411,7 @@ APPS["cvbuilder"] = dict(
   <textarea id="skills" style="min-height:70px">JavaScript
 React
 تصميم UI</textarea>
+    <button type="button" class="btn secondary" onclick="suggestSkills()">✨ اقترح مهارات (AI محلي)</button>
   <label>أحدث خبرة</label>
   <input type="text" id="exp" placeholder="شركة X — 2022 حتى الآن">
   <button class="btn" onclick="build()">💼 توليد السيرة</button>
@@ -1401,6 +1432,17 @@ function loadMonetag(zoneId){
 function showAd(){
   loadMonetag('12322249');
   setTimeout(()=>{ try{ window.show_12322249 && window.show_12322249(); }catch(e){} }, 120);
+}
+function suggestSkills(){
+  if(!window.Boda || !Boda.aiSuggest) return Boda.toast('⚠️ المساعد غير متاح');
+  const sum=document.getElementById('sum').value.trim();
+  const list=Boda.aiSuggest('skills',sum);
+  const box=document.getElementById('skills');
+  const cur=box.value.split('\\n').map(x=>x.trim()).filter(Boolean);
+  list.forEach(function(x){if(cur.indexOf(x)<0)cur.push(x);});
+  box.value=cur.slice(0,8).join('\\n');
+  Boda.haptic('success'); Boda.toast('✨ تم اقتراح مهارات إضافية');
+  Boda.track('feature_use',{detail:'ai_skills'});
 }
 function build(){
   loadMonetag('12322249');

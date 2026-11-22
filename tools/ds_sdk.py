@@ -252,12 +252,32 @@ SDK_JS = r"""
       document.body.appendChild(el);
 
       function show() {
+        if (el._shown) return;
+        el._shown = true;
         el.classList.add('show');
         var h = el.offsetHeight || 52;
         document.documentElement.style.setProperty('--bd-banner-h', h + 'px');
         track('ad_view', { placement: 'banner', format: 'fixed_bottom' });
       }
-      setTimeout(show, 700);
+      function hide() {
+        if (!el._shown) return;
+        el._shown = false;
+        el.classList.remove('show');
+        document.documentElement.style.setProperty('--bd-banner-h', '0px');
+      }
+      /* البانر يظهر فقط عندما يكون التطبيق ظاهراً فعلياً — يوفر النفاذ */
+      try {
+        if ('IntersectionObserver' in window) {
+          var target = document.getElementById('app') || document.body;
+          var io = new IntersectionObserver(function (entries) {
+            if (entries.some(function (e) { return e.isIntersecting; })) show(); else hide();
+          }, { threshold: 0.05 });
+          io.observe(target);
+        }
+      } catch (e) {}
+      setTimeout(function () {
+        if (!document.hidden || !('IntersectionObserver' in window)) show();
+      }, 700);
 
       el.querySelectorAll('a').forEach(function (a) {
         a.addEventListener('click', function () {
@@ -558,7 +578,18 @@ SDK_JS = r"""
     else fn();
   }
 
+  /* اقتراحات محلية بسيطة (بلا خادم/مفتاح) — تعمل دون اتصال */
+  function aiSuggest(kind, text) {
+    var t = String(text || '').toLowerCase();
+    var skills = ['التواصل','العمل الجماعي','حل المشكلات','إدارة الوقت','الكتابة','التحليل','القيادة','اللغة الإنجليزية'];
+    if (t.indexOf('بيانات') >= 0 || t.indexOf('data') >= 0) skills.unshift('تحليل البيانات','Excel','SQL');
+    if (t.indexOf('برمج') >= 0 || t.indexOf('dev') >= 0) skills.unshift('JavaScript','Git','Testing');
+    if (t.indexOf('تصميم') >= 0 || t.indexOf('design') >= 0) skills.unshift('Figma','UI/UX');
+    return (kind === 'skills') ? skills.slice(0, 5) : skills.slice(0, 3);
+  }
+
   window.Boda = {
+    aiSuggest: aiSuggest,
     track: track, api: api, toast: toast, haptic: haptic, copy: copy, share: share,
     getUser: getUser, initData: initData, ready: ready, tg: tg,
     isTelegram: isTelegram,

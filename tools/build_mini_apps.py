@@ -13,6 +13,7 @@ tools/build_mini_apps.py — مولّد التطبيقات المصغّرة وا
 """
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -256,6 +257,31 @@ def landing_body(app: dict, username: str) -> tuple[str, str]:
     return body, js
 
 
+# ── تحسينات البناء: lazy images + CSS minify ───────────────────────────────────
+def lazy_images(html: str) -> str:
+    """أضف loading="lazy" لكل <img> خارج أقسام <script> (بأمان)."""
+    parts = re.split(r"(<script[\s\S]*?</script>)", html)
+    for i in range(0, len(parts), 2):
+        seg = parts[i]
+        seg = re.sub(r"<img\s+", '<img loading="lazy" decoding="async" ', seg)
+        # تجنّب تكرار السمة إن وُجدت مسبقاً
+        seg = seg.replace('loading="lazy" decoding="async" loading="lazy"', 'loading="lazy" decoding="async"')
+        parts[i] = seg
+    return "".join(parts)
+
+
+def minify_html(html: str) -> str:
+    """إزالة تعليقات HTML وتضغير CSS فقط (JS يُترك كما هو لتفادي الكسر)."""
+    html = re.sub(r"<!--\s*(?!AD:)[\s\S]*?-->", "", html)
+    def _css(m):
+        css = m.group(1)
+        css = re.sub(r"/\*[\s\S]*?\*/", "", css)
+        css = re.sub(r"\s+", " ", css)
+        css = re.sub(r"\s*([{}:;,])\s*", r"\1", css)
+        return "<style>" + css + "</style>"
+    return re.sub(r"<style>([\s\S]*?)</style>", _css, html)
+
+
 # ── بناء صفحة تطبيق واحد ─────────────────────────────────────────────────────
 def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
     """Render a single app page."""
@@ -275,14 +301,14 @@ def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
         subtitle = app.get("short_desc", "تطبيق مصغّر داخل تيليجرام")
 
     share = f"https://t.me/{username}"
-    return build_html(
+    return minify_html(lazy_images(build_html(
         bot_id=bot_id, emoji=app.get("emoji", "🤖"),
         title=title, subtitle=subtitle,
         body_html=body, app_js=js, app_css=css,
         api_base=api_base, ads_cfg=ads_cfg,
         share_url=share, back_url="../store/",
         group=app.get("tag", ""),
-        page_url=f"{MINIAPPS_BASE}/{bot_id}/" if MINIAPPS_BASE else "")
+        page_url=f"{MINIAPPS_BASE}/{bot_id}/" if MINIAPPS_BASE else "")))
 
 
 # ── المتجر كتطبيق مصغّر ──────────────────────────────────────────────────────
@@ -402,7 +428,7 @@ async function boot(){
   catch(e){APPS=window.__BODA_CATALOG__||[];}
   if(!Array.isArray(APPS))APPS=[];
   APPS.sort((a,b)=>(a.order||9999)-(b.order||9999));
-  buildCats();render();
+  buildCats();render();renderTop();
   const el=id=>document.getElementById(id);
   if(el('s-apps'))el('s-apps').textContent=APPS.length;
   if(el('s-users'))el('s-users').textContent=fmt(stats.total_users||0);
@@ -411,6 +437,25 @@ async function boot(){
     .filter(([k])=>k.indexOf('app_open:')===0).reduce((s,x)=>s+(+x[1]||0),0));
   if(el('cat-hint'))el('cat-hint').textContent=CATS.length-1+' فئات';
   try{if(localStorage.getItem('boda_sub_dismiss')==='1')hideSub();}catch(e){}
+}
+function renderTop(){
+  const box=document.getElementById('top-list');
+  if(!box)return;
+  const scored=APPS.map(function(a){
+    const st=(stats.bots||{})[a.id]||{};
+    const uses=+st.uses||0, active=+st.active_30d||0, users=+st.users||0;
+    return {a:a, s:uses*2+active*3+users};
+  }).filter(function(x){return x.s>0;}).sort(function(x,y){return y.s-x.s;}).slice(0,6);
+  if(!scored.length){ box.innerHTML='<div class="empty">🔥 سيظهر الأكثر استخداماً بعد أول استخدام</div>'; return; }
+  box.innerHTML=scored.map(function(x){
+    const a=x.a, st=(stats.bots||{})[a.id]||{};
+    return '<div class="app-card" onclick="openDetails(\''+a.id+'\')">'+
+      '<div class="top"><div class="ic">'+(a.emoji||'🤖')+'</div>'+
+      '<span class="cat-tag">🔥 '+(st.uses?fmt(st.uses)+' استخدام':'')+'</span></div>'+
+      '<h3>'+esc(a.name)+'</h3><p>'+esc(a.short_desc||a.description)+'</p>'+
+      '<div class="meta">👥 '+(st.users?fmt(st.users):'—')+(st.active_30d?' · 🔥 '+fmt(st.active_30d)+' نشط':'')+'</div>'+
+    '</div>';
+  }).join('');
 }
 function buildCats(){
   const map=new Map();
@@ -431,6 +476,13 @@ function setCat(k,el){
   if(el)el.classList.add('active');
   Boda.haptic('select');Boda.track('store_cat',{detail:k});
   render();
+}
+function cycleCat(dir){
+  const i=CATS.findIndex(c=>c.key===cat);
+  const n=(i+dir+CATS.length)%CATS.length;
+  const k=CATS[n].key;
+  setCat(k,null);
+  document.querySelectorAll('.cat').forEach(function(x,idx){if(idx===n)x.classList.add('active');});
 }
 function renderFeatured(){
   const sec=document.getElementById('featured-sec'),box=document.getElementById('featured');
@@ -540,6 +592,18 @@ document.addEventListener('DOMContentLoaded',function(){
     clearTimeout(_searchTimer);
     _searchTimer=setTimeout(render,120);
   });
+  /* Swipe to Next — التنقل بين الفئات بإيماءة على الجوال */
+  const cats=document.getElementById('cats');
+  if(cats){{
+    let x0=null;
+    cats.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;},{passive:true});
+    cats.addEventListener('touchend',function(e){
+      if(x0===null)return;
+      const dx=(e.changedTouches[0].clientX-x0);
+      if(Math.abs(dx)>50)cycleCat(dx<0?1:-1);
+      x0=null;
+    },{passive:true});
+  }}
 });
 boot();
 """
@@ -599,6 +663,10 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str, stats: dict | None
 <div id="featured-sec">
   <div class="section-head"><h3>⭐ بوتات مميزة</h3><span>اختيارات فريق بودة</span></div>
   <div class="featured" id="featured"></div>
+</div>
+<div id="top-sec">
+  <div class="section-head"><h3>🔥 الأكثر استخداماً</h3><span>حسب الفتح والنشاط</span></div>
+  <div class="grid" id="top-list"></div>
 </div>
 <div class="section-head"><h3>📂 تصفح حسب الفئة</h3><span id="cat-hint">—</span></div>
 <div class="cats" id="cats"></div>

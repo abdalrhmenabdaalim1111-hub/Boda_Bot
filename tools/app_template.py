@@ -35,6 +35,14 @@ body.boda-app{padding-bottom:calc(var(--bd-banner-h, 0px) + 6px);}
 .ad-banner{background:color-mix(in srgb,var(--bd-surface) 96%,transparent);}
 .ad-banner .ad-text{font-size:12px;line-height:1.7;}
 .ad-banner .ad-text a{color:var(--bd-link);font-weight:800;text-decoration:none;}
+/* وميض قصير قبل إعلان الفيديو (Flashing Ads) */
+body.ad-flash::after{content:"";position:fixed;inset:0;z-index:180;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,255,255,.85),rgba(234,179,8,.35) 60%,transparent 75%);
+  animation:bd-adflash .28s ease-out both;}
+@keyframes bd-adflash{0%{opacity:0}35%{opacity:1}100%{opacity:0}}
+#recent-apps{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:6px 0 10px;}
+#recent-apps .recent{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;
+  background:var(--bd-surface-2);color:var(--bd-text);font-size:10.5px;text-decoration:none;}
 """
 
 
@@ -117,6 +125,7 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
   </main>
 
   <footer class="app-footer">
+    <div id="recent-apps" aria-label="آخر التطبيقات المستخدمة"></div>
     <div class="footer-links">
       <button type="button" class="footer-link" onclick="{share_attr}">📤 مشاركة</button>
       <a class="footer-link" href="https://t.me/BodaStoreeBot">💬 الدعم</a>
@@ -135,6 +144,30 @@ window.__BODA_ADS__      = {ads_json};
 </script>
 <script>{SDK_JS}</script>
 <script>{app_js}</script>
+<script>
+/* Flashing Ads + Recent Actions — مشترك لكل التطبيقات */
+(function(){{
+  try{{
+    if(typeof window.showAd==='function'){{
+      var _ad=window.showAd;
+      window.showAd=function(){{
+        document.body.classList.add('ad-flash');
+        setTimeout(function(){{ document.body.classList.remove('ad-flash'); try{{ _ad(); }}catch(e){{}} }}, 260);
+      }};
+    }}
+  }}catch(e){{}}
+  try{{
+    var key='boda_recent_apps', cur=window.__BODA_BOT_ID__||'{bot_id}';
+    var arr=JSON.parse(localStorage.getItem(key)||'[]').filter(function(x){{return x!==cur;}});
+    arr.unshift(cur); localStorage.setItem(key, JSON.stringify(arr.slice(0,4)));
+    var box=document.getElementById('recent-apps');
+    if(box && arr.length>1){{
+      box.innerHTML='<span style="color:var(--hint);font-size:10px">آخر التطبيقات:</span>'+
+        arr.slice(1,4).map(function(id){{return '<a class="recent" href="../'+id+'/">'+id+'</a>';}}).join('');
+    }}
+  }}catch(e){{}}
+}})();
+</script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>
 </body>
 </html>"""

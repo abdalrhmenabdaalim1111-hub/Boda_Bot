@@ -502,6 +502,61 @@ MIGRATIONS: tuple = (
             "PRAGMA foreign_keys=ON",
         ),
     ),
+    # ── Phase 3.1: Internal Promotion System ──────────────────────────────────
+    Migration(
+        version=8,
+        name="internal_promotion_system",
+        up=(
+            # ── Promo Campaigns ───────────────────────────────────────────────────
+            """
+            CREATE TABLE IF NOT EXISTS promo_campaigns (
+                id INTEGER PRIMARY KEY,
+                target_bot TEXT NOT NULL,
+                text_ar TEXT NOT NULL,
+                icon TEXT,
+                weight INTEGER DEFAULT 1,
+                enabled INTEGER DEFAULT 1,
+                starts_at TEXT,
+                ends_at TEXT,
+                category TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_promo_campaigns_target ON promo_campaigns(target_bot)",
+            "CREATE INDEX IF NOT EXISTS idx_promo_campaigns_enabled ON promo_campaigns(enabled)",
+            "CREATE INDEX IF NOT EXISTS idx_promo_campaigns_category ON promo_campaigns(category)",
+            
+            # ── Promo Events ─────────────────────────────────────────────────────
+            """
+            CREATE TABLE IF NOT EXISTS promo_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT DEFAULT CURRENT_TIMESTAMP,
+                source_bot TEXT,
+                campaign_id INTEGER,
+                user_hash TEXT,
+                kind TEXT CHECK(kind IN ('impression', 'click', 'start')),
+                session_id TEXT,
+                FOREIGN KEY (campaign_id) REFERENCES promo_campaigns(id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_promo_events_campaign ON promo_events(campaign_id, kind, ts)",
+            "CREATE INDEX IF NOT EXISTS idx_promo_events_source ON promo_events(source_bot, kind, ts)",
+            "CREATE INDEX IF NOT EXISTS idx_promo_events_user ON promo_events(user_hash, kind, ts)",
+            "CREATE INDEX IF NOT EXISTS idx_promo_events_session ON promo_events(session_id, kind, ts)",
+        ),
+        down=(
+            "DROP INDEX IF EXISTS idx_promo_events_session",
+            "DROP INDEX IF EXISTS idx_promo_events_user",
+            "DROP INDEX IF EXISTS idx_promo_events_source",
+            "DROP INDEX IF EXISTS idx_promo_events_campaign",
+            "DROP TABLE IF EXISTS promo_events",
+            "DROP INDEX IF EXISTS idx_promo_campaigns_category",
+            "DROP INDEX IF EXISTS idx_promo_campaigns_enabled",
+            "DROP INDEX IF EXISTS idx_promo_campaigns_target",
+            "DROP TABLE IF EXISTS promo_campaigns",
+        ),
+    ),
 
 )
 # ─────────────────────────────────────────────────────────────────────────────

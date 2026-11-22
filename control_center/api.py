@@ -32,7 +32,7 @@ import os
 import time
 from datetime import datetime
 
-from . import audit, ads, botconfig, config, crypto, db, migrations, store, gate
+from . import audit, ads, botconfig, config, crypto, db, migrations, store, gate, promo
 from .auth import authorize
 from .http import Response, Router, SSESession, redact_secrets
 from .ads import parser, model, resolver, injector, validator
@@ -2130,7 +2130,294 @@ def register_routes(router: Router) -> Router:
     router.get("/api/v1/ads/stats", ads_stats_api,
                summary="Ad statistics", roles=("admin",))
 
+    # ════════════════════════════════════════════════════════════════════════
+    # Internal Promotion System API
+    # ════════════════════════════════════════════════════════════════════════
+    router.get("/api/v1/promo/campaigns", promo_campaigns_list_api,
+               summary="List promotion campaigns", roles=("admin",))
+    router.post("/api/v1/promo/campaigns", promo_campaigns_create_api,
+                summary="Create promotion campaign", roles=("admin",))
+    router.patch("/api/v1/promo/campaigns/<int:campaign_id>", promo_campaigns_update_api,
+                 summary="Update promotion campaign", roles=("admin",))
+    router.delete("/api/v1/promo/campaigns/<int:campaign_id>", promo_campaigns_delete_api,
+                  summary="Delete promotion campaign", roles=("admin",))
+    router.get("/api/v1/promo/campaigns/<int:campaign_id>/stats", promo_campaigns_stats_api,
+               summary="Campaign statistics", roles=("admin",))
+    router.get("/api/v1/promo/campaigns/<int:campaign_id>/heatmap", promo_campaigns_heatmap_api,
+               summary="Campaign heatmap (bot-to-bot referrals)", roles=("admin",))
+    router.get("/api/v1/promo/stats", promo_stats_api,
+               summary="Global promotion statistics", roles=("admin",))
+    router.get("/api/v1/promo/recommendations", promo_recommendations_api,
+               summary="Get campaign recommendations", roles=("admin",))
+
+    # Public API endpoints (no authentication required for mini apps)
+    router.get("/api/promo", promo_get_for_user_api,
+               summary="Get promotion for user (mini app)")
+    router.post("/api/promo/event", promo_record_event_api,
+                summary="Record promo event (mini app)")
+    router.get("/api/promo/stats", promo_public_stats_api,
+               summary="Public promo statistics (mini app)")
+
     return router
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Promo System API Handlers
+# ════════════════════════════════════════════════════════════════════════
+
+def promo_campaigns_list_api(request) -> Response:
+    """List all promotion campaigns."""
+    campaigns = promo.list_promo_campaigns()
+    return _ok({"ok": True, "campaigns": campaigns})
+
+
+def promo_campaigns_create_api(request) -> Response:
+    """Create a new promotion campaign."""
+    denied = _guard(request, roles=("admin",))
+    if denied:
+        return denied
+
+    target_bot = request.param("target_bot")
+    text_ar = request.param("text_ar")
+    icon = request.param("icon")
+    weight = request.param("weight", 1)
+    category = request.param("category")
+
+    result = promo.create_promo_campaign(
+        target_bot=target_bot,
+        text_ar=text_ar,
+        icon=icon,
+        weight=int(weight),
+        category=category
+    )
+
+    if not result.get("success"):
+        return _err(result.get("error", "Failed to create campaign"), status=400)
+
+    _audit(request, "promo.create", "campaign", target_bot, {"text_ar": text_ar})
+    return _ok(result)
+
+
+def promo_campaigns_update_api(request) -> Response:
+    """Update a promotion campaign."""
+    denied = _guard(request, roles=("admin",))
+    if denied:
+        return denied
+
+    campaign_id = request.param("campaign_id")
+    updates = {}
+
+    # Parse update fields
+    allowed_fields = ["target_bot", "text_ar", "icon", "weight", "enabled", "starts_at", "ends_at", "category"]
+    for field in allowed_fields:
+        value = request.param(field, None)
+        if value is not None:
+            updates[field] = value
+
+    result = promo.update_promo_campaign(campaign_id, **updates)
+
+    if not result.get("success"):
+        return _err(result.get("error", "Failed to update campaign"), status=400)
+
+    _audit(request, "promo.update", "campaign", str(campaign_id), updates)
+    return _ok(result)
+
+
+def promo_campaigns_delete_api(request) -> Response:
+    """Delete a promotion campaign."""
+    denied = _guard(request, roles=("admin",))
+    if denied:
+        return denied
+
+    campaign_id = request.param("campaign_id")
+    result = promo.update_promo_campaign(campaign_id, enabled=False)  # Soft delete
+
+    if not result.get("success"):
+        return _err(result.get("error", "Failed to delete campaign"), status=400)
+
+    _audit(request, "promo.delete", "campaign", str(campaign_id))
+    return _ok(result)
+
+
+def promo_campaigns_stats_api(request) -> Response:
+    """Get statistics for a specific campaign."""
+    denied = _guard(request, roles=("admin",))
+    if denied:
+        return denied
+
+    campaign_id = request.param("campaign_id", 0, cast=int)
+    days = request.param("days", 7, cast=int)
+
+    stats = promo.get_promo_stats(campaign_id=campaign_id, days=days)
+    return _ok({"ok": True, "stats": stats})
+
+
+def promo_campaigns_heatmap_api(request) -> Response:
+    """Get heatmap data for a campaign (bot-to-bot referrals)."""
+    denied = _guard(request, roles=("admin",))
+    if denied:
+        return denied
+
+    campaign_id = request.param("campaign_id", 0, cast=int)
+    days = request.param("days", 7, cast=int)
+
+    # Get all source bots for this campaign
+    conn = db.connect()
+    try:
+        source_rows = conn.execute("""
+            SELECT DISTINCT source_bot, COUNT(*) as count
+            FROM promo_events
+            WHERE campaign_id = ? AND kind = 'start'
+            AND ts >= datetime('now', '-{days} days')
+            GROUP BY source_bot
+            ORDER BY count DESC
+        """, (campaign_id, days)).fetchall()
+
+        heatmap = [
+            {"source_bot": row[0], "referrals": row[1]}
+            for row in source_rows
+        ]
+
+        return _ok({"ok": True, "heatmap": heatmap})
+    finally:
+        conn.close()
+
+
+def promo_stats_api(request) -> Response:
+    """Get global promotion statistics."""
+    denied = _guard(request, roles=("admin",))
+    if denied:
+        return denied
+
+    days = request.param("days", 7, cast=int)
+
+    conn = db.connect()
+    try:
+        # Get all campaigns
+        campaigns = promo.list_promo_campaigns()
+
+        # Calculate stats per campaign
+        stats_per_campaign = []
+        for campaign in campaigns:
+            if campaign["enabled"]:
+                stats = promo.get_promo_stats(
+                    campaign_id=campaign["id"],
+                    days=days
+                )
+                stats_per_campaign.append({
+                    "campaign_id": campaign["id"],
+                    "target_bot": campaign["target_bot"],
+                    "text_ar": campaign["text_ar"][:50] + "...",
+                    "stats": stats
+                })
+
+        return _ok({
+            "ok": True,
+            "period_days": days,
+            "campaigns_count": len(campaigns),
+            "active_campaigns": len(stats_per_campaign),
+            "campaigns": stats_per_campaign
+        })
+    finally:
+        conn.close()
+
+
+def promo_recommendations_api(request) -> Response:
+    """Get AI-powered campaign recommendations."""
+    denied = _guard(request, roles=("admin",))
+    if denied:
+        return denied
+
+    days = request.param("days", 7, cast=int)
+
+    # Analyze top performers
+    conn = db.connect()
+    try:
+        # Find campaigns with high CTR
+        top_campaigns = conn.execute("""
+            SELECT c.id, c.target_bot, c.text_ar, COUNT(*) as impressions,
+                   SUM(CASE WHEN e.kind = 'click' THEN 1 ELSE 0 END) as clicks
+            FROM promo_campaigns c
+            LEFT JOIN promo_events e ON e.campaign_id = c.id
+            WHERE c.enabled = 1
+            AND (c.starts_at IS NULL OR c.starts_at <= datetime('now'))
+            AND (c.ends_at IS NULL OR c.ends_at >= datetime('now'))
+            AND e.ts >= datetime('now', '-{days} days')
+            GROUP BY c.id
+            ORDER BY clicks DESC
+            LIMIT 5
+        """, (days,)).fetchall()
+
+        recommendations = []
+        for row in top_campaigns:
+            if row[3] > 0:
+                ctr = (row[4] / row[3]) * 100
+                recommendations.append({
+                    "campaign_id": row[0],
+                    "target_bot": row[1],
+                    "text_ar": row[2],
+                    "impressions": row[3],
+                    "clicks": row[4],
+                    "ctr_percent": round(ctr, 2),
+                    "reason": "High CTR - keep running"
+                })
+
+        return _ok({"ok": True, "recommendations": recommendations})
+    finally:
+        conn.close()
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Public API Handlers (Mini Apps)
+# ════════════════════════════════════════════════════════════════════════
+
+def promo_get_for_user_api(request) -> Response:
+    """Get promotion for user (no auth required)."""
+    source_bot = request.param("bot")
+    user_id = request.param("uid", 0, cast=int)
+
+    if not source_bot or user_id == 0:
+        return _err("Missing bot or user_id", status=400)
+
+    result = promo.get_promo_for_user(source_bot, user_id)
+    return _ok(result)
+
+
+def promo_record_event_api(request) -> Response:
+    """Record promo event (no auth required)."""
+    source_bot = request.param("bot")
+    campaign_id = request.param("campaign", 0, cast=int)
+    kind = request.param("kind")
+    user_id = request.param("user_id", 0, cast=int)
+    session_id = request.param("session_id", "")
+
+    if not source_bot or not kind or user_id == 0:
+        return _err("Missing required parameters", status=400)
+
+    if kind not in ("impression", "click", "start"):
+        return _err("Invalid kind. Use: impression, click, start", status=400)
+
+    success = promo.record_promo_event(
+        source_bot=source_bot,
+        campaign_id=campaign_id,
+        user_id=user_id,
+        kind=kind,
+        session_id=session_id
+    )
+
+    return _ok({"ok": success})
+
+
+def promo_public_stats_api(request) -> Response:
+    """Public promo statistics (no auth required)."""
+    # Only show aggregate stats, not per-campaign details
+    days = request.param("days", 7, cast=int)
+
+    stats = promo.get_promo_stats(days=days)
+    return _ok({
+        "ok": True,
+        "stats": stats
+    })
 
 
 ROUTER = register_routes(ROUTER)

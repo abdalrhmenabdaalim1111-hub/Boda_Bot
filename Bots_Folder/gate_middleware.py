@@ -67,14 +67,7 @@ class GateMiddleware:
 
     def show_gate(self, chat_id: int, missing: List[Dict[str, str]], lang: str = "ar"):
         """إرسال رسالة الاشتراك مع أزرار القناتين وزر التحقق."""
-        if lang.startswith("ar"):
-            text = gate_check.gate_text(missing)
-        else:
-            lines = ["⚠️ <b>Subscribe to both channels to use this bot:</b>", ""]
-            for i, channel in enumerate(missing, start=1):
-                lines.append(f"{i}. {channel['title']} — @{channel['username']}")
-            lines += ["", "Then press <b>Verify Subscription</b> ✅"]
-            text = "\n".join(lines)
+        text = gate_check.gate_text(missing, lang)
 
         self.bot.send_message(
             chat_id,

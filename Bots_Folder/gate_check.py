@@ -127,19 +127,25 @@ def invalidate(user_id: int) -> None:
         _cache.pop(user_id, None)
 
 
-def gate_text(missing: List[Dict[str, str]]) -> str:
-    """Generate the gate message text."""
-    lines = [
-        "🔐 <b>أنت لست مشتركاً بالقناتين المطلوبتين:</b>",
-        "",
-    ]
+def gate_text(missing: List[Dict[str, str]], lang: str = "ar") -> str:
+    """رسالة البوابة بلغة المستخدم (عربي / إنجليزي / فرنسي)."""
+    head = {
+        "ar": "🔐 <b>أنت لست مشتركاً بالقناتين المطلوبتين:</b>",
+        "en": "🔐 <b>You must join both required channels:</b>",
+        "fr": "🔐 <b>Vous devez rejoindre les deux canaux requis :</b>",
+    }.get(lang[:2], "🔐 <b>أنت لست مشتركاً بالقناتين المطلوبتين:</b>")
+    tail = {
+        "ar": ["اشترك ثم اضغط <b>«تحقق من الاشتراك»</b> لفتح كل البوتات ✅",
+               "⏳ سنُعيد الفحص فوراً بعد التحقق."],
+        "en": ["Join then tap <b>«Verify Subscription»</b> to unlock all bots ✅",
+               "⏳ We re-check instantly after verification."],
+        "fr": ["Rejoignez puis appuyez sur <b>«Vérifier»</b> pour débloquer les bots ✅",
+               "⏳ Nouvelle vérification immédiate après validation."],
+    }.get(lang[:2], ["اشترك ثم اضغط <b>«تحقق من الاشتراك»</b> لفتح كل البوتات ✅"])
+    lines = [head, ""]
     for i, channel in enumerate(missing, start=1):
         lines.append(f"{i}️⃣ <b>{channel['title']}</b> — @{channel['username']}")
-    lines += [
-        "",
-        "اشترك ثم اضغط <b>«تحقق من الاشتراك»</b> لفتح كل البوتات ✅",
-        "⏳ سنُعيد الفحص فوراً بعد التحقق.",
-    ]
+    lines += [""] + tail
     return "\n".join(lines)
 
 
