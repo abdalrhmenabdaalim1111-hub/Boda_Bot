@@ -113,6 +113,35 @@ DASHBOARD_CSS = """
   .token-preview { font-family:monospace; direction:ltr; background:#0a0e14; padding:8px 12px;
                    border-radius:8px; color:#54a0ff; font-size:12px; border:1px solid var(--border); }
 
+  /* ── Ad Studio Modern CSS ── */
+  .studio-grid { display:grid; grid-template-columns:1.25fr 1fr; gap:16px; align-items:start; }
+  @media (max-width:960px) { .studio-grid { grid-template-columns:1fr; } }
+  .studio-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px; box-shadow:0 2px 12px rgba(0,0,0,.15); }
+  .studio-card h3 { font-size:15px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .studio-badges { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+  .badge-item { display:inline-flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); padding:6px 12px; border-radius:8px; font-size:12px; }
+  .badge-item .lbl { color:var(--hint); font-size:11px; }
+  .badge-item .val { font-weight:700; font-family:monospace; direction:ltr; }
+  .diff-box { background:#0a0e14; color:#dcdfe4; font-family:Consolas, Monaco, "Courier New", monospace; font-size:12px; line-height:1.5; padding:14px; border-radius:10px; border:1px solid var(--border); overflow-x:auto; max-height:360px; direction:ltr; text-align:left; white-space:pre-wrap; word-break:break-all; }
+  .diff-add { color:#2ecc71; background:rgba(46,204,113,.12); display:block; padding:1px 4px; border-radius:3px; }
+  .diff-del { color:#ff5c5c; background:rgba(255,92,92,.12); display:block; padding:1px 4px; border-radius:3px; }
+  .diff-hdr { color:#54a0ff; font-weight:700; display:block; padding:2px 4px; }
+  .studio-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
+  .studio-actions .primary { background:var(--ok); color:#111; font-weight:700; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:13px; }
+  .studio-actions .primary:hover { opacity:.9; }
+  .studio-actions .btn-stop { background:rgba(255,92,92,.18); color:var(--err); border:1px solid rgba(255,92,92,.4); font-weight:700; padding:9px 16px; border-radius:8px; cursor:pointer; font-size:13px; }
+  .studio-actions .btn-publish { background:linear-gradient(90deg, #4d94ff, #2ecc71); color:#fff; font-weight:700; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:13px; }
+  .studio-actions .btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); padding:9px 16px; border-radius:8px; cursor:pointer; font-size:13px; }
+  .studio-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .studio-table th { text-align:right; padding:8px 10px; border-bottom:1px solid var(--border); background:var(--surface2); color:var(--hint); font-size:11px; }
+  .studio-table td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .studio-table tr:hover { background:rgba(255,255,255,.02); }
+  .soft-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-top:8px; }
+  .backup-item { display:flex; justify-content:space-between; align-items:center; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 12px; margin-bottom:6px; font-size:11.5px; }
+  .backup-item .info { display:flex; flex-direction:column; }
+  .backup-item .ts { font-weight:700; }
+  .backup-item .sz { color:var(--hint); font-size:10.5px; }
+
   /* ── Existing Ads CSS ── */
   .ads-grid { display:grid; grid-template-columns:1.05fr 1.25fr; gap:14px; }
   @media (max-width:900px) { .ads-grid { grid-template-columns:1fr; } }
@@ -272,67 +301,174 @@ BOTS_HTML = """
 
 ADS_HTML = """
 <div id="tab-ads" class="hide">
-  <div class="note">
-    <b>Ad Studio:</b> لصق شفرة Monetag الخام، إدارتها في المكتبة، وتعيينها للبوتات أو التصنيفات.
+  <!-- Note / Overview Banner -->
+  <div class="note" style="margin-bottom:16px;">
+    <b>📢 استوديو الإعلانات الذكي (Ad Studio):</b> 
+    الصق شفرة Monetag الخام، سيتم استخراج المعرّفات تلقائياً بدون تعديل النص، يمكنك معاينة الفروقات (Diff) بدقة في ملف التطبيق المصغّر (Mini App)، تطبيقه مع نسخ احتياطي فوري، التراجع بنقرة زر، أو النشر المباشر إلى GitHub Pages.
   </div>
-  <div class="ads-grid">
-    <div class="panel">
-      <h2>➕ إضافة/تحرير إعلان</h2>
-      <div class="form-grid">
-        <div class="full">
-          <label class="fl" for="ad-name">اسم الإعلان (للمكتبة)</label>
-          <input id="ad-name" type="text" placeholder="مثال: Monetag Interstitial">
+
+  <div class="studio-grid">
+    <!-- Left Column: Studio Console -->
+    <div class="studio-col-main">
+      
+      <!-- Card 1: Raw Snippet Input & Dynamic Inspector -->
+      <div class="studio-card">
+        <h3>📥 1. شفرة Monetag الخام والتحليل الفوري</h3>
+        <label class="fl" for="studio-snippet">الصق شفرة الـ SDK من لوحة تحكم Monetag كما هي:</label>
+        <textarea id="studio-snippet" rows="4" style="width:100%; font-family:monospace; direction:ltr; text-align:left; font-size:12px;"
+          placeholder="&lt;script src='//libtl.com/sdk.js' data-zone='12250058' data-sdk='show_12250058'&gt;&lt;/script&gt;"></textarea>
+        
+        <!-- Extracted Badges -->
+        <div class="studio-badges" id="studio-badges-bar">
+          <div class="badge-item">
+            <span class="lbl">🎯 المنطقة (Zone):</span>
+            <span class="val" id="val-zone">—</span>
+          </div>
+          <div class="badge-item">
+            <span class="lbl">⚙️ الدالة (SDK):</span>
+            <span class="val" id="val-sdk">—</span>
+          </div>
+          <div class="badge-item">
+            <span class="lbl">🌐 النطاق (Domain):</span>
+            <span class="val" id="val-domain">—</span>
+          </div>
+          <div class="badge-item">
+            <span class="lbl">🛡️ الأمان:</span>
+            <span class="val" id="val-safety"><span class="pill off">بانتظار الشفرة</span></span>
+          </div>
         </div>
-        <div class="full">
-          <label class="fl" for="ad-snippet">Monetag Snippet (خام)</label>
-          <textarea id="ad-snippet" rows="4" placeholder="<script ...></script>"></textarea>
+        <div id="studio-parse-msg" class="hintline"></div>
+      </div>
+
+      <!-- Card 2: Target Bot & Placement Options -->
+      <div class="studio-card">
+        <h3>🎯 2. البوت المستهدف ومكان الحقن</h3>
+        <div class="form-grid">
+          <div>
+            <label class="fl" for="studio-bot">🤖 البوت المستهدف</label>
+            <select id="studio-bot">
+              <option value="currency" selected>💰 بوت تحويل العملات (@BodaCurrencyBot)</option>
+            </select>
+          </div>
+          <div>
+            <label class="fl" for="studio-slot">📍 مكان الحقن في الصفحة (Slot)</label>
+            <select id="studio-slot">
+              <option value="body_end" selected>Body End (قبل &lt;/body&gt; — موصى به)</option>
+              <option value="head">Head (داخل &lt;head&gt;)</option>
+              <option value="banner_top">Banner Top (أعلى الصفحة)</option>
+            </select>
+          </div>
+          <div>
+            <label class="fl" for="studio-format">📢 صيغة الإعلان (Ad Format)</label>
+            <select id="studio-format">
+              <option value="inApp" selected>In-App Smart Ad (ذكي داخل التطبيق)</option>
+              <option value="interstitial">Rewarded Interstitial (مكافأة بعد تفاعل)</option>
+              <option value="popup">Popup (نافذة منبثقة)</option>
+              <option value="banner">Banner (بانر إعلاني)</option>
+              <option value="direct_link">Direct Link (رابط مباشر)</option>
+            </select>
+          </div>
+          <div>
+            <label class="fl" for="studio-ad-name">🏷️ اسم الإعلان في المكتبة</label>
+            <input id="studio-ad-name" type="text" placeholder="مثال: Monetag Currency Pilot">
+          </div>
         </div>
-        <div class="full">
-          <button id="ad-parse" class="btn-secondary">🔍 تحليل الشفرة</button>
-        </div>
-        <div id="ad-parsed-result" class="hintline"></div>
-        <div>
-          <label class="fl" for="ad-slot">مكان الحقن (Slot)</label>
-          <select id="ad-slot">
-            <option value="head">Head</option>
-            <option value="body_end" selected>Body End</option>
-            <option value="banner_top">Banner Top</option>
-          </select>
-        </div>
-        <div>
-          <label class="fl" for="ad-enabled">الحالة</label>
-          <label class="switch"><input id="ad-enabled" type="checkbox" checked> مُفعّل</label>
+
+        <!-- Soft In-App Defaults Card -->
+        <div style="background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-top:12px;">
+          <div style="font-size:12.5px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
+            <span>🛡️ معايير الجودة الافتراضية (Boda Quality Rules)</span>
+            <span style="font-size:11px; color:var(--ok);">✅ منع التنبيهات المزعجة وحظر النقر المزدوج</span>
+          </div>
+          <div class="soft-grid">
+            <div>
+              <label class="fl" for="inapp-freq" style="font-size:11px;">الظهور (مرات/جلسة)</label>
+              <input id="inapp-freq" type="number" min="1" max="10" value="1" style="font-size:12px; padding:5px 8px;">
+            </div>
+            <div>
+              <label class="fl" for="inapp-capping" style="font-size:11px;">الحد اليومي (Capping)</label>
+              <input id="inapp-capping" type="number" min="1" max="50" value="12" style="font-size:12px; padding:5px 8px;">
+            </div>
+            <div>
+              <label class="fl" for="inapp-interval" style="font-size:11px;">فاصل زمني (ثوانٍ)</label>
+              <input id="inapp-interval" type="number" min="60" max="3600" value="600" style="font-size:12px; padding:5px 8px;">
+            </div>
+            <div>
+              <label class="fl" for="inapp-timeout" style="font-size:11px;">مهلة التحميل (ثوانٍ)</label>
+              <input id="inapp-timeout" type="number" min="5" max="60" value="30" style="font-size:12px; padding:5px 8px;">
+            </div>
+          </div>
         </div>
       </div>
-      <div class="ad-actions">
-        <button id="ad-save-lib" class="primary">💾 حفظ في المكتبة</button>
-        <button id="ad-preview" class="btn-secondary">👁️ معاينة التغييرات</button>
+
+      <!-- Card 3: Action Controls -->
+      <div class="studio-card">
+        <h3>⚡ 3. سير العمل والتنفيذ بنقرة واحدة</h3>
+        <div class="studio-actions">
+          <button id="studio-btn-preview" class="btn-secondary">👁️ معاينة الفروقات (Preview Diff)</button>
+          <button id="studio-btn-apply" class="primary">💾 تطبيق وبناء (Save & Build)</button>
+          <button id="studio-btn-rollback" class="btn-stop">↩️ تراجع (Rollback)</button>
+          <button id="studio-btn-publish" class="btn-publish">🚀 نشر إلى GitHub Pages</button>
+          <button id="studio-btn-open" class="btn-secondary">🔗 فتح التطبيق للتجربة</button>
+        </div>
+        <div id="studio-action-msg" class="hintline" style="margin-top:10px;"></div>
       </div>
-      <div id="ad-msg" class="hintline" style="margin-top:10px"></div>
+
+      <!-- Card 4: Diff Preview Box -->
+      <div class="studio-card" id="studio-diff-container">
+        <h3>📝 معاينة التغييرات الفعلية (Unified Diff)</h3>
+        <pre id="studio-diff-pre" class="diff-box">انقر على "معاينة الفروقات" لعرض التغييرات بدقة قبل تطبيقها على ملف التطبيق المصغّر...</pre>
+      </div>
+
     </div>
-    <div class="panel">
-      <h2>📢 مكتبة الإعلانات</h2>
-      <div id="ad-library-list"><span class="muted">جارٍ التحميل…</span></div>
-    </div>
-    <div class="panel">
-      <h2>🔗 تعيين الإعلانات للبوتات</h2>
-      <div class="form-grid">
-        <div class="full">
-          <label class="fl" for="assign-ad">الإعلان</label>
-          <select id="assign-ad"></select>
+
+    <!-- Right Column: Bots Overview & Backups -->
+    <div class="studio-col-side">
+      
+      <!-- Card 5: All 34 Mini Apps Ad Status -->
+      <div class="studio-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="margin:0;">📊 حالة الإعلانات في الـ 34 بوت</h3>
+          <span style="font-size:11.5px; color:var(--hint);">
+            مفعّل: <b id="studio-count-active" style="color:var(--ok);">—</b> / 34
+          </span>
         </div>
-        <div class="full">
-          <label class="fl" for="assign-bot">البوت المستهدف</label>
-          <select id="assign-bot"></select>
-        </div>
-        <div>
-          <label class="fl" for="assign-priority">الأولوية (أعلى = أهم)</label>
-          <input id="assign-priority" type="number" value="0">
-        </div>
-        <div class="full">
-          <button id="ad-assign" class="primary">🔗 تعيين الإعلان</button>
+        <input id="studio-bot-search" type="search" placeholder="🔍 تصفية البوتات..." style="width:100%; margin-bottom:10px; font-size:12px;">
+        <div style="max-height:420px; overflow-y:auto; border:1px solid var(--border); border-radius:8px;">
+          <table class="studio-table" id="studio-bots-table">
+            <thead>
+              <tr>
+                <th>البوت</th>
+                <th>الإعلان الفعّال</th>
+                <th>تحكم</th>
+              </tr>
+            </thead>
+            <tbody id="studio-bots-tbody">
+              <tr><td colspan="3" style="text-align:center; color:var(--hint); padding:20px;">جارٍ تحميل حالة البوتات...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
+
+      <!-- Card 6: Backups for Selected Bot -->
+      <div class="studio-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h3 style="margin:0;">🗄️ النسخ الاحتياطية: <span id="studio-backup-bot-label" style="color:var(--accent);">currency</span></h3>
+          <button id="studio-btn-refresh-backups" class="btn-sm btn-secondary" style="padding:3px 8px; font-size:11px;">🔄 تحديث</button>
+        </div>
+        <div id="studio-backups-list" style="max-height:220px; overflow-y:auto;">
+          <span class="hintline">جارٍ فحص النسخ الاحتياطية...</span>
+        </div>
+      </div>
+
+      <!-- Card 7: Ad Library -->
+      <div class="studio-card">
+        <h3 style="margin-bottom:10px;">📢 مكتبة الإعلانات المحفوظة</h3>
+        <div id="ad-library-list" style="max-height:260px; overflow-y:auto;">
+          <span class="hintline">جارٍ تحميل المكتبة...</span>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -885,75 +1021,444 @@ DASHBOARD_JS = r"""
   }
 
   /* ── 4. Ad Studio Logic ── */
-  async function parseSnippet() {
-    const snippet = document.getElementById('ad-snippet').value.trim();
-    if (!snippet) return dashToast('⚠️ الصق الشفرة أولاً');
+  let studioSelectedBot = 'currency';
+  let studioParseTimeout = null;
+  let studioCurrentParsed = null;
+  let studioBotsData = [];
+  let studioAllAds = [];
+
+  function initAdStudio() {
+    populateStudioBotSelect();
+
+    const snippetEl = document.getElementById('studio-snippet');
+    if (snippetEl) {
+      snippetEl.addEventListener('input', () => {
+        clearTimeout(studioParseTimeout);
+        studioParseTimeout = setTimeout(parseStudioSnippet, 350);
+      });
+      snippetEl.addEventListener('paste', () => {
+        setTimeout(parseStudioSnippet, 60);
+      });
+    }
+
+    const botSel = document.getElementById('studio-bot');
+    if (botSel) {
+      botSel.addEventListener('change', (e) => {
+        studioSelectedBot = e.target.value;
+        onStudioBotChanged();
+      });
+    }
+
+    const btnPreview = document.getElementById('studio-btn-preview');
+    if (btnPreview) btnPreview.addEventListener('click', runStudioPreviewDiff);
+
+    const btnApply = document.getElementById('studio-btn-apply');
+    if (btnApply) btnApply.addEventListener('click', runStudioApplyAndBuild);
+
+    const btnRollback = document.getElementById('studio-btn-rollback');
+    if (btnRollback) btnRollback.addEventListener('click', runStudioRollback);
+
+    const btnPublish = document.getElementById('studio-btn-publish');
+    if (btnPublish) btnPublish.addEventListener('click', runStudioPublish);
+
+    const btnOpen = document.getElementById('studio-btn-open');
+    if (btnOpen) btnOpen.addEventListener('click', () => {
+      const bid = (studioSelectedBot === 'all' ? 'currency' : studioSelectedBot) || 'currency';
+      window.open('/' + bid + '/', '_blank');
+    });
+
+    const searchInput = document.getElementById('studio-bot-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', renderStudioBotsTable);
+    }
+
+    const btnRefreshBackups = document.getElementById('studio-btn-refresh-backups');
+    if (btnRefreshBackups) {
+      btnRefreshBackups.addEventListener('click', () => loadStudioBackups(studioSelectedBot));
+    }
+  }
+
+  function populateStudioBotSelect() {
+    const sel = document.getElementById('studio-bot');
+    if (!sel || !BOTS || !BOTS.length) return;
+
+    let html = '<option value="all">🌐 كل البوتات الـ 34 (تطبيق شامل)</option>';
+    BOTS.forEach(b => {
+      const isSel = (b.id === studioSelectedBot) ? ' selected' : '';
+      html += '<option value="' + esc(b.id) + '"' + isSel + '>' +
+              esc(b.emoji || '🤖') + ' ' + esc(b.name || b.id) + ' (' + esc(b.id) + ')</option>';
+    });
+    sel.innerHTML = html;
+  }
+
+  async function parseStudioSnippet() {
+    const snippet = (document.getElementById('studio-snippet')?.value || '').trim();
+    const zoneVal = document.getElementById('val-zone');
+    const sdkVal = document.getElementById('val-sdk');
+    const domainVal = document.getElementById('val-domain');
+    const safetyVal = document.getElementById('val-safety');
+    const msgBox = document.getElementById('studio-parse-msg');
+
+    if (!snippet) {
+      if (zoneVal) zoneVal.textContent = '—';
+      if (sdkVal) sdkVal.textContent = '—';
+      if (domainVal) domainVal.textContent = '—';
+      if (safetyVal) safetyVal.innerHTML = '<span class="pill off">بانتظار الشفرة</span>';
+      if (msgBox) msgBox.innerHTML = '';
+      studioCurrentParsed = null;
+      return;
+    }
+
     try {
       const res = await post('/api/v1/ads/parse', { snippet });
-      const r = document.getElementById('ad-parsed-result');
+      studioCurrentParsed = res;
+      if (zoneVal) zoneVal.textContent = res.zone_id || '—';
+      if (sdkVal) sdkVal.textContent = res.sdk_name || '—';
+      if (domainVal) domainVal.textContent = res.domain || '—';
+
       if (res.ok) {
-        r.innerHTML = '<span class="ok">✅ الشفرة سليمة: المنطقة ' + (res.zone_id || '—') + '، الدالة ' + (res.sdk_name || '—') + '</span>';
+        if (safetyVal) safetyVal.innerHTML = '<span class="pill ok">🟢 آمنة وصالحة</span>';
+        if (msgBox) {
+          if (res.warnings && res.warnings.length) {
+            msgBox.innerHTML = '<span class="warn">⚠️ ملاحظات: ' + esc(res.warnings.join(' • ')) + '</span>';
+          } else {
+            msgBox.innerHTML = '<span class="ok">✅ الشفرة سليمة ومطابقة لمعايير الأمان (المنطقة ' + esc(res.zone_id || '—') + '، الدالة ' + esc(res.sdk_name || '—') + ')</span>';
+          }
+        }
+        const nameInput = document.getElementById('studio-ad-name');
+        if (nameInput && !nameInput.value) {
+          nameInput.value = 'Monetag ' + (res.zone_id ? 'Zone ' + res.zone_id : (studioSelectedBot || 'Global'));
+        }
       } else {
-        r.innerHTML = '<span class="err">❌ الشفرة غير صالحة: ' + res.errors.join(', ') + '</span>';
+        if (safetyVal) safetyVal.innerHTML = '<span class="pill err">❌ مرفوضة أمنياً</span>';
+        if (msgBox) msgBox.innerHTML = '<span class="err">❌ أخطاء بالشفرة: ' + esc((res.errors || []).join(' • ')) + '</span>';
       }
-    } catch (e) { dashToast('❌ ' + e.message); }
-  }
-
-  async function loadAdsLibrary() {
-    try {
-      const res = await get('/api/v1/ads/library');
-      const list = document.getElementById('ad-library-list');
-      if (!res.ads || res.ads.length === 0) {
-        list.innerHTML = '<span class="muted">المكتبة فارغة.</span>';
-        return;
-      }
-      window._all_ads = res.ads;
-      list.innerHTML = '<table><thead><tr><th>الاسم</th><th>المنطقة/الدالة</th><th>الحالة</th></tr></thead><tbody>' +
-        res.ads.map(a => '<tr><td>' + esc(a.name) + '</td><td>' + esc(a.zone_id || a.format) + '</td>' +
-          '<td>' + (a.enabled ? '✅' : '🚫') + '</td></tr>').join('') + '</tbody></table>';
-      populateAdAssignSelects();
-    } catch (e) { dashToast('❌ فشل تحميل المكتبة'); }
-  }
-
-  function populateAdAssignSelects() {
-    const adSel = document.getElementById('assign-ad');
-    const botSel = document.getElementById('assign-bot');
-    if (window._all_ads && adSel) {
-      adSel.innerHTML = window._all_ads.map(a => '<option value="' + esc(a.ad_id) + '">' + esc(a.name) + '</option>').join('');
-    }
-    if (BOTS && botSel) {
-      botSel.innerHTML = '<option value="">-- جميع البوتات (عام) --</option>' +
-        BOTS.map(b => '<option value="' + esc(b.id) + '">' + esc(b.name || b.id) + '</option>').join('');
+    } catch (e) {
+      if (safetyVal) safetyVal.innerHTML = '<span class="pill err">❌ خطأ فحص</span>';
+      if (msgBox) msgBox.innerHTML = '<span class="err">❌ ' + esc(e.message) + '</span>';
     }
   }
 
-  async function assignAd() {
-    const adId = document.getElementById('assign-ad').value;
-    const botId = document.getElementById('assign-bot').value;
-    const priority = document.getElementById('assign-priority').value;
-    if (!adId) return dashToast('⚠️ اختر الإعلان أولاً');
+  function renderDiffSyntax(diffText) {
+    if (!diffText || !diffText.trim()) {
+      return '<span class="hintline">لا توجد فروقات — ملف التطبيق مطابق بالفعل أو تم حقن هذا الإعلان مسبقاً.</span>';
+    }
+    const lines = diffText.split('\n');
+    return lines.map(line => {
+      if (line.startsWith('+') && !line.startsWith('+++')) {
+        return '<span class="diff-add">' + esc(line) + '</span>';
+      } else if (line.startsWith('-') && !line.startsWith('---')) {
+        return '<span class="diff-del">' + esc(line) + '</span>';
+      } else if (line.startsWith('@@')) {
+        return '<span class="diff-hdr">' + esc(line) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+  }
+
+  async function runStudioPreviewDiff() {
+    const snippet = (document.getElementById('studio-snippet')?.value || '').trim();
+    if (!snippet) return dashToast('⚠️ الرجاء لصق شفرة Monetag أولاً');
+
+    const botId = (studioSelectedBot === 'all' ? 'currency' : studioSelectedBot) || 'currency';
+    const slot = document.getElementById('studio-slot')?.value || 'body_end';
+    const btn = document.getElementById('studio-btn-preview');
+    const diffPre = document.getElementById('studio-diff-pre');
+    const msgBox = document.getElementById('studio-action-msg');
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ جارٍ توليد الفروقات...';
+    }
+    if (diffPre) diffPre.textContent = 'جارٍ حساب الفروقات (Unified Diff)...';
+
     try {
+      const res = await post('/api/v1/ads/preview-diff', {
+        bot_id: botId,
+        slot: slot,
+        snippet: snippet,
+        ad_id: 'studio_' + (studioCurrentParsed?.zone_id || 'preview')
+      });
+
+      if (res.ok) {
+        if (diffPre) diffPre.innerHTML = renderDiffSyntax(res.diff);
+        if (msgBox) msgBox.innerHTML = '<span class="ok">✅ تم توليد الفروقات للبوت <b>' + esc(botId) + '</b> (' + (res.changed ? 'توجد تعديلات جاهزة للتطبيق' : 'الملف مطابق') + ')</span>';
+        dashToast('✅ تم توليد الفروقات بنجاح');
+      } else {
+        if (diffPre) diffPre.textContent = 'تعذر توليد الفروقات: ' + (res.error || 'خطأ غير معروف');
+        if (msgBox) msgBox.innerHTML = '<span class="err">❌ ' + esc(res.error || 'فشل توليد الفروقات') + '</span>';
+      }
+    } catch (e) {
+      if (diffPre) diffPre.textContent = 'خطأ: ' + e.message;
+      if (msgBox) msgBox.innerHTML = '<span class="err">❌ ' + esc(e.message) + '</span>';
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '👁️ معاينة الفروقات (Preview Diff)';
+      }
+    }
+  }
+
+  async function runStudioApplyAndBuild() {
+    const snippet = (document.getElementById('studio-snippet')?.value || '').trim();
+    if (!snippet) return dashToast('⚠️ الرجاء لصق شفرة Monetag أولاً');
+
+    const name = (document.getElementById('studio-ad-name')?.value || '').trim() || 'Monetag Studio Ad';
+    const fmt = document.getElementById('studio-format')?.value || 'inApp';
+    const slot = document.getElementById('studio-slot')?.value || 'body_end';
+    const botId = studioSelectedBot;
+    const btn = document.getElementById('studio-btn-apply');
+    const msgBox = document.getElementById('studio-action-msg');
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ جارٍ الحفظ والبناء...';
+    }
+    if (msgBox) msgBox.innerHTML = '<span class="warn">⏳ جارٍ حفظ الإعلان وتحديث ملف التطبيق المصغّر وإنشاء النسخة الاحتياطية...</span>';
+
+    try {
+      const libRes = await post('/api/v1/ads/library', {
+        name: name,
+        snippet: snippet,
+        format: fmt,
+        slot: slot
+      });
+      if (!libRes.ok) throw new Error(libRes.error || 'فشل حفظ الإعلان في المكتبة');
+      const adId = libRes.ad.ad_id;
+
+      const isGlobal = (botId === 'all');
       await post('/api/v1/ads/assign', {
         ad_id: adId,
-        scope: botId ? 'bot' : 'global',
-        target_id: botId || null,
-        priority: parseInt(priority, 10) || 0
+        scope: isGlobal ? 'global' : 'bot',
+        target_id: isGlobal ? null : botId,
+        priority: 10
       });
-      dashToast('✅ تم تعيين الإعلان بنجاح!');
-      await post('/api/v1/ads/build-apply', { bot_id: botId });
-      dashToast('⚡ تم إعادة بناء التطبيقات وتطبيق الإعلان!');
-    } catch (e) { dashToast('❌ ' + e.message); }
+
+      const buildRes = await post('/api/v1/ads/build-apply', {
+        bot_id: isGlobal ? '' : botId
+      });
+      if (!buildRes.ok) throw new Error(buildRes.error || 'فشل بناء التطبيقات وحقن الإعلان');
+
+      if (msgBox) msgBox.innerHTML = '<span class="ok">🎉 تم بنجاح! تم حفظ الإعلان، حقنه في ملف التطبيق المصغّر، وإنشاء نسخة احتياطية آمنة.</span>';
+      dashToast('🎉 تم تطبيق وبناء الإعلان بنجاح!');
+
+      await loadStudioAds();
+      if (!isGlobal) await loadStudioBackups(botId);
+      await runStudioPreviewDiff();
+    } catch (e) {
+      if (msgBox) msgBox.innerHTML = '<span class="err">❌ ' + esc(e.message) + '</span>';
+      dashToast('❌ ' + e.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '💾 تطبيق وبناء (Save & Build)';
+      }
+    }
   }
 
-  async function saveAdToLibrary() {
-    const name = document.getElementById('ad-name').value.trim();
-    const snippet = document.getElementById('ad-snippet').value.trim();
-    if (!name || !snippet) return dashToast('⚠️ الاسم والشفرة مطلوبان');
+  async function runStudioRollback() {
+    const botId = (studioSelectedBot === 'all' ? 'currency' : studioSelectedBot) || 'currency';
+    if (!confirm('هل تريد بالتأكيد استرجاع النسخة الاحتياطية السابقة لصفحة البوت ' + botId + '؟')) return;
+
+    const btn = document.getElementById('studio-btn-rollback');
+    const msgBox = document.getElementById('studio-action-msg');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ جارٍ التراجع...';
+    }
+
     try {
-      await post('/api/v1/ads/library', { name, snippet, slot: document.getElementById('ad-slot').value, enabled: document.getElementById('ad-enabled').checked });
-      dashToast('✅ تم حفظ الإعلان في المكتبة');
-      loadAdsLibrary();
-    } catch (e) { dashToast('❌ ' + e.message); }
+      const res = await post('/api/v1/ads/rollback', { bot_id: botId });
+      if (res.ok) {
+        if (msgBox) msgBox.innerHTML = '<span class="ok">↩️ تم التراجع بنجاح واستعادة: ' + esc(res.restored_from || 'النسخة السابقة') + '</span>';
+        dashToast('↩️ تم التراجع بنجاح!');
+        await loadStudioAds();
+        await loadStudioBackups(botId);
+        await runStudioPreviewDiff();
+      } else {
+        throw new Error(res.error || 'فشل التراجع');
+      }
+    } catch (e) {
+      if (msgBox) msgBox.innerHTML = '<span class="err">❌ ' + esc(e.message) + '</span>';
+      dashToast('❌ ' + e.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '↩️ تراجع (Rollback)';
+      }
+    }
+  }
+
+  async function runStudioPublish() {
+    const btn = document.getElementById('studio-btn-publish');
+    const msgBox = document.getElementById('studio-action-msg');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ جارٍ النشر...';
+    }
+    if (msgBox) msgBox.innerHTML = '<span class="warn">🚀 جارٍ فحص التعديلات في webroot/ والرفع إلى GitHub Pages...</span>';
+
+    try {
+      const res = await post('/api/v1/ads/publish', {
+        message: 'feat(ads): update ad units via Boda Ad Studio for ' + (studioSelectedBot || 'apps')
+      });
+      if (res.ok) {
+        const msg = res.message || 'تم النشر بنجاح على GitHub Pages';
+        const changedCount = (res.changed_files && res.changed_files.length) ? res.changed_files.length : 0;
+        if (msgBox) msgBox.innerHTML = '<span class="ok">🚀 ' + esc(msg) + ' (' + changedCount + ' ملف مُحدَّث)</span>';
+        dashToast('🚀 ' + msg);
+      } else {
+        throw new Error(res.error || 'فشل النشر');
+      }
+    } catch (e) {
+      if (msgBox) msgBox.innerHTML = '<span class="err">❌ ' + esc(e.message) + '</span>';
+      dashToast('❌ ' + e.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🚀 نشر إلى GitHub Pages';
+      }
+    }
+  }
+
+  async function loadStudioBackups(botId) {
+    const bId = botId || studioSelectedBot || 'currency';
+    if (bId === 'all') return;
+    const label = document.getElementById('studio-backup-bot-label');
+    if (label) label.textContent = bId;
+
+    const list = document.getElementById('studio-backups-list');
+    if (!list) return;
+
+    try {
+      const res = await get('/api/v1/ads/backups/' + bId);
+      if (!res.backups || res.backups.length === 0) {
+        list.innerHTML = '<span class="hintline">لا توجد نسخ احتياطية مسجلة بعد لهذا البوت.</span>';
+        return;
+      }
+      list.innerHTML = res.backups.map(b => {
+        return '<div class="backup-item">' +
+          '<div class="info">' +
+            '<span class="ts">' + esc(b.time || b.name) + '</span>' +
+            '<span class="sz">' + (b.size ? (b.size / 1024).toFixed(1) + ' KB' : '') + '</span>' +
+          '</div>' +
+          '<button class="btn-sm btn-stop" onclick="runStudioRollback()">↩️ استعادة</button>' +
+        '</div>';
+      }).join('');
+    } catch (e) {
+      list.innerHTML = '<span class="hintline err">تعذر تحميل النسخ الاحتياطية</span>';
+    }
+  }
+
+  async function loadStudioAds() {
+    populateStudioBotSelect();
+    await Promise.all([
+      loadStudioLibrary(),
+      loadStudioBotsTableData(),
+      loadStudioBackups(studioSelectedBot)
+    ]);
+  }
+
+  async function loadStudioLibrary() {
+    const list = document.getElementById('ad-library-list');
+    if (!list) return;
+    try {
+      const res = await get('/api/v1/ads/library');
+      studioAllAds = res.ads || [];
+      if (!studioAllAds.length) {
+        list.innerHTML = '<span class="hintline">المكتبة فارغة — الصق شفرة بالأعلى لحفظها.</span>';
+        return;
+      }
+      list.innerHTML = '<table class="studio-table"><thead><tr><th>الاسم</th><th>المنطقة/الصيغة</th><th>الحالة</th><th>حذف</th></tr></thead><tbody>' +
+        studioAllAds.map(a => {
+          return '<tr>' +
+            '<td><b>' + esc(a.name) + '</b></td>' +
+            '<td><span class="pill">' + esc(a.zone_id || a.format) + '</span></td>' +
+            '<td>' + (a.enabled ? '<span class="pill ok">مُفعّل</span>' : '<span class="pill off">معطّل</span>') + '</td>' +
+            '<td><button class="btn-icon danger" onclick="deleteStudioAd(\'' + esc(a.ad_id) + '\')">🗑</button></td>' +
+          '</tr>';
+        }).join('') + '</tbody></table>';
+    } catch (e) {
+      list.innerHTML = '<span class="hintline err">فشل تحميل المكتبة</span>';
+    }
+  }
+
+  async function deleteStudioAd(adId) {
+    if (!confirm('حذف هذا الإعلان من المكتبة؟')) return;
+    try {
+      const res = await fetch(API_BASE + '/api/v1/ads/library', {
+        method: 'DELETE',
+        headers: headers(),
+        body: JSON.stringify({ ad_id: adId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل الحذف');
+      dashToast('🗑 تم حذف الإعلان');
+      loadStudioLibrary();
+    } catch (e) {
+      dashToast('❌ ' + e.message);
+    }
+  }
+
+  async function loadStudioBotsTableData() {
+    if (!BOTS || !BOTS.length) return;
+    studioBotsData = BOTS;
+    renderStudioBotsTable();
+  }
+
+  function renderStudioBotsTable() {
+    const tbody = document.getElementById('studio-bots-tbody');
+    if (!tbody) return;
+    const query = (document.getElementById('studio-bot-search')?.value || '').toLowerCase().trim();
+    const activeCountEl = document.getElementById('studio-count-active');
+
+    const rows = studioBotsData.filter(b => {
+      if (!query) return true;
+      return (b.id && b.id.toLowerCase().includes(query)) ||
+             (b.name && b.name.toLowerCase().includes(query)) ||
+             (b.username && b.username.toLowerCase().includes(query));
+    });
+
+    tbody.innerHTML = rows.map(b => {
+      const isCurrent = (b.id === studioSelectedBot);
+      return '<tr style="' + (isCurrent ? 'background:rgba(77,148,255,.1); font-weight:700;' : '') + '">' +
+        '<td>' +
+          '<span>' + esc(b.emoji || '🤖') + ' </span>' +
+          '<span>' + esc(b.name || b.id) + '</span>' +
+          '<div style="font-size:10.5px; color:var(--hint); direction:ltr; text-align:right;">@' + esc(b.username || b.id) + '</div>' +
+        '</td>' +
+        '<td>' +
+          '<span class="pill ok">نشط</span>' +
+        '</td>' +
+        '<td>' +
+          '<button class="btn-sm ' + (isCurrent ? 'primary' : 'btn-secondary') + '" onclick="selectStudioBot(\'' + esc(b.id) + '\')">' +
+            (isCurrent ? '✓ محدد' : 'تحديد') +
+          '</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    if (activeCountEl) activeCountEl.textContent = studioBotsData.length;
+  }
+
+  function selectStudioBot(botId) {
+    studioSelectedBot = botId;
+    const sel = document.getElementById('studio-bot');
+    if (sel) sel.value = botId;
+    onStudioBotChanged();
+  }
+
+  function onStudioBotChanged() {
+    renderStudioBotsTable();
+    loadStudioBackups(studioSelectedBot);
+    const nameInput = document.getElementById('studio-ad-name');
+    if (nameInput) {
+      nameInput.value = 'Monetag Ad (' + studioSelectedBot + ')';
+    }
+    const snippet = (document.getElementById('studio-snippet')?.value || '').trim();
+    if (snippet) {
+      runStudioPreviewDiff();
+    }
   }
 
 
@@ -1669,14 +2174,12 @@ DASHBOARD_JS = r"""
 
     if (name === 'bots') loadBots();
     if (name === 'store') loadStore();
-    if (name === 'ads') loadAdsLibrary();
+    if (name === 'ads') loadStudioAds();
     if (name === 'analytics') refreshAnalytics();
   }
 
   /* ── 7. Event Wiring ── */
-  document.getElementById('ad-parse').addEventListener('click', parseSnippet);
-  document.getElementById('ad-save-lib').addEventListener('click', saveAdToLibrary);
-  document.getElementById('ad-assign').addEventListener('click', assignAd);
+  initAdStudio();
 
   document.getElementById('btn-start-all').addEventListener('click', startAllBots);
   document.getElementById('btn-stop-all').addEventListener('click', stopAllBots);
@@ -2036,13 +2539,13 @@ def build_dashboard(api_base: str = "") -> str:
   document.getElementById('save').addEventListener('click', function () {{
     try {{ localStorage.setItem(KEY_STORE, document.getElementById('key').value); }} catch (e) {{}}
     loadBots();
-    if (!document.getElementById('tab-ads').classList.contains('hide')) loadAds();
+    if (!document.getElementById('tab-ads').classList.contains('hide')) loadStudioAds();
     if (!document.getElementById('tab-store').classList.contains('hide')) loadStore();
     if (!document.getElementById('tab-analytics').classList.contains('hide')) refreshAnalytics();
   }});
   document.getElementById('refresh').addEventListener('click', function () {{
     loadBots();
-    if (!document.getElementById('tab-ads').classList.contains('hide')) loadAds();
+    if (!document.getElementById('tab-ads').classList.contains('hide')) loadStudioAds();
     if (!document.getElementById('tab-store').classList.contains('hide')) loadStore();
     if (!document.getElementById('tab-analytics').classList.contains('hide')) refreshAnalytics();
   }});

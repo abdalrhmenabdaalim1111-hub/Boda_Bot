@@ -408,9 +408,10 @@ def main():
                 shutil.rmtree(target, ignore_errors=True)
             elif target.exists():
                 target.unlink(missing_ok=True)
-        # إعادة إنشاء مجلدات البوتات مع الحفاظ على علامات الإعلانات المحقونة (Carry-over)
+        # إعادة إنشاء مجلدات البوتات مع الحفاظ على علامات الإعلانات والنسخ الاحتياطية (Carry-over)
         _preserved_markers = {}
-        for child in out_dir.iterdir():
+        app_ids = {a["id"] for a in apps if a.get("id")}
+        for child in list(out_dir.iterdir()):
             if child.is_dir() and child.name not in ("data", "store", "assets", "dashboard"):
                 _old = child / "index.html"
                 if _old.exists():
@@ -431,7 +432,8 @@ def main():
                             _preserved_markers[child.name] = _carried
                     except Exception:
                         pass
-                shutil.rmtree(child, ignore_errors=True)
+                if child.name not in app_ids:
+                    shutil.rmtree(child, ignore_errors=True)
     (out_dir / "data").mkdir(parents=True, exist_ok=True)
 
     # catalog.json — مصدر المتجر (نفس بنية النسخة المضمنة في store/index.html)
