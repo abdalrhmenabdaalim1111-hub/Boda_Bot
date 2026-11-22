@@ -72,7 +72,7 @@ def webapp_keyboard(bot_id: str) -> InlineKeyboardMarkup:
     return kb
 
 
-def setup_menu_button(bot, bot_id: str):
+def setup_menu_button(bot, bot_id: str) -> bool:
     """ضبط زر القائمة (☰ بجانل مربع الكتابة) ليفتح تطبيق الويب مباشرة"""
     url = get_miniapps_url(bot_id)
     if not url:
@@ -373,7 +373,7 @@ class UnifiedBotMiddleware(BaseMiddleware):
             pass  # المستخدم قد يكون حظر البوت — نتجاهل بهدوء
 
 
-def install_unified_layer(bot, bot_name: str):
+def install_unified_layer(bot, bot_name: str) -> None:
     """
     تركيب الطبقة الموحدة على بوت قيد التشغيل:
     زر القائمة + البرمجية الوسيطة.
