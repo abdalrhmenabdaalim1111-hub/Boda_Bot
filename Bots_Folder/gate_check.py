@@ -123,14 +123,15 @@ def invalidate(user_id: int) -> None:
 
 def gate_text(missing: List[Dict[str, str]]) -> str:
     lines = [
-        "⚠️ <b>للوصول إلى هذا البوت، يجب الاشتراك في القناتين التاليتين:</b>",
+        "🔐 <b>أنت لست مشتركاً بالقناتين المطلوبتين:</b>",
         "",
     ]
     for i, channel in enumerate(missing, start=1):
-        lines.append(f"{i}️⃣ {channel['title']} — @{channel['username']}")
+        lines.append(f"{i}️⃣ <b>{channel['title']}</b> — @{channel['username']}")
     lines += [
         "",
-        "بعد الاشتراك في القناتين اضغط زر <b>«تحقق من الاشتراك»</b> ✅",
+        "اشترك ثم اضغط <b>«تحقق من الاشتراك»</b> لفتح كل البوتات ✅",
+        "⏳ سنُعيد الفحص فوراً بعد التحقق.",
     ]
     return "\n".join(lines)
 
