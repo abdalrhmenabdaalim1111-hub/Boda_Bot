@@ -146,6 +146,8 @@ class UnifiedBotMiddleware(BaseMiddleware):
         self.bot_name = bot_name
         self.update_types = ["message", "callback_query"]
         self._promo_sent = set()
+        self._tracked = {}
+        self._track_lock = threading.Lock()
         self._lock = threading.Lock()
         self.log = get_logger(bot_name)
         # Gate middleware
@@ -224,10 +226,19 @@ class UnifiedBotMiddleware(BaseMiddleware):
                     from telebot.handler_backends import CancelMiddleware
                     raise CancelMiddleware("global command handled")
 
-                res = track_user(self.bot_name, user.id,
+                _now = time.time()
+                with self._track_lock:
+                    _last = self._tracked.get(user.id, 0)
+                    _do_track = (_now - _last) >= 60
+                    if _do_track:
+                        self._tracked[user.id] = _now
+                if _do_track:
+                    res = track_user(self.bot_name, user.id,
                                  f"{getattr(user, 'first_name', '') or ''} "
                                  f"{getattr(user, 'last_name', '') or ''}".strip(),
                                  getattr(user, "username", "") or "")
+                else:
+                    res = None
                 if res and isinstance(res, dict) and res.get("leveled_up"):
                     self.send_level_up_notification(user.id, res.get("new_level", ""))
 
@@ -296,10 +307,20 @@ class UnifiedBotMiddleware(BaseMiddleware):
     def _send_promo(self, chat_id: int):
         """إرسال بطاقة التطبيق المصغّر"""
         try:
+            entry = _load_registry_entry(self.bot_name)
+            name = entry.get("name", self.bot_name)
+            desc = (entry.get("short_desc") or entry.get("description") or "").strip()
+            features = entry.get("features") or []
+            feat_text = "\n".join(f"• {f}" for f in features[:3])
+            parts = [f"✨ <b>{name}</b>"]
+            if desc:
+                parts.append(desc)
+            if feat_text:
+                parts.append(feat_text)
+            parts.append("جرّب النسخة التفاعلية داخل تيليجرام 👇")
+            text = "\n\n".join(parts)
             self.bot.send_message(
-                chat_id,
-                "✨ <b>جرّب النسخة التفاعلية من هذا البوت!</b>\n"
-                "واجهة عصرية تعمل داخل تيليجرام 👇",
+                chat_id, text, parse_mode="HTML",
                 reply_markup=webapp_keyboard(self.bot_name))
         except Exception:
             pass  # المستخدم قد يكون حظر البوت — نتجاهل بهدوء

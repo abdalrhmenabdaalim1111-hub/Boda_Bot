@@ -1259,37 +1259,118 @@ function dl(){ const a=document.createElement('a'); a.download='boosted.png'; a.
 
 APPS["birth_age"] = dict(
     group="tools",
-    emoji="🎂", title="حساب العمر وتفاصيله", subtitle="عمرك بالسنين والشهور والأيام — وحتى نَفَسك 😄",
+    emoji="🎂", title="حاسبة العمر الاحترافية", subtitle="عمرك بالسنوات والشهور والأيام — مع مقارنة الأعمار",
     interactive=True,
     body="""
 <div class="card">
-  <label>تاريخ ميلادك</label><input type="date" id="bd">
-  <button class="btn" onclick="calc()">🎂 احسب عمري</button>
-  <div class="result" id="res" style="text-align:center"></div>
+  <div class="field">
+    <label for="bd1">تاريخ ميلادك</label>
+    <input type="date" id="bd1" aria-label="تاريخ ميلادك">
+  </div>
+  <div class="field">
+    <label for="bd2">تاريخ ميلاد شخص آخر (اختياري — للمقارنة)</label>
+    <input type="date" id="bd2" aria-label="تاريخ ميلاد الشخص الآخر">
+  </div>
+  <button class="btn" id="go" onclick="calc()">🎂 احسب عمري</button>
+  <div class="result" id="res" aria-live="polite"></div>
 </div>
 """,
-    js="""
-function calc(){
-  const v=document.getElementById('bd').value;
-  if(!v) return Boda.toast('⚠️ اختر تاريخ ميلادك');
-  const b=new Date(v), now=new Date();
-  if(b>now) return Boda.toast('🤨 من المستقبل؟');
-  let y=now.getFullYear()-b.getFullYear(), m=now.getMonth()-b.getMonth(), d=now.getDate()-b.getDate();
-  if(d<0){ m--; d+=new Date(now.getFullYear(),now.getMonth(),0).getDate(); }
-  if(m<0){ y--; m+=12; }
-  const days=Math.floor((now-b)/864e5);
-  Boda.haptic('success'); Boda.track('feature_use',{detail:'age'});
-  document.getElementById('res').className='result show';
-  document.getElementById('res').innerHTML=
-    '<div class="result-title">🎂 عمرك الآن</div>'+
-    '<div style="font-size:30px;font-weight:800;color:var(--bd-brand)">'+y+' سنة و'+m+' شهر و'+d+' يوم</div>'+
-    '<hr style="border-color:var(--bd-hint);margin:12px 0">'+
-    '<p style="line-height:2.1;font-size:14px">📅 عشت حتى الآن <b>'+days.toLocaleString()+'</b> يوم<br>'+
-    '🫀 قلبك ضرب ~ <b>'+(days*24*60*75).toLocaleString()+'</b> مرة<br>'+
-    '😴 نمت ~ <b>'+Math.round(days/3).toLocaleString()+'</b> يوم<br>'+
-    '🌍 دارت حول الشمس <b>'+y+'</b> مرة</p>';
+    js=r"""
+const ZODIAC=[
+  [1,20,'الجدي ♑'],[2,19,'الدلو ♒'],[3,21,'الحوت ♓'],[4,20,'الحمل ♈'],
+  [5,21,'الثور ♉'],[6,21,'الجوزاء ♊'],[7,23,'السرطان ♋'],[8,23,'الأسد ♌'],
+  [9,23,'العذراء ♍'],[10,23,'الميزان ♎'],[11,22,'العقرب ♏'],[12,22,'القوس ♐']
+];
+function zodiacSign(m,d){
+  for(let i=ZODIAC.length-1;i>=0;i--){
+    if(m>ZODIAC[i][0]||(m===ZODIAC[i][0]&&d>=ZODIAC[i][1])) return ZODIAC[i][2];
+  }
+  return 'الجدي ♑';
 }
-document.getElementById('bd').value='2000-01-01';
+function isLeap(y){return (y%4===0&&y%100!==0)||y%400===0;}
+function ageDetails(birthStr){
+  const b=new Date(birthStr+'T00:00:00');
+  const now=new Date();
+  if(isNaN(b.getTime())||b>now) return null;
+  let y=now.getFullYear()-b.getFullYear();
+  let m=now.getMonth()-b.getMonth();
+  let d=now.getDate()-b.getDate();
+  if(d<0){m--;d+=new Date(now.getFullYear(),now.getMonth(),0).getDate();}
+  if(m<0){y--;m+=12;}
+  const ms=now-b;
+  const totalDays=Math.floor(ms/864e5);
+  const totalHours=Math.floor(ms/36e5);
+  const totalMinutes=Math.floor(ms/6e4);
+  const totalSeconds=Math.floor(ms/1e3);
+  const weeks=Math.floor(totalDays/7);
+  const monthsTotal=y*12+m;
+  const heartbeats=totalDays*24*60*75;
+  const breaths=totalDays*24*60*16;
+  const sleepDays=Math.round(totalDays/3);
+  const sunOrbits=y;
+  let next=new Date(now.getFullYear(),b.getMonth(),b.getDate());
+  if(next<=now) next=new Date(now.getFullYear()+1,b.getMonth(),b.getDate());
+  const daysToNext=Math.ceil((next-now)/864e5);
+  return {y,m,d,monthsTotal,weeks,totalDays,totalHours,totalMinutes,totalSeconds,
+          heartbeats,breaths,sleepDays,sunOrbits,daysToNext,next,zodiac:zodiacSign(b.getMonth()+1,b.getDate()),
+          leap:isLeap(b.getFullYear()), birth:b};
+}
+function fmt(n){return (n||0).toLocaleString();}
+function card(title, a, extra){
+  return '<div style="text-align:start;margin-bottom:14px">'+
+    '<div style="font-size:13px;color:var(--bd-hint);margin-bottom:6px">'+title+'</div>'+
+    '<div style="font-size:28px;font-weight:800;color:var(--bd-brand);line-height:1.3">'+
+      a.y+' <span style="font-size:14px;color:var(--bd-hint)">سنة</span> '+
+      a.m+' <span style="font-size:14px;color:var(--bd-hint)">شهر</span> '+
+      a.d+' <span style="font-size:14px;color:var(--bd-hint)">يوم</span></div>'+
+    '<div style="margin-top:8px;font-size:12.5px;line-height:2.1;color:var(--bd-text)">'+
+      '📅 الأشهر الإجمالية: <b>'+fmt(a.monthsTotal)+'</b><br>'+
+      '🗓️ الأسابيع: <b>'+fmt(a.weeks)+'</b> · الأيام: <b>'+fmt(a.totalDays)+'</b><br>'+
+      '⏰ الساعات: <b>'+fmt(a.totalHours)+'</b> · الدقائق: <b>'+fmt(a.totalMinutes)+'</b><br>'+
+      '⏱️ الثواني: <b>'+fmt(a.totalSeconds)+'</b><br>'+
+      '💓 نبضات القلب: ~<b>'+fmt(a.heartbeats)+'</b><br>'+
+      '🌬️ أنفاس: ~<b>'+fmt(a.breaths)+'</b><br>'+
+      '😴 نوم: ~<b>'+fmt(a.sleepDays)+'</b> يوم<br>'+
+      '🌍 دورات حول الشمس: <b>'+a.sunOrbits+'</b><br>'+
+      '🔮 البرج: <b>'+a.zodiac+'</b><br>'+
+      '🌟 سنة ميلاد كبيسة: <b>'+(a.leap?'نعم':'لا')+'</b><br>'+
+      '🎉 عيد الميلاد القادم بعد: <b>'+a.daysToNext+'</b> يوم'+
+    '</div>'+extra+'</div>';
+}
+function calc(){
+  const v1=document.getElementById('bd1').value;
+  if(!v1){Boda.toast('⚠️ اختر تاريخ ميلادك');return;}
+  const a1=ageDetails(v1);
+  if(!a1){Boda.toast('🤨 تاريخ غير صالح');return;}
+  const v2=document.getElementById('bd2').value;
+  let compareHtml='';
+  if(v2){
+    const a2=ageDetails(v2);
+    if(a2){
+      const diffDays=Math.abs(a1.totalDays-a2.totalDays);
+      const diffY=Math.abs(a1.y-a2.y);
+      const older=a1.totalDays>a2.totalDays?'أنت الأكبر':'الآخر أكبر';
+      compareHtml='<hr style="border-color:var(--bd-hint);margin:12px 0">'+
+        '<div style="font-size:13px;color:var(--bd-hint);margin-bottom:6px">📊 مقارنة الأعمار</div>'+
+        '<div style="font-size:13px;line-height:2">الفرق: <b>'+diffY+'</b> سنة و <b>'+fmt(diffDays)+'</b> يوم<br>'+
+        older+' بـ <b>'+fmt(diffDays)+'</b> يوم</div>';
+    }
+  }
+  Boda.haptic('success');Boda.track('feature_use',{detail:'age'});
+  const res=document.getElementById('res');
+  res.className='result show';
+  res.innerHTML='<div class="result-title">🎂 تفاصيل عمرك</div>'+card('أنت',a1,compareHtml)+
+    '<div class="result-actions">'+
+      '<button class="btn secondary" id="copy-btn" type="button">📋 نسخ</button>'+
+      '<button class="btn secondary" id="share-btn" type="button">📤 مشاركة</button>'+
+    '</div>';
+  const summary='🎂 عمري: '+a1.y+' سنة، '+a1.m+' شهر، '+a1.d+' يوم — '+a1.totalDays+' يوم — '+a1.zodiac;
+  document.getElementById('copy-btn').onclick=()=>Boda.copy(summary,'📋 تم النسخ');
+  document.getElementById('share-btn').onclick=()=>Boda.share(summary,'https://t.me/CalcMyAge_Bot');
+  const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+  res.scrollIntoView({behavior:behavior, block:'nearest'});
+}
+document.getElementById('bd1').value='2000-01-01';
 """,
 )
 
