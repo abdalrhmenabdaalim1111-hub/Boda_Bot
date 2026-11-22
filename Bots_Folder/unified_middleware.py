@@ -166,7 +166,7 @@ class UnifiedBotMiddleware(BaseMiddleware):
                 chat = getattr(message, "message", None)
                 chat_id = getattr(getattr(chat, "chat", None), "id", None) or user.id
                 lang = (getattr(user, "language_code", "") or "ar").lower()
-                if self.gate.check_user(user.id, chat_id, lang):
+                if self.gate.check_user(user.id, chat_id, lang, use_cache=False):
                     try:
                         self.bot.answer_callback_query(
                             message.id,
@@ -193,7 +193,8 @@ class UnifiedBotMiddleware(BaseMiddleware):
             # 1) تتبع المستخدمين وترقيتهم (المحادثات الخاصة فقط — إحصائيات نظيفة)
             if is_private:
                 # أولاً: فحص بوابة الاشتراك الإجباري
-                if self.gate.check_and_show_gate(message):
+                # فحص فوري بدون كاش → يتعقب إلغاء الاشتراك تلقائياً عند الاستخدام
+                if self.gate.check_and_show_gate(message, use_cache=False):
                     from telebot.handler_backends import CancelMiddleware
                     raise CancelMiddleware("Subscription Gate active")
 

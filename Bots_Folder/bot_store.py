@@ -222,7 +222,7 @@ def cmd_stats(message):
 
 @bot.message_handler(commands=["start", "menu", "help", "about"])
 def send_welcome(message):
-    if gate.check_and_show_gate(message):
+    if gate.check_and_show_gate(message, use_cache=False):
         return
     cmd = (message.text or "").split()[0].lower()
     if cmd in ("/help", "/about"):
