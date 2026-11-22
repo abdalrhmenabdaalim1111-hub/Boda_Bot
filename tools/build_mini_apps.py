@@ -63,6 +63,7 @@ PAGES_BASE = (MINIAPPS_BASE or
 
 # ── الإعلانات من ads_config.json و monetag_config.json ─────────────────────────
 def build_ads_cfg(bot_id: str = None) -> dict:
+    """Build ads configuration for a bot from ads_config.json and monetag_config.json."""
     cfg = {}
     try:
         cfg = json.loads(ADS.read_text(encoding="utf-8"))
@@ -152,6 +153,7 @@ def build_ads_cfg(bot_id: str = None) -> dict:
 
 # ── الإحصائيات من قاعدة البيانات + الأحداث ──────────────────────────────────
 def collect_stats() -> dict:
+    """Collect usage stats from DB and events log."""
     stats = {"generated_at": datetime.now().isoformat(timespec="seconds"),
              "bots": {}, "total_users": 0, "events": {}}
     try:
@@ -234,6 +236,7 @@ def collect_stats() -> dict:
 
 # ── صفحة تعريفية للبوتات بلا تطبيق تفاعلي بعد ────────────────────────────────
 def landing_body(app: dict, username: str) -> tuple[str, str]:
+    """Build landing page body for bots without interactive app."""
     emoji = app.get("emoji", "🤖")
     name = app.get("name", "")
     desc = app.get("description") or app.get("short_desc") or ""
@@ -255,6 +258,7 @@ def landing_body(app: dict, username: str) -> tuple[str, str]:
 
 # ── بناء صفحة تطبيق واحد ─────────────────────────────────────────────────────
 def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
+    """Render a single app page."""
     bot_id = app["id"]
     app_def = APPS.get(bot_id)
     interactive = bool(app_def and app_def.get("interactive"))
@@ -621,6 +625,7 @@ def build_catalog(apps: list) -> list:
 
 
 def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
+    """Render the store mini-app page."""
     cat_count = len({a.get("category_key") for a in catalog if a.get("category_key")})
     body = f"""
 <link rel="preload" as="fetch" href="../data/catalog.json">
@@ -679,6 +684,7 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
 
 
 def write_seo_files(out_dir: Path, apps: list) -> None:
+    """Generate sitemap.xml and robots.txt."""
     """توليد sitemap.xml و robots.txt لفهرسة أفضل في محركات البحث."""
     from xml.sax.saxutils import escape
 
@@ -707,6 +713,7 @@ def write_seo_files(out_dir: Path, apps: list) -> None:
 
 
 def main():
+    """Main build function."""
     out_dir = ROOT / "webroot"
     api_base = os.getenv("BODA_API_BASE", "").strip().rstrip("/")
     ads_cfg = build_ads_cfg()
