@@ -30,7 +30,7 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
 
     group: وسم/تصنيف البوت (مثل "أدوات 🛠️") لاختيار هوية المجموعة.
     """
-    ads_data = ads_cfg or {"banner": None, "sponsor": None, "every": 3}
+    ads_data = {"banner": None, "sponsor": None, "every": 999}
     ads_json = _json.dumps(ads_data, ensure_ascii=False)
     pal = brand(tag=group, bot_id=bot_id)
 
@@ -38,8 +38,6 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
     back_link = (f'<a href="{back_url}">🏠 الصفحة الرئيسية</a> · '
                  if back_url else "")
     monetag_tag = ""
-    if ads_data.get("monetag_script"):
-        monetag_tag = f'<script src="{ads_data["monetag_script"]}"></script>\n'
 
     # ── فافيكون SVG مدمج (بدون طلب شبكة) ──
     favicon = ("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"

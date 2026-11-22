@@ -41,6 +41,15 @@ def is_port_in_use(port: int = 8080, host: str = "127.0.0.1") -> bool:
         return s.connect_ex((host, port)) == 0
 
 
+def cleanup_lingering_bots() -> None:
+    """Terminate lingering bot processes from previous runs to prevent 409 Conflict."""
+    try:
+        from kill_bots import kill_all_bot_processes
+        kill_all_bot_processes()
+    except Exception:
+        pass
+
+
 def free_port(port: int = 8080) -> None:
     """Kill any process holding the port on Windows or Unix."""
     if not is_port_in_use(port):
@@ -159,6 +168,7 @@ def main():
 
     print("🚀 جاري تهيئة نظام بودة...")
     free_port(8080)
+    cleanup_lingering_bots()
     ensure_env()
     apply_migrations()
     build_dashboard()

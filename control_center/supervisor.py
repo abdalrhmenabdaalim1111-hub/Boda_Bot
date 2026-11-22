@@ -284,6 +284,23 @@ class BotSupervisor:
                 pass
         return env
 
+    def _kill_lingering_script(self, script_name: str) -> None:
+        """Terminate any orphan external processes running this bot script to prevent Error 409 Conflict."""
+        try:
+            import psutil
+            my_pid = os.getpid()
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if proc.info['pid'] == my_pid:
+                        continue
+                    cmd = " ".join(proc.info.get('cmdline') or [])
+                    if script_name.lower() in cmd.lower() and ("python" in (proc.info.get('name') or '').lower() or "python" in cmd.lower()):
+                        proc.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+        except Exception:
+            pass
+
     def _spawn(self, bot_id: str):
         """Launch the bot process. Overridable in tests."""
         if self._spawner:
@@ -291,6 +308,7 @@ class BotSupervisor:
         script = self.script_for(bot_id)
         if not script.exists():
             raise FileNotFoundError(f"bot module not found: {script.name}")
+        self._kill_lingering_script(script.name)
         return subprocess.Popen(
             [sys.executable, "-u", str(script)],
             cwd=str(self.base_dir),

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="description" content="حاسبة الكاشير الذكية 🧮">
+<meta name="description" content="حساب الفواتير، الخصومات، والضريبة بسرعة وسهولة">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#3b82f6">
 <meta name="format-detection" content="telephone=no">
@@ -525,19 +525,41 @@ textarea{ min-height:92px; resize:vertical; }
   <header class="app-header">
     <span class="emoji" aria-hidden="true">🧮</span>
     <h1>حاسبة الكاشير</h1>
-    <p>حاسبة الكاشير الذكية 🧮</p>
+    <p>حساب الفواتير، الخصومات، والضريبة بسرعة وسهولة</p>
   </header>
 
   <main id="app">
 
-<div class="card" style="text-align:center">
-  <div style="font-size:64px">🧮</div>
-  <h2 style="margin:10px 0">حاسبة الكاشير</h2>
-  <p style="color:var(--hint);line-height:2;font-size:14px">حاسبة الكاشير الذكية 🧮</p>
-  <p style="font-size:13.5px;line-height:2">هذا البوت يعمل بالكامل عبر المحادثة.<br>
-  <b>النسخة التفاعلية قيد التطوير</b> — افتح البوت الآن واستمتع!</p>
-  <button class="btn" onclick="location.href='https://t.me/CashierCalcBot'">🤖 فتح البوت في تيليجرام</button>
+<div class="card">
+  <div class="field">
+    <label for="c-subtotal">إجمالي المشتريات (المبلغ الأساسي)</label>
+    <input type="number" id="c-subtotal" placeholder="100" min="0" step="any" inputmode="decimal" value="100">
+  </div>
+  <div class="field">
+    <label for="c-discount">نسبة الخصم % (اختياري)</label>
+    <input type="number" id="c-discount" placeholder="0" min="0" max="100" step="any" inputmode="decimal" value="0">
+    <div class="chips">
+      <span class="chip" onclick="setDiscount(5)">5%</span>
+      <span class="chip" onclick="setDiscount(10)">10%</span>
+      <span class="chip" onclick="setDiscount(15)">15%</span>
+      <span class="chip" onclick="setDiscount(20)">20%</span>
+      <span class="chip" onclick="setDiscount(0)">بدون خصم</span>
+    </div>
+  </div>
+  <div class="field">
+    <label for="c-tax">ضريبة القيمة المضافة % (VAT)</label>
+    <input type="number" id="c-tax" placeholder="14" min="0" max="50" step="any" inputmode="decimal" value="14">
+    <div class="chips">
+      <span class="chip active" onclick="setTax(14)">14% (مصر)</span>
+      <span class="chip" onclick="setTax(15)">15% (السعودية)</span>
+      <span class="chip" onclick="setTax(5)">5% (الإمارات)</span>
+      <span class="chip" onclick="setTax(0)">0%</span>
+    </div>
+  </div>
+  <button class="btn" onclick="calcCashier()">🧮 حساب الفاتورة النهائية</button>
+  <div class="result" id="res" aria-live="polite"></div>
 </div>
+
   </main>
 
   <footer class="app-footer">
@@ -1112,6 +1134,54 @@ window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "─────�
   };
 })();
 </script>
-<script>Boda.track('app_open',{detail:'landing'});</script>
+<script>
+const SHARE_BOT='https://t.me/CashierCalcBot';
+function setDiscount(v){ document.getElementById('c-discount').value=v; calcCashier(); }
+function setTax(v){
+  document.getElementById('c-tax').value=v;
+  document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
+  calcCashier();
+}
+
+function calcCashier(){
+  const sub = parseFloat(document.getElementById('c-subtotal').value) || 0;
+  const discPct = parseFloat(document.getElementById('c-discount').value) || 0;
+  const taxPct = parseFloat(document.getElementById('c-tax').value) || 0;
+  if(sub <= 0) return Boda.toast('⚠️ أدخل مبلغ الفاتورة');
+
+  Boda.haptic('light');
+  const discVal = sub * (discPct / 100);
+  const afterDisc = sub - discVal;
+  const taxVal = afterDisc * (taxPct / 100);
+  const total = afterDisc + taxVal;
+
+  const res = document.getElementById('res');
+  res.className = 'result show';
+  res.innerHTML =
+    '<div class="result-title">🧾 تفاصيل الفاتورة</div>' +
+    '<div class="stat-grid" style="margin-bottom:12px;">' +
+      '<div class="stat"><b>' + sub.toFixed(2) + '</b><span>المبلغ الأصلي</span></div>' +
+      '<div class="stat"><b>-' + discVal.toFixed(2) + '</b><span>الخصم (' + discPct + '%)</span></div>' +
+      '<div class="stat"><b>+' + taxVal.toFixed(2) + '</b><span>الضريبة (' + taxPct + '%)</span></div>' +
+    '</div>' +
+    '<div style="text-align:center; padding:12px; background:var(--bd-surface); border-radius:12px; margin:8px 0;">' +
+      '<span class="muted" style="font-size:12px;">الإجمالي النهائي المستحق:</span>' +
+      '<div style="font-size:34px; font-weight:800; color:var(--bd-brand);">' + total.toFixed(2) + '</div>' +
+    '</div>' +
+    '<div class="result-actions">' +
+      '<button class="btn secondary" id="copy-bill">📋 نسخ الفاتورة</button>' +
+      '<button class="btn secondary" id="share-bill">📤 مشاركة</button>' +
+    '</div>';
+
+  const billSummary = '🧾 فاتورة كاشير:
+المبلغ: ' + sub.toFixed(2) + '
+الخصم: -' + discVal.toFixed(2) + '
+الضريبة: +' + taxVal.toFixed(2) + '
+الإجمالي: ' + total.toFixed(2);
+  res.querySelector('#copy-bill').onclick = () => Boda.copy(billSummary, '📋 تم نسخ ملخص الفاتورة');
+  res.querySelector('#share-bill').onclick = () => Boda.share(billSummary, SHARE_BOT);
+  Boda.track('feature_use', {detail: 'cashier_calc'});
+}
+</script>
 </body>
 </html>

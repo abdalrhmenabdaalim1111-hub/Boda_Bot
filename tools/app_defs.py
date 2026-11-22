@@ -131,7 +131,7 @@ Boda.ready(async ()=>{
 
 APPS["qrgen"] = dict(
     group="tools",
-    emoji="🔗", title="مولّد QR احترافي", subtitle="حوّل أي رابط أو نص إلى QR فوري",
+    emoji="🔗", title="QRGen — صانع الباركود", subtitle="حوّل أي رابط أو نص إلى QR فوري",
     interactive=True,
     body="""
 <div class="card">
@@ -174,7 +174,7 @@ async function gen(){
 
 APPS["cryptorate"] = dict(
     group="tools",
-    emoji="💰", title="أسعار العملات الرقمية", subtitle="BTC وETH وكل العملات لحظياً",
+    emoji="💰", title="محوّل العملة الرقمية", subtitle="BTC وETH وكل العملات لحظياً",
     interactive=True,
     body="""
 <div class="card">
@@ -215,7 +215,7 @@ load();
 
 APPS["safepass"] = dict(
     group="tools",
-    emoji="🔒", title="مولّد كلمات المرور", subtitle="كلمات مرور قوية محلياً 100% — لا تُرسل لأي خادم",
+    emoji="🔒", title="مولّد الباسورد", subtitle="كلمات مرور قوية محلياً 100% — لا تُرسل لأي خادم",
     interactive=True,
     body="""
 <div class="card">
@@ -302,7 +302,7 @@ async function shorten(){
 
 APPS["lovecalculator"] = dict(
     group="fun",
-    emoji="❤️", title="حاسبة الحب", subtitle="اكتب اسماين وشوف نسبة التوافق 😄",
+    emoji="❤️", title="رادار القلوب", subtitle="اكتب اسماين وشوف نسبة التوافق 😄",
     interactive=True,
     body="""
 <div class="card">
@@ -336,7 +336,7 @@ function calc(){
 
 APPS["mentalage"] = dict(
     group="fun",
-    emoji="🧠", title="اختبار العمر العقلي", subtitle="كم عمر عقلك الحقيقي؟ 10 أسئلة سريعة",
+    emoji="🧠", title="مرآة العقل", subtitle="كم عمر عقلك الحقيقي؟ 10 أسئلة سريعة",
     interactive=True,
     body="""
 <div class="card" id="quiz">
@@ -388,7 +388,7 @@ render();
 
 APPS["iqtest"] = dict(
     group="fun",
-    emoji="🧩", title="اختبار الذكاء السريع", subtitle="10 أسئلة منطقية — 5 دقائق",
+    emoji="🧩", title="مقياس العبقرية", subtitle="10 أسئلة منطقية — 5 دقائق",
     interactive=True,
     body="""
 <div class="card">
@@ -492,7 +492,7 @@ Boda.ready(()=>{
 
 APPS["luckybox"] = dict(
     group="fun",
-    emoji="🎁", title="صندوق الحظ", subtitle="افتح صندوقاً غامضاً كل يوم — ماذا ستحصل عليه؟",
+    emoji="🎁", title="مربّع الحظ", subtitle="افتح صندوقاً غامضاً كل يوم — ماذا ستحصل عليه؟",
     interactive=True,
     body="""
 <div class="card" style="text-align:center">
@@ -540,7 +540,7 @@ function openBox(){
 
 APPS["braintwist"] = dict(
     group="fun",
-    emoji="🌀", title="ألغاز الأذكياء", subtitle="ألغاز تمسك الدماغ — كل يوم لغز جديد",
+    emoji="🌀", title="بوت الألغاز", subtitle="ألغاز تمسك الدماغ — كل يوم لغز جديد",
     interactive=True,
     body="""
 <div class="card"><div id="q-box"></div><div class="result" id="res"></div></div>
@@ -590,7 +590,7 @@ render();
 
 APPS["fun_name"] = dict(
     group="fun",
-    emoji="🎭", title="مولّد الأسماء الطريفة", subtitle="اسم عربي مضحك + لقب — من اسمك الحقيقي",
+    emoji="🎭", title="مولّد الأسماء الموازية", subtitle="اسم عربي مضحك + لقب — من اسمك الحقيقي",
     interactive=True,
     body="""
 <div class="card">
@@ -622,7 +622,7 @@ function gen(){
 
 APPS["random_suggest"] = dict(
     group="fun",
-    emoji="🎲", title="قرار عشوائي ذكي", subtitle="متحتار؟ اترك القرار للعشوائية — أفلام، أكل، نشاطات",
+    emoji="🎲", title="المقترح العشوائي", subtitle="متحتار؟ اترك القرار للعشوائية — أفلام، أكل، نشاطات",
     interactive=True,
     body="""
 <div class="card">
@@ -667,7 +667,7 @@ function spin(){
 
 APPS["caltrack"] = dict(
     group="health",
-    emoji="🍎", title="حاسبة السعرات", subtitle="اعرف سعرات طعامك اليومية ونسبة الحرق",
+    emoji="🍎", title="عداد السعرات", subtitle="اعرف سعرات طعامك اليومية ونسبة الحرق",
     interactive=True,
     body="""
 <div class="card">
@@ -719,7 +719,7 @@ function calc(){
 
 APPS["fitcheck"] = dict(
     group="health",
-    emoji="💪", title="فاحص اللياقة", subtitle="BMI + نبضك المستهدف + تقييم لياقتك",
+    emoji="💪", title="حاسبة BMI", subtitle="BMI + نبضك المستهدف + تقييم لياقتك",
     interactive=True,
     body="""
 <div class="card">
@@ -759,7 +759,7 @@ function calc(){
 
 APPS["memoryvault"] = dict(
     group="tools",
-    emoji="🗄️", title="خزنة الذكريات", subtitle="اكتب ذكرى وحدد تاريخ فتحها — رسالة من الزمن",
+    emoji="🗄️", title="بوت الذكريات", subtitle="اكتب ذكرى وحدد تاريخ فتحها — رسالة من الزمن",
     interactive=True,
     body="""
 <div class="card">
@@ -806,7 +806,7 @@ renderList();
 
 APPS["alarmbot"] = dict(
     group="tools",
-    emoji="⏰", title="مؤقّت التركيز", subtitle="بومودورو 25 دقيقة مع تنبيه داخل تيليجرام",
+    emoji="⏰", title="بوت المنبّه", subtitle="بومودورو 25 دقيقة مع تنبيه داخل تيليجرام",
     interactive=True,
     body="""
 <div class="card" style="text-align:center">
@@ -852,7 +852,7 @@ draw();
 
 APPS["transbot"] = dict(
     group="text",
-    emoji="🌐", title="المترجم الفوري", subtitle="ترجمة فورية بين 100+ لغة — مدعوم بـ MyMemory",
+    emoji="🌐", title="TransBot — المترجم الفوري", subtitle="ترجمة فورية بين 100+ لغة — مدعوم بـ MyMemory",
     interactive=True,
     body="""
 <div class="card">
@@ -894,7 +894,7 @@ async function tr(){
 
 APPS["doctrans"] = dict(
     group="text",
-    emoji="📄", title="ترجمة المستندات", subtitle="ترجمة النصوص الطويلة والمقالات قطعة قطعة",
+    emoji="📄", title="مترجم الملفات", subtitle="ترجمة النصوص الطويلة والمقالات قطعة قطعة",
     interactive=True,
     body="""
 <div class="card">
@@ -935,7 +935,7 @@ async function tr(){
 
 APPS["weathernow"] = dict(
     group="tools",
-    emoji="🌦️", title="الطقس الآن", subtitle="أجواء مدينتك — حرارة ورطوبة وتوقعات",
+    emoji="🌦️", title="بوت الطقس", subtitle="أجواء مدينتك — حرارة ورطوبة وتوقعات",
     interactive=True,
     body="""
 <div class="card">
@@ -989,7 +989,7 @@ load();
 
 APPS["personalityanalyzer"] = dict(
     group="fun",
-    emoji="🔮", title="محلل الشخصية", subtitle="أجب بصدق واكتشف نمط شخصيتك المهيمن",
+    emoji="🔮", title="المحلل النفسي", subtitle="أجب بصدق واكتشف نمط شخصيتك المهيمن",
     interactive=True,
     body="""
 <div class="card"><div id="q-box"></div><div class="result" id="res" style="text-align:center"></div></div>
@@ -1037,7 +1037,7 @@ render();
 
 APPS["cvbuilder"] = dict(
     group="text",
-    emoji="💼", title="منشئ السيرة الذاتية", subtitle="أدخل بياناتك واحصل على CV منسّق جاهز للنسخ",
+    emoji="💼", title="بوت السيرة الذاتية", subtitle="أدخل بياناتك واحصل على CV منسّق جاهز للنسخ",
     interactive=True,
     body="""
 <div class="card">
@@ -1076,7 +1076,7 @@ function build(){
 
 APPS["logotext"] = dict(
     group="media",
-    emoji="🎨", title="صانع الشعارات النصية", subtitle="شعار فوري لاسم مشروعك — 6 أنماط ألوان",
+    emoji="🎨", title="مُنشئ الشعار", subtitle="شعار فوري لاسم مشروعك — 6 أنماط ألوان",
     interactive=True,
     body="""
 <div class="card">
@@ -1126,7 +1126,7 @@ async function dl(){
 
 APPS["colorpick"] = dict(
     group="media",
-    emoji="🌈", title="منتقي الألوان الذكي", subtitle="اختر لوناً واحصل على تدرجات متناسقة + أكواد HEX",
+    emoji="🌈", title="محلل الألوان", subtitle="اختر لوناً واحصل على تدرجات متناسقة + أكواد HEX",
     interactive=True,
     body="""
 <div class="card" style="text-align:center">
@@ -1157,7 +1157,7 @@ function pal(){
 
 APPS["backdrop"] = dict(
     group="media",
-    emoji="🖼️", title="مولّد الخلفيات", subtitle="خلفيات تدرّج أنيقة بجودة عالية — جاهزة للتحميل",
+    emoji="🖼️", title="BackDrop — محرر الخلفيات", subtitle="خلفيات تدرّج أنيقة بجودة عالية — جاهزة للتحميل",
     interactive=True,
     body="""
 <div class="card">
@@ -1259,7 +1259,7 @@ function dl(){ const a=document.createElement('a'); a.download='boosted.png'; a.
 
 APPS["birth_age"] = dict(
     group="tools",
-    emoji="🎂", title="حاسبة العمر الدقيقة", subtitle="عمرك بالسنين والشهور والأيام — وحتى نَفَسك 😄",
+    emoji="🎂", title="حساب العمر وتفاصيله", subtitle="عمرك بالسنين والشهور والأيام — وحتى نَفَسك 😄",
     interactive=True,
     body="""
 <div class="card">
@@ -1295,7 +1295,7 @@ document.getElementById('bd').value='2000-01-01';
 
 APPS["textspeak"] = dict(
     group="text",
-    emoji="🔤", title="محوّل أنماط الكتابة", subtitle="عربي مضغوط، عشوائي مائل، رموز جمالية...",
+    emoji="🔤", title="محوّل النص لصوت", subtitle="عربي مضغوط، عشوائي مائل، رموز جمالية...",
     interactive=True,
     body="""
 <div class="card">
@@ -1330,7 +1330,7 @@ function conv(mode){
 
 APPS["silentcut"] = dict(
     group="media",
-    emoji="🔇", title="آلة قص الصمت", subtitle="يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت",
+    emoji="🔇", title="مزيل صمت الفيديو", subtitle="يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت",
     interactive=True,
     body="""
 <div class="card">
@@ -1420,7 +1420,7 @@ Boda.track('app_open',{detail:'tool'});
 
 APPS["cleantok"] = dict(
     group="media",
-    emoji="🎵", title="تيك توك بلا علامة", subtitle="حدّد جودة التحميل وأرسل الرابط الجاهز للبوت",
+    emoji="🎵", title="CleanTok — تيك توك بلا علامة", subtitle="حدّد جودة التحميل وأرسل الرابط الجاهز للبوت",
     interactive=True,
     body="""
 <div class="card">
@@ -1466,7 +1466,7 @@ function send(){
 
 APPS["vidload"] = dict(
     group="media",
-    emoji="📥", title="محمل الفيديوهات", subtitle="من يوتيوب وإنستغرام وتيك توك وX — اكتشف المنصة تلقائياً",
+    emoji="📥", title="VidLoad — تحميل الفيديوهات", subtitle="من يوتيوب وإنستغرام وتيك توك وX — اكتشف المنصة تلقائياً",
     interactive=True,
     body="""
 <div class="card">
@@ -1571,7 +1571,7 @@ Boda.ready(()=>{
 
 APPS["stickerx"] = dict(
     group="media",
-    emoji="🎨", title="صانع الملصقات", subtitle="جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت",
+    emoji="🎨", title="StickerX — صانع الملصقات", subtitle="جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت",
     interactive=True,
     body="""
 <div class="card">
@@ -1652,7 +1652,7 @@ document.getElementById('img').onchange=e=>{
 
 APPS["formatfix"] = dict(
     group="tools",
-    emoji="🧹", title="منظّم النصوص", subtitle="تنظيف المسافات والرموز — لصق نظيف بضغطة",
+    emoji="🧹", title="FormatFix — محوّل الملفات", subtitle="تنظيف المسافات والرموز — لصق نظيف بضغطة",
     interactive=True,
     body="""
 <div class="card">
@@ -1735,4 +1735,87 @@ function check(){
   }
 }
 """,
+)
+
+
+APPS["cashier"] = dict(
+    group="tools",
+    emoji="🧮", title="حاسبة الكاشير", subtitle="حساب الفواتير، الخصومات، والضريبة بسرعة وسهولة",
+    interactive=True,
+    body="""
+<div class="card">
+  <div class="field">
+    <label for="c-subtotal">إجمالي المشتريات (المبلغ الأساسي)</label>
+    <input type="number" id="c-subtotal" placeholder="100" min="0" step="any" inputmode="decimal" value="100">
+  </div>
+  <div class="field">
+    <label for="c-discount">نسبة الخصم % (اختياري)</label>
+    <input type="number" id="c-discount" placeholder="0" min="0" max="100" step="any" inputmode="decimal" value="0">
+    <div class="chips">
+      <span class="chip" onclick="setDiscount(5)">5%</span>
+      <span class="chip" onclick="setDiscount(10)">10%</span>
+      <span class="chip" onclick="setDiscount(15)">15%</span>
+      <span class="chip" onclick="setDiscount(20)">20%</span>
+      <span class="chip" onclick="setDiscount(0)">بدون خصم</span>
+    </div>
+  </div>
+  <div class="field">
+    <label for="c-tax">ضريبة القيمة المضافة % (VAT)</label>
+    <input type="number" id="c-tax" placeholder="14" min="0" max="50" step="any" inputmode="decimal" value="14">
+    <div class="chips">
+      <span class="chip active" onclick="setTax(14)">14% (مصر)</span>
+      <span class="chip" onclick="setTax(15)">15% (السعودية)</span>
+      <span class="chip" onclick="setTax(5)">5% (الإمارات)</span>
+      <span class="chip" onclick="setTax(0)">0%</span>
+    </div>
+  </div>
+  <button class="btn" onclick="calcCashier()">🧮 حساب الفاتورة النهائية</button>
+  <div class="result" id="res" aria-live="polite"></div>
+</div>
+""",
+    js="""
+const SHARE_BOT='https://t.me/CashierCalcBot';
+function setDiscount(v){ document.getElementById('c-discount').value=v; calcCashier(); }
+function setTax(v){
+  document.getElementById('c-tax').value=v;
+  document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
+  calcCashier();
+}
+
+function calcCashier(){
+  const sub = parseFloat(document.getElementById('c-subtotal').value) || 0;
+  const discPct = parseFloat(document.getElementById('c-discount').value) || 0;
+  const taxPct = parseFloat(document.getElementById('c-tax').value) || 0;
+  if(sub <= 0) return Boda.toast('⚠️ أدخل مبلغ الفاتورة');
+
+  Boda.haptic('light');
+  const discVal = sub * (discPct / 100);
+  const afterDisc = sub - discVal;
+  const taxVal = afterDisc * (taxPct / 100);
+  const total = afterDisc + taxVal;
+
+  const res = document.getElementById('res');
+  res.className = 'result show';
+  res.innerHTML =
+    '<div class="result-title">🧾 تفاصيل الفاتورة</div>' +
+    '<div class="stat-grid" style="margin-bottom:12px;">' +
+      '<div class="stat"><b>' + sub.toFixed(2) + '</b><span>المبلغ الأصلي</span></div>' +
+      '<div class="stat"><b>-' + discVal.toFixed(2) + '</b><span>الخصم (' + discPct + '%)</span></div>' +
+      '<div class="stat"><b>+' + taxVal.toFixed(2) + '</b><span>الضريبة (' + taxPct + '%)</span></div>' +
+    '</div>' +
+    '<div style="text-align:center; padding:12px; background:var(--bd-surface); border-radius:12px; margin:8px 0;">' +
+      '<span class="muted" style="font-size:12px;">الإجمالي النهائي المستحق:</span>' +
+      '<div style="font-size:34px; font-weight:800; color:var(--bd-brand);">' + total.toFixed(2) + '</div>' +
+    '</div>' +
+    '<div class="result-actions">' +
+      '<button class="btn secondary" id="copy-bill">📋 نسخ الفاتورة</button>' +
+      '<button class="btn secondary" id="share-bill">📤 مشاركة</button>' +
+    '</div>';
+
+  const billSummary = '🧾 فاتورة كاشير:\nالمبلغ: ' + sub.toFixed(2) + '\nالخصم: -' + discVal.toFixed(2) + '\nالضريبة: +' + taxVal.toFixed(2) + '\nالإجمالي: ' + total.toFixed(2);
+  res.querySelector('#copy-bill').onclick = () => Boda.copy(billSummary, '📋 تم نسخ ملخص الفاتورة');
+  res.querySelector('#share-bill').onclick = () => Boda.share(billSummary, SHARE_BOT);
+  Boda.track('feature_use', {detail: 'cashier_calc'});
+}
+"""
 )
