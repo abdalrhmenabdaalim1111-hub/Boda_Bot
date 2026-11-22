@@ -29,6 +29,12 @@ SHELL_CSS = """
   text-decoration:none;border:none;cursor:pointer;font-family:inherit;}
 .footer-link:active{transform:scale(.96);}
 .footer-brand{opacity:.7;}
+/* مساحة آمنة للبانر الثابت أسفل الشاشة حتى لا يغطي محتوى التطبيق */
+body.boda-app{padding-bottom:calc(var(--bd-banner-h, 0px) + 6px);}
+.boda-app .container{padding-bottom:calc(var(--bd-banner-h, 0px) + 10px);}
+.ad-banner{background:color-mix(in srgb,var(--bd-surface) 96%,transparent);}
+.ad-banner .ad-text{font-size:12px;line-height:1.7;}
+.ad-banner .ad-text a{color:var(--bd-link);font-weight:800;text-decoration:none;}
 """
 
 
@@ -43,8 +49,13 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
 
     group: وسم/تصنيف البوت (مثل "أدوات 🛠️") لاختيار هوية المجموعة.
     """
-    ads_data = {"banner": None, "sponsor": None, "every": 999}
-    ads_json = _json.dumps(ads_data, ensure_ascii=False)
+    # أفعّل بانر المتجر الثابت أسفل التطبيق، وأوقف الراعي البيني حتى لا يتعارض
+    # مع إعلانات الفيديو (Monetag) التي تُشغّلها التطبيقات بأنفسها.
+    ads_data = dict(ads_cfg or {})
+    ads_data["sponsor"] = None
+    ads_data["every"] = 999
+    # منع إغلاق وسم <script> داخل بيانات الإعلانات المُحقونة ( snippets تحتوي </script> )
+    ads_json = _json.dumps(ads_data, ensure_ascii=False).replace("</", "<\\/")
     pal = brand(tag=group, bot_id=bot_id)
 
     css = build_css(tag=group, bot_id=bot_id) + "\n" + app_css + "\n" + SHELL_CSS

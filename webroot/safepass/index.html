@@ -533,6 +533,12 @@ textarea{ min-height:92px; resize:vertical; }
   text-decoration:none;border:none;cursor:pointer;font-family:inherit;}
 .footer-link:active{transform:scale(.96);}
 .footer-brand{opacity:.7;}
+/* مساحة آمنة للبانر الثابت أسفل الشاشة حتى لا يغطي محتوى التطبيق */
+body.boda-app{padding-bottom:calc(var(--bd-banner-h, 0px) + 6px);}
+.boda-app .container{padding-bottom:calc(var(--bd-banner-h, 0px) + 10px);}
+.ad-banner{background:color-mix(in srgb,var(--bd-surface) 96%,transparent);}
+.ad-banner .ad-text{font-size:12px;line-height:1.7;}
+.ad-banner .ad-text a{color:var(--bd-link);font-weight:800;text-decoration:none;}
 </style>
 </head>
 <body class="boda-app" data-bot="safepass" data-group="tools">
@@ -577,7 +583,7 @@ window.__BODA_GROUP__    = "tools";
 window.__BODA_BRAND__    = "#3b82f6";
 window.__BODA_API__      = "";
 window.__BODA_SHARE__    = "https://t.me/SafePassXBot";
-window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
+window.__BODA_ADS__      = {"banner": {"icon": "📢", "html": "──────────────\n📢 <b>برعاية:<\/b> <a href=\"https://t.me/BodaStoreeBot\">متجر تطبيقات بودا<\/a> — حمّل أقوى البوتات مجاناً!"}, "sponsor": null, "every": 999, "monetag_script": "https://thubanoa.com/1?z=12321772", "monetag_zone": "12321772", "has_monetag": true, "ads": []};
 </script>
 <script>
 /* ═════════ Boda MiniApp SDK v2 ═════════
