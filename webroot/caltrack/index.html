@@ -1140,9 +1140,13 @@ function calc(){
   Boda.haptic('success'); Boda.track('feature_use',{detail:'calories'});
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '<b>الأيض الأساسي (BMR):</b> '+bmr.toLocaleString()+" سعرة<br>"+
-    '<b>احتياجك اليومي:</b> <span style="color:var(--accent);font-size:19px;font-weight:800">'+tdee.toLocaleString()+' سعرة</span><br>'+
-    '<small style="color:var(--hint)">للإنقاص: '+(tdee-400).toLocaleString()+' · للتزيّد: '+(tdee+400).toLocaleString()+' سعرة</small>';
+    '<div class="result-title">🔥 احتياجك اليومي</div>'+
+    '<div class="stat-grid">'+
+    '<div class="stat accent"><b>'+tdee.toLocaleString()+'</b><span>سعرة/يوم</span></div>'+
+    '<div class="stat"><b>'+(tdee-400).toLocaleString()+'</b><span>للإنقاص</span></div>'+
+    '<div class="stat"><b>'+(tdee+400).toLocaleString()+'</b><span>للتزيّد</span></div>'+
+    '</div>'+
+    '<p class="muted" style="font-size:12.5px;margin-top:10px">الأيض الأساسي BMR: '+bmr.toLocaleString()+' سعرة</p>';
 }
 </script>
 </body>

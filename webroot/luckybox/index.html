@@ -533,7 +533,7 @@ textarea{ min-height:92px; resize:vertical; }
 <div class="card" style="text-align:center">
   <div id="box" style="font-size:80px;cursor:pointer;transition:transform .3s"
        onclick="openBox()">🎁</div>
-  <p style="color:var(--hint);font-size:13px;margin-top:8px">اضغط الصندوق للفتح!</p>
+  <p style="color:var(--bd-hint);font-size:13px;margin-top:8px">اضغط الصندوق للفتح!</p>
   <div class="result" id="res"></div>
 </div>
 
@@ -1141,7 +1141,7 @@ function openBox(){
     const res=document.getElementById('res'); res.className='result show';
     res.innerHTML='<h2 style="font-size:22px">'+pick.e+' '+pick.t+'</h2>'+
       '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/LuckyBoxX1Bot&#39;)">📤 شارك حظك</button>'+
-      '<p style="color:var(--hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
+      '<p style="color:var(--bd-hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
   },1400);
 }
 </script>

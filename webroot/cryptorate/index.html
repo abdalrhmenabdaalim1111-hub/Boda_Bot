@@ -531,8 +531,14 @@ textarea{ min-height:92px; resize:vertical; }
   <main id="app">
 
 <div class="card">
-  <div id="list">⏳ جاري التحميل...</div>
-  <button class="btn secondary" onclick="load(true)">🔄 تحديث الأسعار</button>
+  <h2 class="card-title">💰 أسعار العملات الرقمية</h2>
+  <div id="list" class="list stagger">
+    <div class="skeleton" style="height:60px"></div>
+    <div class="skeleton" style="height:60px"></div>
+    <div class="skeleton" style="height:60px"></div>
+    <div class="skeleton" style="height:60px"></div>
+  </div>
+  <button class="btn secondary" onclick="load(true)" style="margin-top:12px">🔄 تحديث الأسعار</button>
 </div>
 
   </main>
@@ -1119,13 +1125,13 @@ async function load(manual){
     const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+COINS.join(',')+
       '&vs_currencies=usd&include_24hr_change=true');
     const d=await r.json();
-    el.innerHTML=COINS.filter(c=>d[c]).map(c=>{
+    el.className='list stagger'; el.innerHTML=COINS.filter(c=>d[c]).map(c=>{
       const p=d[c].usd, ch=d[c].usd_24h_change||0;
       const up=ch>=0;
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--hint)">'+
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--bd-hint)">'+
         '<span style="font-size:16px"><b>'+SYM[c]+'</b> '+c.charAt(0).toUpperCase()+c.slice(1)+'</span>'+
         '<span style="text-align:left"><b>$'+p.toLocaleString(undefined,{maximumFractionDigits:2})+'</b><br>'+
-        '<small style="color:'+(up?'var(--ok)':'var(--danger)')+'">'+(up?'▲':'▼')+' '+Math.abs(ch).toFixed(2)+'%</small></span></div>';
+        '<small style="color:'+(up?'var(--bd-ok)':'var(--bd-danger)')+'">'+(up?'▲':'▼')+' '+Math.abs(ch).toFixed(2)+'%</small></span></div>';
     }).join('');
     Boda.track('feature_use',{detail:manual?'refresh':'view'});
   }catch(e){ el.innerHTML='⚠️ تعذر جلب الأسعار — تحقق من الاتصال'; }

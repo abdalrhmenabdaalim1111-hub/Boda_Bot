@@ -1123,8 +1123,9 @@ function calc(){
   Boda.haptic('success'); Boda.track('feature_use',{detail:'age'});
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '<div style="font-size:34px;font-weight:800;color:var(--accent)">'+y+' سنة و'+m+' شهر و'+d+' يوم</div>'+
-    '<hr style="border-color:var(--hint);margin:12px 0">'+
+    '<div class="result-title">🎂 عمرك الآن</div>'+
+    '<div style="font-size:30px;font-weight:800;color:var(--bd-brand)">'+y+' سنة و'+m+' شهر و'+d+' يوم</div>'+
+    '<hr style="border-color:var(--bd-hint);margin:12px 0">'+
     '<p style="line-height:2.1;font-size:14px">📅 عشت حتى الآن <b>'+days.toLocaleString()+'</b> يوم<br>'+
     '🫀 قلبك ضرب ~ <b>'+(days*24*60*75).toLocaleString()+'</b> مرة<br>'+
     '😴 نمت ~ <b>'+Math.round(days/3).toLocaleString()+'</b> يوم<br>'+

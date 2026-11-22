@@ -1132,7 +1132,7 @@ function spin(){
     res.innerHTML='<div style="font-size:24px;font-weight:700">'+list[n%list.length]+'</div>';
     n++; if(n>12){ clearInterval(iv);
       const pick=list[Math.floor(Math.random()*list.length)];
-      res.innerHTML='<div style="font-size:24px;font-weight:800;color:var(--accent)">'+pick+'</div>'+
+      res.innerHTML='<div style="font-size:24px;font-weight:800;color:var(--bd-brand)">'+pick+'</div>'+
         '<button class="btn secondary" onclick="spin()">🔁 مرة أخرى</button>'+
         '<button class="btn secondary" onclick="Boda.share(&#39;اقترح لي القرار العشوائي: &#39;+pick+&#39; 🎲&#39;,&#39;https://t.me/RandomSuggestMixBot&#39;)">📤 شارك</button>';
       Boda.haptic('success'); Boda.track('feature_use',{detail:cat});

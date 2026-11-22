@@ -11,6 +11,7 @@ APPS = {}
 # ═════════════════════════════════ أدوات ═════════════════════════════════════
 
 APPS["currency"] = dict(
+    group="tools",
     emoji="💱", title="محول العملات الذكي", subtitle="أسعار صرف حية لأكثر من 100 عملة",
     interactive=True,
     body="""
@@ -129,6 +130,7 @@ Boda.ready(async ()=>{
 )
 
 APPS["qrgen"] = dict(
+    group="tools",
     emoji="🔗", title="مولّد QR احترافي", subtitle="حوّل أي رابط أو نص إلى QR فوري",
     interactive=True,
     body="""
@@ -171,12 +173,19 @@ async function gen(){
 )
 
 APPS["cryptorate"] = dict(
+    group="tools",
     emoji="💰", title="أسعار العملات الرقمية", subtitle="BTC وETH وكل العملات لحظياً",
     interactive=True,
     body="""
 <div class="card">
-  <div id="list">⏳ جاري التحميل...</div>
-  <button class="btn secondary" onclick="load(true)">🔄 تحديث الأسعار</button>
+  <h2 class="card-title">💰 أسعار العملات الرقمية</h2>
+  <div id="list" class="list stagger">
+    <div class="skeleton" style="height:60px"></div>
+    <div class="skeleton" style="height:60px"></div>
+    <div class="skeleton" style="height:60px"></div>
+    <div class="skeleton" style="height:60px"></div>
+  </div>
+  <button class="btn secondary" onclick="load(true)" style="margin-top:12px">🔄 تحديث الأسعار</button>
 </div>
 """,
     js="""
@@ -189,13 +198,13 @@ async function load(manual){
     const r=await fetch('https://api.coingecko.com/api/v3/simple/price?ids='+COINS.join(',')+
       '&vs_currencies=usd&include_24hr_change=true');
     const d=await r.json();
-    el.innerHTML=COINS.filter(c=>d[c]).map(c=>{
+    el.className='list stagger'; el.innerHTML=COINS.filter(c=>d[c]).map(c=>{
       const p=d[c].usd, ch=d[c].usd_24h_change||0;
       const up=ch>=0;
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--hint)">'+
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--bd-hint)">'+
         '<span style="font-size:16px"><b>'+SYM[c]+'</b> '+c.charAt(0).toUpperCase()+c.slice(1)+'</span>'+
         '<span style="text-align:left"><b>$'+p.toLocaleString(undefined,{maximumFractionDigits:2})+'</b><br>'+
-        '<small style="color:'+(up?'var(--ok)':'var(--danger)')+'">'+(up?'▲':'▼')+' '+Math.abs(ch).toFixed(2)+'%</small></span></div>';
+        '<small style="color:'+(up?'var(--bd-ok)':'var(--bd-danger)')+'">'+(up?'▲':'▼')+' '+Math.abs(ch).toFixed(2)+'%</small></span></div>';
     }).join('');
     Boda.track('feature_use',{detail:manual?'refresh':'view'});
   }catch(e){ el.innerHTML='⚠️ تعذر جلب الأسعار — تحقق من الاتصال'; }
@@ -205,6 +214,7 @@ load();
 )
 
 APPS["safepass"] = dict(
+    group="tools",
     emoji="🔒", title="مولّد كلمات المرور", subtitle="كلمات مرور قوية محلياً 100% — لا تُرسل لأي خادم",
     interactive=True,
     body="""
@@ -238,7 +248,7 @@ function gen(){
     '<button class="btn secondary" onclick="Boda.copy(\\''+pw+'\\')">📋 نسخ</button>';
   // قوة كلمة المرور: تشكيلة + طول
   let bits=n*Math.log2(pool.length);
-  const lv=bits>100?['ممتازة 💪','var(--ok)']:bits>60?['قوية ✔','var(--ok)']:bits>40?['متوسطة ⚠','var(--warn)']:['ضعيفة ✖','var(--danger)'];
+  const lv=bits>100?['ممتازة 💪','var(--bd-ok)']:bits>60?['قوية ✔','var(--bd-ok)']:bits>40?['متوسطة ⚠','var(--bd-warn)']:['ضعيفة ✖','var(--bd-danger)'];
   document.getElementById('strength').innerHTML='<p style="color:'+lv[1]+';font-size:13px;margin-top:8px">القوة: '+lv[0]+' ('+Math.round(bits)+' bit)</p>';
   Boda.track('feature_use',{detail:'pw_'+n});
 }
@@ -246,6 +256,7 @@ function gen(){
 )
 
 APPS["shortlink"] = dict(
+    group="tools",
     emoji="✂️", title="مختصر الروابط", subtitle="حوّل الروابط الطويلة إلى روابط قصيرة أنيقة",
     interactive=True,
     body="""
@@ -282,6 +293,7 @@ async function shorten(){
 # ═══════════════════════════════════ ترفيه ═══════════════════════════════════
 
 APPS["lovecalculator"] = dict(
+    group="fun",
     emoji="❤️", title="حاسبة الحب", subtitle="اكتب اسماين وشوف نسبة التوافق 😄",
     interactive=True,
     body="""
@@ -304,10 +316,10 @@ function calc(){
   let msg = pct>=90?'💍 زواج قريب بإذن الله!':pct>=70?'💕 توافق رائع!':pct>=50?'😊 علاقة واعدة':pct>=30?'🤝 صداقة قوية':'😂 مفيش أمل 😅';
   // شريط تقدم متحرك
   const res=document.getElementById('res'); res.className='result show';
-  res.innerHTML='<div style="font-size:44px;font-weight:800;color:var(--accent)">'+pct+'%</div>'+
-    '<div style="background:var(--bg);border-radius:999px;height:12px;margin:10px 0;overflow:hidden">'+
-    '<div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--danger),var(--accent));border-radius:999px"></div></div>'+
-    '<p>'+msg+'</p>'+
+  res.innerHTML='<div class="result-title">💘 نتيجة التوافق</div>'+
+    '<div style="font-size:48px;font-weight:800;color:var(--bd-brand)">'+pct+'%</div>'+
+    '<div class="progress" style="margin:12px 0"><i style="width:'+pct+'%"></i></div>'+
+    '<p style="font-size:16px;margin-bottom:14px">'+msg+'</p>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;نسبة الحب بيني وبين... جرب حاسبة الحب 💌&#39;,&#39;https://t.me/LoveMatchRBot&#39;)">📤 تحدى أصدقاءك</button>';
   Boda.track('feature_use',{detail:'love_'+(pct>=70)});
 }
@@ -315,6 +327,7 @@ function calc(){
 )
 
 APPS["mentalage"] = dict(
+    group="fun",
     emoji="🧠", title="اختبار العمر العقلي", subtitle="كم عمر عقلك الحقيقي؟ 10 أسئلة سريعة",
     interactive=True,
     body="""
@@ -339,7 +352,7 @@ let i=0, score=0;
 const PTS=[[1,2,3,4],[1,3,2,4],[1,2,3,4],[1,3,2,4],[2,3,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4]];
 function render(){
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--hint)">السؤال '+(i+1)+' من '+QS.length+'</small>'+
+    '<small style="color:var(--bd-hint)">السؤال '+(i+1)+' من '+QS.length+'</small>'+
     '<h2 style="margin:8px 0">'+QS[i]+'</h2>'+
     OPT[i].map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')">'+o+'</button>').join('');
 }
@@ -354,7 +367,8 @@ function finish(){
   const res=document.getElementById('res'); res.className='result show';
   const txt = age<20?'عقلك شبابي مليان حيوية! 🎉':age<30?'عقلك في القمة — توازن رائع 🌟':
               age<45?'عقلك ناضج وحكيم 🧘':age<58?'عقلك حكيم بتجارب غنية 📚':'عقل فيلسوف حقيقي 🦉';
-  res.innerHTML='<div style="font-size:40px;font-weight:800;color:var(--accent)">'+age+' سنة</div>'+
+  res.innerHTML='<div class="result-title">🧠 عمرك العقلي</div>'+
+  '<div style="font-size:52px;font-weight:800;color:var(--bd-brand)">'+age+' سنة</div>'+
     '<p style="margin:8px 0">عقلكم العقلي: '+txt+'</p>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة الاختبار</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;عقلي  &#39;+age+&#39; سنة! جرّب اختبار العمر العقلي 🧠&#39;,&#39;https://t.me/MentalAgeBot&#39;)">📤 شارك نتيجتك</button>';
@@ -364,6 +378,7 @@ render();
 )
 
 APPS["iqtest"] = dict(
+    group="fun",
     emoji="🧩", title="اختبار الذكاء السريع", subtitle="10 أسئلة منطقية — 5 دقائق",
     interactive=True,
     body="""
@@ -467,13 +482,14 @@ Boda.ready(()=>{
 )
 
 APPS["luckybox"] = dict(
+    group="fun",
     emoji="🎁", title="صندوق الحظ", subtitle="افتح صندوقاً غامضاً كل يوم — ماذا ستحصل عليه؟",
     interactive=True,
     body="""
 <div class="card" style="text-align:center">
   <div id="box" style="font-size:80px;cursor:pointer;transition:transform .3s"
        onclick="openBox()">🎁</div>
-  <p style="color:var(--hint);font-size:13px;margin-top:8px">اضغط الصندوق للفتح!</p>
+  <p style="color:var(--bd-hint);font-size:13px;margin-top:8px">اضغط الصندوق للفتح!</p>
   <div class="result" id="res"></div>
 </div>
 """,
@@ -507,13 +523,14 @@ function openBox(){
     const res=document.getElementById('res'); res.className='result show';
     res.innerHTML='<h2 style="font-size:22px">'+pick.e+' '+pick.t+'</h2>'+
       '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/LuckyBoxX1Bot&#39;)">📤 شارك حظك</button>'+
-      '<p style="color:var(--hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
+      '<p style="color:var(--bd-hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
   },1400);
 }
 """,
 )
 
 APPS["braintwist"] = dict(
+    group="fun",
     emoji="🌀", title="ألغاز الأذكياء", subtitle="ألغاز تمسك الدماغ — كل يوم لغز جديد",
     interactive=True,
     body="""
@@ -530,7 +547,7 @@ let i=0, solved=0;
 function render(){
   const p=PUZZLES[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--hint)">لغز '+(i+1)+'/'+PUZZLES.length+' ✔ '+solved+'</small>'+
+    '<small style="color:var(--bd-hint)">لغز '+(i+1)+'/'+PUZZLES.length+' ✔ '+solved+'</small>'+
     '<h2 style="margin:8px 0">'+p.q+'</h2>'+
     '<input type="text" id="ans" placeholder="اكتب إجابتك هنا...">'+
     '<button class="btn" onclick="check()">✅ تحقق</button>'+
@@ -553,7 +570,7 @@ function next(){
   document.getElementById('res').className='result';
   i++; if(i<PUZZLES.length) render();
   else { document.getElementById('q-box').innerHTML='<h2>🎊 حللت كل الألغاز!</h2>'+
-    '<p style="color:var(--hint)">عد غداً لألغاز جديدة</p>'+
+    '<p style="color:var(--bd-hint)">عد غداً لألغاز جديدة</p>'+
     '<button class="btn" onclick="i=0;solved=0;render()">🔁 من البداية</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;حللت كل ألغاز الأذكياء 🌀 تحداني!&#39;,&#39;https://t.me/BrainTwistXBot&#39;)">📤 تحدى صديقاً</button>';
     Boda.track('feature_use',{detail:'all_solved'}); }
@@ -563,6 +580,7 @@ render();
 )
 
 APPS["fun_name"] = dict(
+    group="fun",
     emoji="🎭", title="مولّد الأسماء الطريفة", subtitle="اسم عربي مضحك + لقب — من اسمك الحقيقي",
     interactive=True,
     body="""
@@ -594,6 +612,7 @@ function gen(){
 )
 
 APPS["random_suggest"] = dict(
+    group="fun",
     emoji="🎲", title="قرار عشوائي ذكي", subtitle="متحتار؟ اترك القرار للعشوائية — أفلام، أكل، نشاطات",
     interactive=True,
     body="""
@@ -625,7 +644,7 @@ function spin(){
     res.innerHTML='<div style="font-size:24px;font-weight:700">'+list[n%list.length]+'</div>';
     n++; if(n>12){ clearInterval(iv);
       const pick=list[Math.floor(Math.random()*list.length)];
-      res.innerHTML='<div style="font-size:24px;font-weight:800;color:var(--accent)">'+pick+'</div>'+
+      res.innerHTML='<div style="font-size:24px;font-weight:800;color:var(--bd-brand)">'+pick+'</div>'+
         '<button class="btn secondary" onclick="spin()">🔁 مرة أخرى</button>'+
         '<button class="btn secondary" onclick="Boda.share(&#39;اقترح لي القرار العشوائي: &#39;+pick+&#39; 🎲&#39;,&#39;https://t.me/RandomSuggestMixBot&#39;)">📤 شارك</button>';
       Boda.haptic('success'); Boda.track('feature_use',{detail:cat});
@@ -638,6 +657,7 @@ function spin(){
 # ═════════════════════════════════ صحة/إنتاجية ═══════════════════════════════
 
 APPS["caltrack"] = dict(
+    group="health",
     emoji="🍎", title="حاسبة السعرات", subtitle="اعرف سعرات طعامك اليومية ونسبة الحرق",
     interactive=True,
     body="""
@@ -677,14 +697,19 @@ function calc(){
   Boda.haptic('success'); Boda.track('feature_use',{detail:'calories'});
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '<b>الأيض الأساسي (BMR):</b> '+bmr.toLocaleString()+" سعرة<br>"+
-    '<b>احتياجك اليومي:</b> <span style="color:var(--accent);font-size:19px;font-weight:800">'+tdee.toLocaleString()+' سعرة</span><br>'+
-    '<small style="color:var(--hint)">للإنقاص: '+(tdee-400).toLocaleString()+' · للتزيّد: '+(tdee+400).toLocaleString()+' سعرة</small>';
+    '<div class="result-title">🔥 احتياجك اليومي</div>'+
+    '<div class="stat-grid">'+
+    '<div class="stat accent"><b>'+tdee.toLocaleString()+'</b><span>سعرة/يوم</span></div>'+
+    '<div class="stat"><b>'+(tdee-400).toLocaleString()+'</b><span>للإنقاص</span></div>'+
+    '<div class="stat"><b>'+(tdee+400).toLocaleString()+'</b><span>للتزيّد</span></div>'+
+    '</div>'+
+    '<p class="muted" style="font-size:12.5px;margin-top:10px">الأيض الأساسي BMR: '+bmr.toLocaleString()+' سعرة</p>';
 }
 """,
 )
 
 APPS["fitcheck"] = dict(
+    group="health",
     emoji="💪", title="فاحص اللياقة", subtitle="BMI + نبضك المستهدف + تقييم لياقتك",
     interactive=True,
     body="""
@@ -704,22 +729,27 @@ function calc(){
         age=+document.getElementById('age').value;
   if(!w||!h||!age) return Boda.toast('⚠️ أكمل البيانات');
   const bmi=w/(h*h);
-  const lv = bmi<18.5?['نقص وزن','var(--warn)']:bmi<25?['وزن مثالي ✔','var(--ok)']:
-             bmi<30?['زيادة وزن ⚠','var(--warn)']:['سمنة — خليك نشيط 💪','var(--danger)'];
+  const lv = bmi<18.5?['نقص وزن','var(--bd-warn)']:bmi<25?['وزن مثالي ✔','var(--bd-ok)']:
+             bmi<30?['زيادة وزن ⚠','var(--bd-warn)']:['سمنة — خليك نشيط 💪','var(--bd-danger)'];
   const max=Math.round(220-age), fat=Math.round(max*0.65), cardio=Math.round(max*0.8);
   Boda.haptic('success'); Boda.track('feature_use',{detail:'bmi_'+Math.round(bmi)});
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '<div style="text-align:center"><span style="font-size:32px;font-weight:800;color:'+lv[1]+'">'+bmi.toFixed(1)+'</span>'+
-    '<br><small style="color:'+lv[1]+'">'+lv[0]+'</small></div><hr style="border-color:var(--hint);margin:10px 0">'+
-    '<b>نطاق BMI الصحي:</b> 18.5 – 24.9<br>'+
-    '<b>أقصى نبض:</b> '+max+' نبضة/د<br>'+
-    '<b>النبض لحرق الدهون:</b> '+fat+'-'+(fat+15)+' نبضة/د';
+    '<div class="result-title">📏 نتيجة الفحص</div>'+
+    '<div style="text-align:center;margin-bottom:12px">'+
+    '<span style="font-size:46px;font-weight:800;color:'+lv[1]+'">'+bmi.toFixed(1)+'</span>'+
+    '<br><span class="badge">'+lv[0]+'</span></div>'+
+    '<div class="stat-grid">'+
+    '<div class="stat"><b>18.5-24.9</b><span>BMI الصحي</span></div>'+
+    '<div class="stat"><b>'+max+'</b><span>أقصى نبض</span></div>'+
+    '<div class="stat"><b>'+fat+'-'+(fat+15)+'</b><span>حرق الدهون</span></div>'+
+    '</div>';
 }
 """,
 )
 
 APPS["memoryvault"] = dict(
+    group="tools",
     emoji="🗄️", title="خزنة الذكريات", subtitle="اكتب ذكرى وحدد تاريخ فتحها — رسالة من الزمن",
     interactive=True,
     body="""
@@ -732,7 +762,7 @@ APPS["memoryvault"] = dict(
 </div>
 <div class="card">
   <h2>🗝️ خزائنك</h2>
-  <div id="vault-list" style="color:var(--hint);font-size:14px">لا توجد خزائن بعد</div>
+  <div id="vault-list" style="color:var(--bd-hint);font-size:14px">لا توجد خزائن بعد</div>
 </div>
 """,
     js="""
@@ -743,9 +773,9 @@ function renderList(){
   if(!list.length){ el.innerHTML='لا توجد خزائن بعد'; return; }
   el.innerHTML=list.map((v,k)=>{
     const locked=new Date(v.date)>new Date();
-    return '<div class="card" style="background:var(--bg);padding:12px;margin-bottom:8px">'+
+    return '<div class="card" style="background:var(--bd-bg);padding:12px;margin-bottom:8px">'+
       '<b>'+(locked?'🔒':'🔓')+' '+v.title+'</b>'+
-      '<small style="color:var(--hint)"> — يفتح في '+v.date+'</small>'+
+      '<small style="color:var(--bd-hint)"> — يفتح في '+v.date+'</small>'+
       (locked?'':'<p style="margin-top:6px">'+v.msg+'</p>')+'</div>';
   }).join('');
 }
@@ -766,6 +796,7 @@ renderList();
 )
 
 APPS["alarmbot"] = dict(
+    group="tools",
     emoji="⏰", title="مؤقّت التركيز", subtitle="بومودورو 25 دقيقة مع تنبيه داخل تيليجرام",
     interactive=True,
     body="""
@@ -777,7 +808,7 @@ APPS["alarmbot"] = dict(
     <span class="chip" data-m="50" onclick="pick(this)">عميق 50</span>
   </div>
   <button class="btn" id="start" onclick="toggle()">▶ ابدأ التركيز</button>
-  <p style="color:var(--hint);font-size:12.5px;margin-top:10px" id="status">
+  <p style="color:var(--bd-hint);font-size:12.5px;margin-top:10px" id="status">
     عند اكتمال الوقت سيهتز التطبيق وينبّهك تلقائياً</p>
 </div>
 """,
@@ -811,6 +842,7 @@ draw();
 )
 
 APPS["transbot"] = dict(
+    group="text",
     emoji="🌐", title="المترجم الفوري", subtitle="ترجمة فورية بين 100+ لغة — مدعوم بـ MyMemory",
     interactive=True,
     body="""
@@ -847,6 +879,7 @@ async function tr(){
 )
 
 APPS["doctrans"] = dict(
+    group="text",
     emoji="📄", title="ترجمة المستندات", subtitle="ترجمة النصوص الطويلة والمقالات قطعة قطعة",
     interactive=True,
     body="""
@@ -882,20 +915,24 @@ async function tr(){
 # ═════════════════════════════════ معلومات ═══════════════════════════════════
 
 APPS["weathernow"] = dict(
+    group="tools",
     emoji="🌦️", title="الطقس الآن", subtitle="أجواء مدينتك — حرارة ورطوبة وتوقعات",
     interactive=True,
     body="""
 <div class="card">
-  <label>المدينة</label>
-  <input type="text" id="city" placeholder="القاهرة، الرياض، دبي..." value="القاهرة">
-  <div class="chips">
-    <span class="chip" onclick="setCity('Cairo')">القاهرة</span>
-    <span class="chip" onclick="setCity('Riyadh')">الرياض</span>
-    <span class="chip" onclick="setCity('Dubai')">دبي</span>
-    <span class="chip" onclick="setCity('Amman')">عمّان</span>
+  <div class="field">
+    <label for="city">المدينة</label>
+    <input type="text" id="city" placeholder="القاهرة، الرياض، دبي..." value="القاهرة" autocomplete="off">
   </div>
-  <button class="btn" onclick="load()">🔍 ابحث</button>
-  <div class="result" id="res" style="text-align:center"></div>
+  <div class="chips">
+    <span class="chip" onclick="setCity('Cairo')">🇪🇬 القاهرة</span>
+    <span class="chip" onclick="setCity('Riyadh')">🇸🇦 الرياض</span>
+    <span class="chip" onclick="setCity('Dubai')">🇦🇪 دبي</span>
+    <span class="chip" onclick="setCity('Amman')">🇯🇴 عمّان</span>
+    <span class="chip" onclick="setCity('Kuwait City')">🇰🇼 الكويت</span>
+  </div>
+  <button class="btn" onclick="load()">🔍 بحث عن الطقس</button>
+  <div class="result" id="res" style="text-align:center" aria-live="polite"></div>
 </div>
 """,
     js="""
@@ -912,11 +949,16 @@ async function load(){
     const cur=d.current_condition[0];
     const desc={Sunny:'☀️ مشمس',Clear:'🌙 صافٍ','Partly cloudy':'⛅ غائم جزئياً',Cloudy:'☁️ غائم',
       'Light rain':'🌧️ مطر خفيف',Rain:'🌧️ مطر',Thunderstorm:'⛈️ عواصف رعدية','Light snow':'🌨️ ثلج خفيف'}[cur.weatherDesc[0].value]||cur.weatherDesc[0].value;
-    res.innerHTML='<div style="font-size:38px">'+desc+'</div>'+
-      '<div style="font-size:30px;font-weight:800">'+cur.temp_C+'°C</div>'+
-      '<small style="color:var(--hint)">إحساس '+cur.FeelsLikeC+'° · رطوبة '+cur.humidity+'% · رياح '+cur.windspeedKmph+' كم/س</small>'+
-      '<hr style="border-color:var(--hint);margin:12px 0">'+
-      d.weather.slice(1,3).map(w=>'<div style="display:flex;justify-content:space-between"><span>📅 غداً+</span><span>'+w.mintempC+'° — '+w.maxtempC+'°</span></div>').join('');
+    res.innerHTML='<div class="result-title">'+desc+' '+cur.weatherDesc[0].value+'</div>'+
+      '<div style="font-size:48px;font-weight:800;line-height:1.2">'+cur.temp_C+'°C</div>'+
+      '<div class="stat-grid" style="margin-top:14px">'+
+      '<div class="stat"><b>'+cur.FeelsLikeC+'°</b><span>الإحساس</span></div>'+
+      '<div class="stat"><b>'+cur.humidity+'%</b><span>الرطوبة</span></div>'+
+      '<div class="stat"><b>'+cur.windspeedKmph+'</b><span>كم/س</span></div>'+
+      '</div>'+
+      '<div class="list" style="margin-top:14px">'+
+      d.weather.slice(1,3).map((w,i)=>'<div class="list-item"><div class="li-body"><b>'+( i===0?'📅 غداً':'📅 بعد غد')+'</b><span>'+w.mintempC+'° — '+w.maxtempC+'°C</span></div></div>').join('')+
+      '</div>';
     Boda.track('feature_use',{detail:'weather'});
   }catch(e){ res.innerHTML='⚠️ تعذر جلب الطقس — تحقق من اسم المدينة'; }
 }
@@ -927,6 +969,7 @@ load();
 # ═════════════════════════════════ اختبارات/مهني ═════════════════════════════
 
 APPS["personalityanalyzer"] = dict(
+    group="fun",
     emoji="🔮", title="محلل الشخصية", subtitle="أجب بصدق واكتشف نمط شخصيتك المهيمن",
     interactive=True,
     body="""
@@ -948,7 +991,7 @@ let i=0, t=0;
 function render(){
   const q=QS[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--hint)">سؤال '+(i+1)+'/'+QS.length+'</small>'+
+    '<small style="color:var(--bd-hint)">سؤال '+(i+1)+'/'+QS.length+'</small>'+
     '<h2 style="margin:8px 0">'+q.q+'</h2>'+
     q.o.map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')" style="text-align:right">'+o+'</button>').join('');
 }
@@ -964,7 +1007,7 @@ function finish(){
   document.getElementById('q-box').innerHTML='';
   const res=document.getElementById('res'); res.className='result show';
   res.innerHTML='<div style="font-size:54px">'+ty.e+'</div>'+
-    '<h2>'+ty.n+'</h2><p style="color:var(--hint);margin:8px 0">'+ty.d+'</p>'+
+    '<h2>'+ty.n+'</h2><p style="color:var(--bd-hint);margin:8px 0">'+ty.d+'</p>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;شخصيتي: &#39;+ty.e+&#39; &#39;+ty.n+&#39; 🔮 اكتشف شخصيتك!&#39;,&#39;https://t.me/PsycheAnalyzeBot&#39;)">📤 شارك</button>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة</button>';
 }
@@ -973,6 +1016,7 @@ render();
 )
 
 APPS["cvbuilder"] = dict(
+    group="text",
     emoji="💼", title="منشئ السيرة الذاتية", subtitle="أدخل بياناتك واحصل على CV منسّق جاهز للنسخ",
     interactive=True,
     body="""
@@ -1011,6 +1055,7 @@ function build(){
 )
 
 APPS["logotext"] = dict(
+    group="media",
     emoji="🎨", title="صانع الشعارات النصية", subtitle="شعار فوري لاسم مشروعك — 6 أنماط ألوان",
     interactive=True,
     body="""
@@ -1060,13 +1105,14 @@ async function dl(){
 )
 
 APPS["colorpick"] = dict(
+    group="media",
     emoji="🌈", title="منتقي الألوان الذكي", subtitle="اختر لوناً واحصل على تدرجات متناسقة + أكواد HEX",
     interactive=True,
     body="""
 <div class="card" style="text-align:center">
   <input type="color" id="pick" value="#5288c1"
     style="width:120px;height:120px;border:none;border-radius:999px;cursor:pointer;background:none">
-  <p style="color:var(--hint);font-size:13px;margin:8px 0">اضغط الدائرة لاختيار اللون</p>
+  <p style="color:var(--bd-hint);font-size:13px;margin:8px 0">اضغط الدائرة لاختيار اللون</p>
   <button class="btn" onclick="pal()">🌈 توليد الباليتة</button>
   <div class="result" id="res"></div>
 </div>
@@ -1090,6 +1136,7 @@ function pal(){
 )
 
 APPS["backdrop"] = dict(
+    group="media",
     emoji="🖼️", title="مولّد الخلفيات", subtitle="خلفيات تدرّج أنيقة بجودة عالية — جاهزة للتحميل",
     interactive=True,
     body="""
@@ -1140,6 +1187,7 @@ function dl(){
 )
 
 APPS["photoboost"] = dict(
+    group="media",
     emoji="📸", title="محسّن الصور", subtitle="فلتر جماليات + تحويل لصيغ — كل شيء داخل جهازك",
     interactive=True,
     body="""
@@ -1190,6 +1238,7 @@ function dl(){ const a=document.createElement('a'); a.download='boosted.png'; a.
 # ═════════════════════════════════ أخرى ══════════════════════════════════════
 
 APPS["birth_age"] = dict(
+    group="tools",
     emoji="🎂", title="حاسبة العمر الدقيقة", subtitle="عمرك بالسنين والشهور والأيام — وحتى نَفَسك 😄",
     interactive=True,
     body="""
@@ -1212,8 +1261,9 @@ function calc(){
   Boda.haptic('success'); Boda.track('feature_use',{detail:'age'});
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '<div style="font-size:34px;font-weight:800;color:var(--accent)">'+y+' سنة و'+m+' شهر و'+d+' يوم</div>'+
-    '<hr style="border-color:var(--hint);margin:12px 0">'+
+    '<div class="result-title">🎂 عمرك الآن</div>'+
+    '<div style="font-size:30px;font-weight:800;color:var(--bd-brand)">'+y+' سنة و'+m+' شهر و'+d+' يوم</div>'+
+    '<hr style="border-color:var(--bd-hint);margin:12px 0">'+
     '<p style="line-height:2.1;font-size:14px">📅 عشت حتى الآن <b>'+days.toLocaleString()+'</b> يوم<br>'+
     '🫀 قلبك ضرب ~ <b>'+(days*24*60*75).toLocaleString()+'</b> مرة<br>'+
     '😴 نمت ~ <b>'+Math.round(days/3).toLocaleString()+'</b> يوم<br>'+
@@ -1224,6 +1274,7 @@ document.getElementById('bd').value='2000-01-01';
 )
 
 APPS["textspeak"] = dict(
+    group="text",
     emoji="🔤", title="محوّل أنماط الكتابة", subtitle="عربي مضغوط، عشوائي مائل، رموز جمالية...",
     interactive=True,
     body="""
@@ -1258,15 +1309,16 @@ function conv(mode){
 )
 
 APPS["silentcut"] = dict(
+    group="media",
     emoji="🔇", title="آلة قص الصمت", subtitle="يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت",
     interactive=True,
     body="""
 <div class="card">
   <label>اختر ملف صوتي أو فيديو</label>
-  <input type="file" id="file" accept="audio/*,video/*" style="width:100%;color:var(--text)">
+  <input type="file" id="file" accept="audio/*,video/*" style="width:100%;color:var(--bd-text)">
   <div class="chips" id="strip-w" style="flex-wrap:wrap;gap:2px"></div>
   <button class="btn" id="go" onclick="analyze()">🔍 حلّل الصمت الآن</button>
-  <small style="color:var(--hint);display:block;margin-top:4px">
+  <small style="color:var(--bd-hint);display:block;margin-top:4px">
     التحليل يعمل على جهازك تماماً — لا يُرفع ملفك لأي خادم (حتى 80MB)</small>
   <div class="result" id="res"></div>
   <button class="btn secondary" id="copyplan" style="display:none;margin-top:8px"
@@ -1301,11 +1353,11 @@ async function analyze(){
     const th = Math.max(0.02, mx*0.03);           // عتبة 3% من الأعلى
     // شريط الطاقة (48 خانة): لون مميز = صمت، والباقي صوت
     const cols=48, box=document.getElementById('strip-w');
-    let strip='<span style="width:100%;color:var(--hint);font-size:11px">الطاقة الصوتية 0 → '+fmt(ch.length/sr)+' ث</span>';
+    let strip='<span style="width:100%;color:var(--bd-hint);font-size:11px">الطاقة الصوتية 0 → '+fmt(ch.length/sr)+' ث</span>';
     for(let k=0;k<cols;k++){
       const v=peaks[(k*peaks.length/cols)|0];
       strip+='<span style="min-width:2%;height:8px;border-radius:4px;background:'+
-             (v<th?'var(--accent)':'var(--surface)')+'"></span>';
+             (v<th?'var(--bd-brand)':'var(--bd-surface)')+'"></span>';
     }
     box.innerHTML=strip;
     // بناء خطة الصمت
@@ -1323,7 +1375,7 @@ async function analyze(){
       const shown=runs.slice(0,8).map(r=>r.a<60?fmt(r.a)+'s':fmt(r.a)).join(' · ');
       res.className='result show';
       res.innerHTML='<b>🔇 وجدنا '+runs.length+' مقطع صامت</b>'+
-        '<br><small style="color:var(--hint)">إجمالي الصمت: '+fmt(total)+
+        '<br><small style="color:var(--bd-hint)">إجمالي الصمت: '+fmt(total)+
         ' ('+Math.round(100*total/(ch.length/sr))+'% من الملف)</small>'+
         '<br><span dir="ltr">'+shown+(runs.length>8?' …':'')+'</span>';
       document.getElementById('copyplan').style.display='block';
@@ -1347,6 +1399,7 @@ Boda.track('app_open',{detail:'tool'});
 )
 
 APPS["cleantok"] = dict(
+    group="media",
     emoji="🎵", title="تيك توك بلا علامة", subtitle="حدّد جودة التحميل وأرسل الرابط الجاهز للبوت",
     interactive=True,
     body="""
@@ -1378,8 +1431,8 @@ function send(){
   const short=/vm\\.tiktok\\.com\\/|v\\.tiktok/i.test(val);
   const m=val.match(/video\\/(\\d+)/);
   const dex=''+
-      '<b style="color:var(--accent)">'+QUAL+'</b>'+
-      '<br><small style="color:var(--hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
+      '<b style="color:var(--bd-brand)">'+QUAL+'</b>'+
+      '<br><small style="color:var(--bd-hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
       (m?'<br>ID الفيديو: '+m[1]:'')+'</small>';
   Boda.haptic('light'); Boda.track('feature_use',{detail:'clean_link_ready'});
   Boda.copy(val, '📋 تم نسخ الرابط');
@@ -1392,6 +1445,7 @@ function send(){
 )
 
 APPS["vidload"] = dict(
+    group="media",
     emoji="📥", title="محمل الفيديوهات", subtitle="من يوتيوب وإنستغرام وتيك توك وX — اكتشف المنصة تلقائياً",
     interactive=True,
     body="""
@@ -1496,12 +1550,13 @@ Boda.ready(()=>{
 )
 
 APPS["stickerx"] = dict(
+    group="media",
     emoji="🎨", title="صانع الملصقات", subtitle="جهّز ملصقك بمقاس تيليجرام الرسمي ثم أرسله للبوت",
     interactive=True,
     body="""
 <div class="card">
   <label>اختر صورة من جهازك</label>
-  <input type="file" id="img" accept="image/*" style="width:100%;color:var(--text)">
+  <input type="file" id="img" accept="image/*" style="width:100%;color:var(--bd-text)">
   <label>الإطار</label>
   <div class="chips">
     <span class="chip active" onclick="setFrame('none', this)">بدون</span>
@@ -1514,11 +1569,11 @@ APPS["stickerx"] = dict(
     <span class="chip" onclick="setRound(true, this)">دائرة</span>
   </div>
   <div style="text-align:center;margin:10px 0">
-    <canvas id="cv" width="512" height="512" style="max-width:230px;border-radius:12px;background:var(--surface)">
+    <canvas id="cv" width="512" height="512" style="max-width:230px;border-radius:12px;background:var(--bd-surface)">
     </canvas>
   </div>
   <button class="btn" id="dl" style="display:none" onclick="download()">⬇️ تنزيل الملصق (512px)</button>
-  <p style="color:var(--hint);font-size:12px;line-height:1.9;text-align:center">
+  <p style="color:var(--bd-hint);font-size:12px;line-height:1.9;text-align:center">
     بعد التنزيل: أرسل الملف للبوت وسيضيفه للعبوة ويفصل الخلفية إن رغبت</p>
   <button class="btn secondary" onclick="location.href='https://t.me/StickerXMakerBot'">🤖 فتح البوت</button>
 </div>
@@ -1576,6 +1631,7 @@ document.getElementById('img').onchange=e=>{
 )
 
 APPS["formatfix"] = dict(
+    group="tools",
     emoji="🧹", title="منظّم النصوص", subtitle="تنظيف المسافات والرموز — لصق نظيف بضغطة",
     interactive=True,
     body="""
@@ -1607,6 +1663,7 @@ function fix(mode){
 )
 
 APPS["memory"] = dict(
+    group="fun",
     emoji="🧠", title="لعبة الذاكرة", subtitle="اختبر ذاكرتك — تذكر التسلسل المتزايد",
     interactive=True,
     body="""

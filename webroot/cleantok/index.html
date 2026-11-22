@@ -1132,8 +1132,8 @@ function send(){
   const short=/vm\.tiktok\.com\/|v\.tiktok/i.test(val);
   const m=val.match(/video\/(\d+)/);
   const dex=''+
-      '<b style="color:var(--accent)">'+QUAL+'</b>'+
-      '<br><small style="color:var(--hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
+      '<b style="color:var(--bd-brand)">'+QUAL+'</b>'+
+      '<br><small style="color:var(--bd-hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
       (m?'<br>ID الفيديو: '+m[1]:'')+'</small>';
   Boda.haptic('light'); Boda.track('feature_use',{detail:'clean_link_ready'});
   Boda.copy(val, '📋 تم نسخ الرابط');

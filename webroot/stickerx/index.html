@@ -532,7 +532,7 @@ textarea{ min-height:92px; resize:vertical; }
 
 <div class="card">
   <label>اختر صورة من جهازك</label>
-  <input type="file" id="img" accept="image/*" style="width:100%;color:var(--text)">
+  <input type="file" id="img" accept="image/*" style="width:100%;color:var(--bd-text)">
   <label>الإطار</label>
   <div class="chips">
     <span class="chip active" onclick="setFrame('none', this)">بدون</span>
@@ -545,11 +545,11 @@ textarea{ min-height:92px; resize:vertical; }
     <span class="chip" onclick="setRound(true, this)">دائرة</span>
   </div>
   <div style="text-align:center;margin:10px 0">
-    <canvas id="cv" width="512" height="512" style="max-width:230px;border-radius:12px;background:var(--surface)">
+    <canvas id="cv" width="512" height="512" style="max-width:230px;border-radius:12px;background:var(--bd-surface)">
     </canvas>
   </div>
   <button class="btn" id="dl" style="display:none" onclick="download()">⬇️ تنزيل الملصق (512px)</button>
-  <p style="color:var(--hint);font-size:12px;line-height:1.9;text-align:center">
+  <p style="color:var(--bd-hint);font-size:12px;line-height:1.9;text-align:center">
     بعد التنزيل: أرسل الملف للبوت وسيضيفه للعبوة ويفصل الخلفية إن رغبت</p>
   <button class="btn secondary" onclick="location.href='https://t.me/StickerXMakerBot'">🤖 فتح البوت</button>
 </div>

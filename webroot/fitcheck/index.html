@@ -1120,17 +1120,21 @@ function calc(){
         age=+document.getElementById('age').value;
   if(!w||!h||!age) return Boda.toast('⚠️ أكمل البيانات');
   const bmi=w/(h*h);
-  const lv = bmi<18.5?['نقص وزن','var(--warn)']:bmi<25?['وزن مثالي ✔','var(--ok)']:
-             bmi<30?['زيادة وزن ⚠','var(--warn)']:['سمنة — خليك نشيط 💪','var(--danger)'];
+  const lv = bmi<18.5?['نقص وزن','var(--bd-warn)']:bmi<25?['وزن مثالي ✔','var(--bd-ok)']:
+             bmi<30?['زيادة وزن ⚠','var(--bd-warn)']:['سمنة — خليك نشيط 💪','var(--bd-danger)'];
   const max=Math.round(220-age), fat=Math.round(max*0.65), cardio=Math.round(max*0.8);
   Boda.haptic('success'); Boda.track('feature_use',{detail:'bmi_'+Math.round(bmi)});
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
-    '<div style="text-align:center"><span style="font-size:32px;font-weight:800;color:'+lv[1]+'">'+bmi.toFixed(1)+'</span>'+
-    '<br><small style="color:'+lv[1]+'">'+lv[0]+'</small></div><hr style="border-color:var(--hint);margin:10px 0">'+
-    '<b>نطاق BMI الصحي:</b> 18.5 – 24.9<br>'+
-    '<b>أقصى نبض:</b> '+max+' نبضة/د<br>'+
-    '<b>النبض لحرق الدهون:</b> '+fat+'-'+(fat+15)+' نبضة/د';
+    '<div class="result-title">📏 نتيجة الفحص</div>'+
+    '<div style="text-align:center;margin-bottom:12px">'+
+    '<span style="font-size:46px;font-weight:800;color:'+lv[1]+'">'+bmi.toFixed(1)+'</span>'+
+    '<br><span class="badge">'+lv[0]+'</span></div>'+
+    '<div class="stat-grid">'+
+    '<div class="stat"><b>18.5-24.9</b><span>BMI الصحي</span></div>'+
+    '<div class="stat"><b>'+max+'</b><span>أقصى نبض</span></div>'+
+    '<div class="stat"><b>'+fat+'-'+(fat+15)+'</b><span>حرق الدهون</span></div>'+
+    '</div>';
 }
 </script>
 </body>

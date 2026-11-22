@@ -1123,10 +1123,10 @@ function calc(){
   let msg = pct>=90?'💍 زواج قريب بإذن الله!':pct>=70?'💕 توافق رائع!':pct>=50?'😊 علاقة واعدة':pct>=30?'🤝 صداقة قوية':'😂 مفيش أمل 😅';
   // شريط تقدم متحرك
   const res=document.getElementById('res'); res.className='result show';
-  res.innerHTML='<div style="font-size:44px;font-weight:800;color:var(--accent)">'+pct+'%</div>'+
-    '<div style="background:var(--bg);border-radius:999px;height:12px;margin:10px 0;overflow:hidden">'+
-    '<div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,var(--danger),var(--accent));border-radius:999px"></div></div>'+
-    '<p>'+msg+'</p>'+
+  res.innerHTML='<div class="result-title">💘 نتيجة التوافق</div>'+
+    '<div style="font-size:48px;font-weight:800;color:var(--bd-brand)">'+pct+'%</div>'+
+    '<div class="progress" style="margin:12px 0"><i style="width:'+pct+'%"></i></div>'+
+    '<p style="font-size:16px;margin-bottom:14px">'+msg+'</p>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;نسبة الحب بيني وبين... جرب حاسبة الحب 💌&#39;,&#39;https://t.me/LoveMatchRBot&#39;)">📤 تحدى أصدقاءك</button>';
   Boda.track('feature_use',{detail:'love_'+(pct>=70)});
 }

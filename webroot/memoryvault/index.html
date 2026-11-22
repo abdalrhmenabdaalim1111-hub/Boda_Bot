@@ -539,7 +539,7 @@ textarea{ min-height:92px; resize:vertical; }
 </div>
 <div class="card">
   <h2>🗝️ خزائنك</h2>
-  <div id="vault-list" style="color:var(--hint);font-size:14px">لا توجد خزائن بعد</div>
+  <div id="vault-list" style="color:var(--bd-hint);font-size:14px">لا توجد خزائن بعد</div>
 </div>
 
   </main>
@@ -1124,9 +1124,9 @@ function renderList(){
   if(!list.length){ el.innerHTML='لا توجد خزائن بعد'; return; }
   el.innerHTML=list.map((v,k)=>{
     const locked=new Date(v.date)>new Date();
-    return '<div class="card" style="background:var(--bg);padding:12px;margin-bottom:8px">'+
+    return '<div class="card" style="background:var(--bd-bg);padding:12px;margin-bottom:8px">'+
       '<b>'+(locked?'🔒':'🔓')+' '+v.title+'</b>'+
-      '<small style="color:var(--hint)"> — يفتح في '+v.date+'</small>'+
+      '<small style="color:var(--bd-hint)"> — يفتح في '+v.date+'</small>'+
       (locked?'':'<p style="margin-top:6px">'+v.msg+'</p>')+'</div>';
   }).join('');
 }

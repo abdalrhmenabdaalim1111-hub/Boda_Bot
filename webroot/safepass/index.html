@@ -1134,7 +1134,7 @@ function gen(){
     '<button class="btn secondary" onclick="Boda.copy(\''+pw+'\')">📋 نسخ</button>';
   // قوة كلمة المرور: تشكيلة + طول
   let bits=n*Math.log2(pool.length);
-  const lv=bits>100?['ممتازة 💪','var(--ok)']:bits>60?['قوية ✔','var(--ok)']:bits>40?['متوسطة ⚠','var(--warn)']:['ضعيفة ✖','var(--danger)'];
+  const lv=bits>100?['ممتازة 💪','var(--bd-ok)']:bits>60?['قوية ✔','var(--bd-ok)']:bits>40?['متوسطة ⚠','var(--bd-warn)']:['ضعيفة ✖','var(--bd-danger)'];
   document.getElementById('strength').innerHTML='<p style="color:'+lv[1]+';font-size:13px;margin-top:8px">القوة: '+lv[0]+' ('+Math.round(bits)+' bit)</p>';
   Boda.track('feature_use',{detail:'pw_'+n});
 }

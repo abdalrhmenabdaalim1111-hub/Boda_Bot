@@ -1122,7 +1122,7 @@ let i=0, t=0;
 function render(){
   const q=QS[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--hint)">سؤال '+(i+1)+'/'+QS.length+'</small>'+
+    '<small style="color:var(--bd-hint)">سؤال '+(i+1)+'/'+QS.length+'</small>'+
     '<h2 style="margin:8px 0">'+q.q+'</h2>'+
     q.o.map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')" style="text-align:right">'+o+'</button>').join('');
 }
@@ -1138,7 +1138,7 @@ function finish(){
   document.getElementById('q-box').innerHTML='';
   const res=document.getElementById('res'); res.className='result show';
   res.innerHTML='<div style="font-size:54px">'+ty.e+'</div>'+
-    '<h2>'+ty.n+'</h2><p style="color:var(--hint);margin:8px 0">'+ty.d+'</p>'+
+    '<h2>'+ty.n+'</h2><p style="color:var(--bd-hint);margin:8px 0">'+ty.d+'</p>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;شخصيتي: &#39;+ty.e+&#39; &#39;+ty.n+&#39; 🔮 اكتشف شخصيتك!&#39;,&#39;https://t.me/PsycheAnalyzeBot&#39;)">📤 شارك</button>'+
     '<button class="btn" onclick="location.reload()">🔁 إعادة</button>';
 }

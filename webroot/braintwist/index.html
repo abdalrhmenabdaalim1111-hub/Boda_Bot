@@ -1117,7 +1117,7 @@ let i=0, solved=0;
 function render(){
   const p=PUZZLES[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--hint)">لغز '+(i+1)+'/'+PUZZLES.length+' ✔ '+solved+'</small>'+
+    '<small style="color:var(--bd-hint)">لغز '+(i+1)+'/'+PUZZLES.length+' ✔ '+solved+'</small>'+
     '<h2 style="margin:8px 0">'+p.q+'</h2>'+
     '<input type="text" id="ans" placeholder="اكتب إجابتك هنا...">'+
     '<button class="btn" onclick="check()">✅ تحقق</button>'+
@@ -1140,7 +1140,7 @@ function next(){
   document.getElementById('res').className='result';
   i++; if(i<PUZZLES.length) render();
   else { document.getElementById('q-box').innerHTML='<h2>🎊 حللت كل الألغاز!</h2>'+
-    '<p style="color:var(--hint)">عد غداً لألغاز جديدة</p>'+
+    '<p style="color:var(--bd-hint)">عد غداً لألغاز جديدة</p>'+
     '<button class="btn" onclick="i=0;solved=0;render()">🔁 من البداية</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;حللت كل ألغاز الأذكياء 🌀 تحداني!&#39;,&#39;https://t.me/BrainTwistXBot&#39;)">📤 تحدى صديقاً</button>';
     Boda.track('feature_use',{detail:'all_solved'}); }
