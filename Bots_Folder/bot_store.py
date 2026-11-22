@@ -173,7 +173,7 @@ def _blocked(call) -> bool:
     return blocked
 
 
-def _safe_edit(call, text: str, markup):
+def _safe_edit(call, text: str, markup) -> None:
     chat_id = call.message.chat.id
     try:
         bot.edit_message_text(
@@ -234,7 +234,7 @@ def cmd_stats(message):
 
 
 @bot.message_handler(commands=["start", "menu", "help", "about"])
-def send_welcome(message):
+def send_welcome(message) -> None:
     if gate.check_and_show_gate(message, use_cache=False):
         return
     cmd = (message.text or "").split()[0].lower()
@@ -275,7 +275,7 @@ def unknown_text(message):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_main")
-def back_main(call):
+def back_main(call) -> None:
     if _blocked(call):
         return
     try:
@@ -287,7 +287,7 @@ def back_main(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "featured")
-def show_featured(call):
+def show_featured(call) -> None:
     if _blocked(call):
         return
     text = "⭐ <b>اختيارات فريق بودة</b>\n\nبوتات مميزة تجمع بين الفائدة وسهولة الاستخدام:"
@@ -333,7 +333,7 @@ def show_top(call):
 
 
 @bot.callback_query_handler(func=lambda call: (call.data or "").startswith("cat:"))
-def show_category(call):
+def show_category(call) -> None:
     if _blocked(call):
         return
     key = (call.data or "").split(":", 1)[1]
@@ -356,7 +356,7 @@ def show_category(call):
 
 
 @bot.callback_query_handler(func=lambda call: (call.data or "").startswith("bot:"))
-def show_bot(call):
+def show_bot(call) -> None:
     if _blocked(call):
         return
     bot_id = (call.data or "").split(":", 1)[1]
@@ -404,7 +404,7 @@ def show_bot(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "stats")
-def show_stats(call):
+def show_stats(call) -> None:
     if _blocked(call):
         return
     counts, total, top, _usage = _stats()
@@ -431,7 +431,7 @@ def show_stats(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_sub")
-def check_subscription(call):
+def check_subscription(call) -> None:
     user = call.from_user
     lang = (getattr(user, "language_code", "") or "ar").lower()
     missing = gate_check.get_missing_channels(user.id, use_cache=False)
@@ -455,7 +455,7 @@ def check_subscription(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "search")
-def ask_search(call):
+def ask_search(call) -> None:
     if _blocked(call):
         return
     bot.send_message(
@@ -468,7 +468,7 @@ def ask_search(call):
     bot.answer_callback_query(call.id)
 
 
-def handle_search(message):
+def handle_search(message) -> None:
     if gate.check_and_show_gate(message):
         return
     text = (message.text or "").strip()
@@ -503,11 +503,11 @@ def handle_search(message):
 
 
 @bot.callback_query_handler(func=lambda call: (call.data or "").startswith("gate_verify"))
-def verify_sub(call):
+def verify_sub(call) -> None:
     gate.handle_verify_callback(call)
 
 
-def register_handlers(bot_instance):
+def register_handlers(bot_instance) -> None:
     pass
 
 
