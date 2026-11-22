@@ -1143,6 +1143,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 const SHARE_BOT='https://t.me/VidLoadXBot';
 const BOT_LINK='https://t.me/VidLoadXBot';
 let OUT='فيديو 1080p';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('10705728');
+  setTimeout(()=>{ try{ window.show_10705728 && window.show_10705728(); }catch(e){} }, 120);
+}
 const PLATFORMS=[
   ['YouTube',   /youtube\.com|youtu\.be/i,  '▶️'],
   ['TikTok',    /tiktok\.com/i,               '🎵'],
@@ -1186,6 +1200,8 @@ function send(){
   const full=/^https?:\/\//i.test(u)?u:'https://'+u;
   Boda.haptic('light');
   Boda.track('feature_use',{detail:'download_ready'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'vidload_interstitial', uses:uses}); showAd(); }
   const res=document.getElementById('res');
   res.className='result show';
   const pl=PLATFORMS.find(p=>p[1].test(u));
@@ -1216,6 +1232,7 @@ function openBot(){
 }
 
 Boda.ready(()=>{
+  loadMonetag('10705728');
   if(Boda.MainButton.set('🤖 جهّز الطلب', send)){
     const b=document.getElementById('go'); if(b) b.style.display='none';
   }

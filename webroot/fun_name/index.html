@@ -1134,7 +1134,22 @@ const TITLES=['سيّد','الخواجة','كابتن','باشا','الأستا�
 const NICKS=['اللي سيب قلبه في الطريق','مالك آخر كلمة في النرد','قلب الضبع','صاحب أسطورة اللف والنشر',
  'ملك الفتافيت الأخير','قاهر الدهاليز','مهندس المآسي الكبرى','نجم كورة الطاولة','حارس أسرار الرحابة','موزع الابتسامات المجاني'];
 const ANIMALS=['النمر','الصقر','الذئب','الأسد الشجاع','الفهد','الثعلب المشمشي','البجعة','الحيوان الأليف الرسمي للدولة'];
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('10275686');
+  setTimeout(()=>{ try{ window.show_10275686 && window.show_10275686(); }catch(e){} }, 120);
+}
 function gen(){
+  loadMonetag('10275686');
   const n=document.getElementById('name').value.trim();
   if(!n) return Boda.toast('⚠️ اكتب اسمك');
   Boda.haptic('light');
@@ -1146,6 +1161,8 @@ function gen(){
     '<button class="btn secondary" onclick="Boda.copy(\''+full+'\')">📋 نسخ</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;اسمي الطريف: &#39;+full+&#39; 🎭 ولّد اسمك!&#39;,&#39;https://t.me/FunNameGenBot&#39;)">📤 شارك</button>';
   Boda.track('feature_use',{detail:'name_gen'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'fun_name_interstitial', uses:uses}); showAd(); }
 }
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>

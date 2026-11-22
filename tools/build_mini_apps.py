@@ -159,6 +159,9 @@ def collect_stats() -> dict:
         rows = con.execute(
             "SELECT bot_name, COUNT(DISTINCT user_id), SUM(usage_count) "
             "FROM users GROUP BY bot_name").fetchall()
+        stats["active_bots"] = sorted(
+            [{"bot": b, "users": int(u or 0), "uses": int(s or 0)}
+             for b, u, s in rows if u], key=lambda x: -x["users"])[:20]
         for bot, users, uses in rows:
             stats["bots"][bot] = {"users": users or 0, "uses": uses or 0}
             stats["total_users"] += users or 0
@@ -170,6 +173,39 @@ def collect_stats() -> dict:
         for bot, active in rows:
             stats["bots"].setdefault(bot, {})["active_30d"] = active
         con.close()
+    except Exception:
+        pass
+
+    try:
+        # إحصاءات الإعلانات (Monetag + البوتات المتخذفات بواسطة النظام)
+        ads_stats = {"impressions": 0, "clicks": 0, "ctr_percent": 0.0,
+                     "active_ads": 0, "ad_bots": []}
+        con2 = sqlite3.connect(DB)
+        try:
+            rows = con2.execute(
+                "SELECT bot_name, SUM(impressions) AS im, SUM(clicks) AS cl "
+                "FROM monetag_ad_stats WHERE bot_name IS NOT NULL GROUP BY bot_name "
+                "ORDER BY im DESC").fetchall()
+            for bot, im, cl in rows:
+                if not bot or bot == "nonexistent":
+                    continue
+                if im or cl:
+                    ads_stats["impressions"] += int(im or 0)
+                    ads_stats["clicks"] += int(cl or 0)
+                    ads_stats["ad_bots"].append(bot)
+            if rows and sum(1 for r in rows if r[1]) > 0:
+                ads_stats["ctr_percent"] = round(
+                    (sum((r[2] or 0) for r in rows) / sum((r[1] or 0) for r in rows)) * 100, 2)
+        except Exception:
+            pass
+        try:
+            row = con2.execute(
+                "SELECT COUNT(*) FROM ads WHERE enabled=1").fetchone()
+            if row:
+                ads_stats["active_ads"] = int(row[0] or 0)
+        except Exception:
+            pass
+        stats["ads"] = ads_stats
     except Exception:
         pass
 
@@ -307,6 +343,14 @@ STORE_CSS = """
 .badge-feat{position:absolute;inset-inline-end:10px;top:10px;font-size:9px;font-weight:800;
   color:#111;background:var(--bd-warn);padding:2px 7px;border-radius:999px;}
 .empty{text-align:center;color:var(--bd-hint);padding:30px 10px;font-size:13px;}
+.ads-bot{display:flex;flex-direction:column;gap:6px;background:var(--bd-surface);
+  border:1.5px solid rgba(234,179,8,.4);border-radius:15px;padding:12px;cursor:pointer;
+  transition:transform .15s,border-color .2s;}
+.ads-bot:active{transform:scale(.98);}
+.ads-bot .ic{font-size:26px;width:40px;height:40px;display:grid;place-items:center;
+  background:var(--bd-bg);border-radius:12px;}
+.ads-bot h3{font-size:13px;margin:6px 0 2px;line-height:1.5;}
+.ads-bot p{font-size:10.5px;color:var(--bd-hint);line-height:1.6;margin:0;}
 .sub-card{display:flex;align-items:center;gap:10px;background:var(--bd-surface);
   border:1px solid var(--bd-brand-line);border-radius:14px;padding:12px;margin:14px 0 0;}
 .sub-card .ic{font-size:22px;flex:0 0 auto;}
@@ -350,10 +394,14 @@ async function boot(){
   const el=id=>document.getElementById(id);
   if(el('s-apps'))el('s-apps').textContent=APPS.length;
   if(el('s-users'))el('s-users').textContent=fmt(stats.total_users||0);
+  const ads=stats.ads||{};
+  if(el('s-ads'))el('s-ads').textContent=fmt((ads.ad_bots||[]).length);
+  if(el('s-impressions'))el('s-impressions').textContent=fmt(ads.impressions||0);
   const ev=stats.events||{};
   if(el('s-opens'))el('s-opens').textContent=fmt(Object.entries(ev)
     .filter(([k])=>k.indexOf('app_open:')===0).reduce((s,x)=>s+(+x[1]||0),0));
   if(el('cat-hint'))el('cat-hint').textContent=CATS.length-1+' فئات';
+  renderAds();
   try{if(localStorage.getItem('boda_sub_dismiss')==='1')hideSub();}catch(e){}
 }
 function buildCats(){
@@ -419,6 +467,23 @@ function render(){
     '</div>';
   }).join(''):'<div class="empty">🔍 لا توجد نتائج مطابقة</div>';
   renderFeatured();
+}
+function renderAds(){
+  const box=document.getElementById('ads-list');
+  const count=document.getElementById('ads-count');
+  if(!box)return;
+  const ids=(stats.ads&&stats.ads.ad_bots)||[];
+  count.textContent=ids.length+' بوت';
+  box.innerHTML=ids.length?ids.map(id=>{
+    const a=byId(id);
+    if(!a)return '';
+    const st=(stats.bots||{})[id]||{};
+    return '<div class="ads-bot" onclick="openTg(\\''+a.url+'\\')">'+
+      '<div class="ic">'+(a.emoji||'📺')+'</div>'+
+      '<h3>'+esc(a.name)+'</h3>'+
+      '<p>'+(a.short_desc||a.description)+'<br>👥 '+(st.users?fmt(st.users)+' مستخدم':'')+'</p>'+
+    '</div>';
+  }).join(''):'<p style="color:var(--bd-hint);padding:20px 0;text-align:center;font-size:13px">📺 لا توجد بوتات تُجري الاعلانات بعد</p>';
 }
 function openDetails(id){
   const a=byId(id);if(!a)return;
@@ -517,7 +582,8 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
   <div class="stat-row">
     <div class="stat"><b id="s-apps">—</b><span>بوت</span></div>
     <div class="stat"><b id="s-users">—</b><span>مستخدم</span></div>
-    <div class="stat"><b id="s-opens">—</b><span>فتح تطبيق</span></div>
+    <div class="stat"><b id="s-ads">—</b><span>بوت اعلان</span></div>
+    <div class="stat"><b id="s-impressions">—</b><span>اعرضات</span></div>
   </div>
 </div>
 <div class="search-wrap">
@@ -527,6 +593,10 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
 <div id="featured-sec">
   <div class="section-head"><h3>⭐ بوتات مميزة</h3><span>اختيارات فريق بودة</span></div>
   <div class="featured" id="featured"></div>
+</div>
+<div id="ads-sec">
+  <div class="section-head"><h3>📺 بوتات الاعلانات</h3><span id="ads-count"></span></div>
+  <div class="grid" id="ads-list"></div>
 </div>
 <div class="section-head"><h3>📂 تصفح حسب الفئة</h3><span id="cat-hint">—</span></div>
 <div class="cats" id="cats"></div>

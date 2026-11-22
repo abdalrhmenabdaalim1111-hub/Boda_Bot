@@ -39,6 +39,20 @@ const POPULAR=['USD','EUR','GBP','EGP','SAR','AED','KWD','QAR','TRY','JPY'];
 const SHARE_BOT='https://t.me/BodaCurrencyBot';
 let RATES=null, cacheT=0;
 const fmt=n=>n.toLocaleString(undefined,{maximumFractionDigits:2});
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12250058');
+  setTimeout(()=>{ try{ window.show_12250058 && window.show_12250058(); }catch(e){} }, 120);
+}
 
 async function loadRates(){
   if (RATES && Date.now()-cacheT < 600000) return RATES;
@@ -105,12 +119,15 @@ async function convert(){
     Boda.share('💱 '+fmt(amt)+' '+from+' = '+fmt(out)+' '+to+' — جرّب محول العملات', SHARE_BOT);
   Boda.haptic('success');
   Boda.track('feature_use',{detail:'convert'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'currency_interstitial', uses:uses}); showAd(); }
   Boda.Cloud.set('currency_pair', from+'>'+to);
   const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
   res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
 
 Boda.ready(async ()=>{
+  loadMonetag('12250058');
   const rates=await loadRates();
   if(!rates) return;
   fill('from','from-chips'); fill('to','to-chips');
@@ -604,7 +621,22 @@ const TITLES=['سيّد','الخواجة','كابتن','باشا','الأستا�
 const NICKS=['اللي سيب قلبه في الطريق','مالك آخر كلمة في النرد','قلب الضبع','صاحب أسطورة اللف والنشر',
  'ملك الفتافيت الأخير','قاهر الدهاليز','مهندس المآسي الكبرى','نجم كورة الطاولة','حارس أسرار الرحابة','موزع الابتسامات المجاني'];
 const ANIMALS=['النمر','الصقر','الذئب','الأسد الشجاع','الفهد','الثعلب المشمشي','البجعة','الحيوان الأليف الرسمي للدولة'];
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('10275686');
+  setTimeout(()=>{ try{ window.show_10275686 && window.show_10275686(); }catch(e){} }, 120);
+}
 function gen(){
+  loadMonetag('10275686');
   const n=document.getElementById('name').value.trim();
   if(!n) return Boda.toast('⚠️ اكتب اسمك');
   Boda.haptic('light');
@@ -616,6 +648,8 @@ function gen(){
     '<button class="btn secondary" onclick="Boda.copy(\\''+full+'\\')">📋 نسخ</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;اسمي الطريف: &#39;+full+&#39; 🎭 ولّد اسمك!&#39;,&#39;https://t.me/FunNameGenBot&#39;)">📤 شارك</button>';
   Boda.track('feature_use',{detail:'name_gen'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'fun_name_interstitial', uses:uses}); showAd(); }
 }
 """,
 )
@@ -641,6 +675,20 @@ const DATA={
  watch:['Interstellar 🌌','The Office 😂','Breaking Bad 🧪','Inception 🌀','فيلم مصري كوميدي 🇪🇬','Sherlock 🔍','Money Heist 💰','وثائقي عن الفضاء 🚀','The Last Dance 🏀','أوتاكو شونين ⚔️'],
  do:['اتصل بصديق قديم ☎️','امشي 20 دقيقة 🚶','تعلم كلمة بلغة جديدة 🌍','رتّب مكتبك 🗂','اسمع بودكاست 🎧','اكتب 3 أهداف 🔥','اشرب كوباية مية 💧','تمرين سريع 💪','اقرأ 10 صفحات 📖','نم بدري الليلة 😴']};
 let cat='eat';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('10279136');
+  setTimeout(()=>{ try{ window.show_10279136 && window.show_10279136(); }catch(e){} }, 120);
+}
 function pickCat(el,c){
   document.querySelectorAll('.chips .chip').forEach(x=>x.classList.remove('active'));
   el.classList.add('active'); cat=c;
@@ -657,6 +705,8 @@ function spin(){
         '<button class="btn secondary" onclick="spin()">🔁 مرة أخرى</button>'+
         '<button class="btn secondary" onclick="Boda.share(&#39;اقترح لي القرار العشوائي: &#39;+pick+&#39; 🎲&#39;,&#39;https://t.me/RandomSuggestMixBot&#39;)">📤 شارك</button>';
       Boda.haptic('success'); Boda.track('feature_use',{detail:cat});
+      uses++;
+      if(uses%2===0){ Boda.track('ad_show',{detail:'random_suggest_interstitial', uses:uses}); showAd(); }
     }
   },80);
 }
@@ -1570,6 +1620,20 @@ APPS["vidload"] = dict(
 const SHARE_BOT='https://t.me/VidLoadXBot';
 const BOT_LINK='https://t.me/VidLoadXBot';
 let OUT='فيديو 1080p';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('10705728');
+  setTimeout(()=>{ try{ window.show_10705728 && window.show_10705728(); }catch(e){} }, 120);
+}
 const PLATFORMS=[
   ['YouTube',   /youtube\\.com|youtu\\.be/i,  '▶️'],
   ['TikTok',    /tiktok\\.com/i,               '🎵'],
@@ -1613,6 +1677,8 @@ function send(){
   const full=/^https?:\\/\\//i.test(u)?u:'https://'+u;
   Boda.haptic('light');
   Boda.track('feature_use',{detail:'download_ready'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'vidload_interstitial', uses:uses}); showAd(); }
   const res=document.getElementById('res');
   res.className='result show';
   const pl=PLATFORMS.find(p=>p[1].test(u));
@@ -1643,6 +1709,7 @@ function openBot(){
 }
 
 Boda.ready(()=>{
+  loadMonetag('10705728');
   if(Boda.MainButton.set('🤖 جهّز الطلب', send)){
     const b=document.getElementById('go'); if(b) b.style.display='none';
   }

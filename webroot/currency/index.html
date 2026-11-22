@@ -1147,6 +1147,20 @@ const POPULAR=['USD','EUR','GBP','EGP','SAR','AED','KWD','QAR','TRY','JPY'];
 const SHARE_BOT='https://t.me/BodaCurrencyBot';
 let RATES=null, cacheT=0;
 const fmt=n=>n.toLocaleString(undefined,{maximumFractionDigits:2});
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12250058');
+  setTimeout(()=>{ try{ window.show_12250058 && window.show_12250058(); }catch(e){} }, 120);
+}
 
 async function loadRates(){
   if (RATES && Date.now()-cacheT < 600000) return RATES;
@@ -1213,12 +1227,15 @@ async function convert(){
     Boda.share('💱 '+fmt(amt)+' '+from+' = '+fmt(out)+' '+to+' — جرّب محول العملات', SHARE_BOT);
   Boda.haptic('success');
   Boda.track('feature_use',{detail:'convert'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'currency_interstitial', uses:uses}); showAd(); }
   Boda.Cloud.set('currency_pair', from+'>'+to);
   const behavior=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
   res.scrollIntoView({behavior:behavior, block:'nearest'});
 }
 
 Boda.ready(async ()=>{
+  loadMonetag('12250058');
   const rates=await loadRates();
   if(!rates) return;
   fill('from','from-chips'); fill('to','to-chips');
