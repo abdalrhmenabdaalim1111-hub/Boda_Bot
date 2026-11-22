@@ -301,6 +301,7 @@ def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
         subtitle = app.get("short_desc", "تطبيق مصغّر داخل تيليجرام")
 
     share = f"https://t.me/{username}"
+    # تمرير معلومات المستخدم للجلسة (تُستخرج من initDataUnsafe لاحقاً في المتصفح)
     return minify_html(lazy_images(build_html(
         bot_id=bot_id, emoji=app.get("emoji", "🤖"),
         title=title, subtitle=subtitle,
@@ -308,7 +309,8 @@ def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
         api_base=api_base, ads_cfg=ads_cfg,
         share_url=share, back_url="../store/",
         group=app.get("tag", ""),
-        page_url=f"{MINIAPPS_BASE}/{bot_id}/" if MINIAPPS_BASE else "")))
+        page_url=f"{MINIAPPS_BASE}/{bot_id}/" if MINIAPPS_BASE else "",
+        user_id=0, session_id="")))
 
 
 # ── المتجر كتطبيق مصغّر ──────────────────────────────────────────────────────
@@ -449,7 +451,7 @@ function renderTop(){
   if(!scored.length){ box.innerHTML='<div class="empty">🔥 سيظهر الأكثر استخداماً بعد أول استخدام</div>'; return; }
   box.innerHTML=scored.map(function(x){
     const a=x.a, st=(stats.bots||{})[a.id]||{};
-    return '<div class="app-card" onclick="openDetails(\''+a.id+'\')">'+
+    return '<div class="app-card" onclick="openDetails(\\''+a.id+'\\')">'+
       '<div class="top"><div class="ic">'+(a.emoji||'🤖')+'</div>'+
       '<span class="cat-tag">🔥 '+(st.uses?fmt(st.uses)+' استخدام':'')+'</span></div>'+
       '<h3>'+esc(a.name)+'</h3><p>'+esc(a.short_desc||a.description)+'</p>'+
@@ -753,7 +755,7 @@ def main():
         _preserved_markers = {}
         app_ids = {a["id"] for a in apps if a.get("id")}
         for child in list(out_dir.iterdir()):
-            if child.is_dir() and child.name not in ("data", "store", "assets", "dashboard"):
+            if child.is_dir() and child.name not in ("data", "store", "assets", "dashboard", "shared"):
                 _old = child / "index.html"
                 if _old.exists():
                     try:

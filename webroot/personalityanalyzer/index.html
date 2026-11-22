@@ -721,6 +721,20 @@ render();
   }catch(e){}
 })();
 </script>
+<script>
+/* Internal Promotion Banner — مشترك لكل التطبيقات */
+(function(){
+  const BOT_ID = "personalityanalyzer";
+  const USER_ID = "0";
+  const SESSION_ID = "";
+  const PROMO_SCRIPT = document.createElement('script');
+  PROMO_SCRIPT.src = "../shared/promo-banner.js";
+  PROMO_SCRIPT.dataset.botId = BOT_ID;
+  PROMO_SCRIPT.dataset.userId = USER_ID;
+  PROMO_SCRIPT.dataset.sessionId = SESSION_ID;
+  document.head.appendChild(PROMO_SCRIPT);
+})();
+</script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>
 </body>
 </html>

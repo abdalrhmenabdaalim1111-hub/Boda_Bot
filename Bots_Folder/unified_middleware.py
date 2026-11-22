@@ -297,6 +297,15 @@ class UnifiedBotMiddleware(BaseMiddleware):
             # 2) بطاقة التطبيق عند /start (مرة واحدة لكل مستخدم)
             text = (getattr(message, "text", "") or "").strip()
             if is_private and text.split() and text.split()[0].lower() in ("/start", "/start@app"):
+                # تتبع الإحالات الترويجية (Phase 5)
+                parts = text.split()
+                if len(parts) > 1 and parts[1].startswith("promo_"):
+                    try:
+                        from control_center.promo import handle_promo_start
+                        handle_promo_start(parts[1], self.bot_name, user.id)
+                    except Exception as e:
+                        self.log.debug(f"promo start track error: {e}")
+
                 app_url = get_miniapps_url(self.bot_name)
                 if app_url:
                     with self._lock:

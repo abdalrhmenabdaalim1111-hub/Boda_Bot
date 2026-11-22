@@ -52,7 +52,8 @@ def build_html(*, bot_id: str, emoji: str, title: str, subtitle: str,
                ad_markers: list | None = None,
                share_url: str = "https://t.me/BodaStoreeBot",
                back_url: str = "", page_url: str = "",
-               group: str = "", lang: str = "ar") -> str:
+               group: str = "", lang: str = "ar",
+               user_id: int = 0, session_id: str = "") -> str:
     """تجميع صفحة تطبيق كاملة من القالب + أجزاء التطبيق.
 
     group: وسم/تصنيف البوت (مثل "أدوات 🛠️") لاختيار هوية المجموعة.
@@ -166,6 +167,20 @@ window.__BODA_ADS__      = {ads_json};
         arr.slice(1,4).map(function(id){{return '<a class="recent" href="../'+id+'/">'+id+'</a>';}}).join('');
     }}
   }}catch(e){{}}
+}})();
+</script>
+<script>
+/* Internal Promotion Banner — مشترك لكل التطبيقات */
+(function(){{
+  const BOT_ID = "{bot_id}";
+  const USER_ID = "{user_id or 0}";
+  const SESSION_ID = "{session_id or ''}";
+  const PROMO_SCRIPT = document.createElement('script');
+  PROMO_SCRIPT.src = "../shared/promo-banner.js";
+  PROMO_SCRIPT.dataset.botId = BOT_ID;
+  PROMO_SCRIPT.dataset.userId = USER_ID;
+  PROMO_SCRIPT.dataset.sessionId = SESSION_ID;
+  document.head.appendChild(PROMO_SCRIPT);
 }})();
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>

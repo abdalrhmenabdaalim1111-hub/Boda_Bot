@@ -12,24 +12,28 @@
  */
 
 (async function () {
-    // ── إعدادات البوت ───────────────────────────────────────────────────────
-    const BOT_ID = "{{BOT_ID}}";  // سيتم استبدالها بالمعرف الحقيقي أثناء البناء
-    
-    // ── تحميل التكوين من المتغيرات (تتبع الجلسة) ─────────────────────────
-    const promoConfig = {
-        sessionId: "{{SESSION_ID}}",  // سيتم توليده أثناء البناء
-        userId: "{{USER_ID}}"        // سيتم استبداله بـ initDataUnsafe.user.id
-    };
+    // ── إعدادات البوت من وسم السكريبت ─────────────────────────────────────
+    const script = document.currentScript;
+    const BOT_ID = script.dataset.botId || "";
+    const USER_ID = script.dataset.userId || "0";
+    const SESSION_ID = script.dataset.sessionId || "";
     
     // ── التحقق من البيانات المطلوبة ───────────────────────────────────────
-    if (!promoConfig.userId || promoConfig.userId === "0") {
-        console.log("⚠️ Promo banner: No user ID, skipping");
-        return;
+    if (!USER_ID || USER_ID === "0") {
+        // محاولة جلبها من Telegram WebApp إذا لم تكن موجودة
+        const tg = window.Telegram?.WebApp;
+        const tgUser = tg?.initDataUnsafe?.user?.id;
+        if (!tgUser) {
+            console.log("⚠️ Promo banner: No user ID available");
+            return;
+        }
     }
+    
+    const finalUserId = USER_ID !== "0" ? USER_ID : (window.Telegram?.WebApp?.initDataUnsafe?.user?.id || "0");
     
     try {
         // ── جلب الإعلان المناسب ─────────────────────────────────────────────
-        const response = await fetch(`/api/promo?bot=${encodeURIComponent(BOT_ID)}&uid=${promoConfig.userId}`);
+        const response = await fetch(`/api/promo?bot=${encodeURIComponent(BOT_ID)}&uid=${finalUserId}`);
         
         if (!response.ok) {
             console.log("⚠️ Promo banner: API error", response.status);
@@ -140,10 +144,10 @@
             
             try {
                 const tg = window.Telegram?.WebApp;
-                if (tg) {
+                if (tg && tg.openTelegramLink) {
                     tg.openTelegramLink(campaign.link);
                 } else {
-                    window.location.href = campaign.link;
+                    window.open(campaign.link, '_blank');
                 }
             } catch (err) {
                 console.error('⚠️ Promo banner: Failed to open link', err);
@@ -168,13 +172,23 @@
     // ── تسجيل الأحداث ──────────────────────────────────────────────────────
     function logEvent(kind, campaignId) {
         try {
-            navigator.sendBeacon('/api/promo/event', JSON.stringify({
+            const payload = JSON.stringify({
                 bot: BOT_ID,
                 campaign: campaignId,
                 kind: kind,
-                user_id: promoConfig.userId,
-                session_id: promoConfig.sessionId
-            }));
+                user_id: finalUserId,
+                session_id: SESSION_ID
+            });
+            
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('/api/promo/event', payload);
+            } else {
+                fetch('/api/promo/event', {
+                    method: 'POST',
+                    body: payload,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
         } catch (e) {
             console.log("⚠️ Promo banner: Failed to log event", e);
         }

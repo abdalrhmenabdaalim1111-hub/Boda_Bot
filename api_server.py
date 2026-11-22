@@ -597,6 +597,9 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
 
             if not parts or parts[0] == "store":
                 target_file = WEBROOT_DIR / "store" / "index.html"
+            elif parts[0] == "shared" and len(parts) > 1:
+                target_file = WEBROOT_DIR / "shared" / parts[1]
+                c_type = "application/javascript; charset=utf-8"
             elif parts[0] == "data" and len(parts) > 1:
                 target_file = WEBROOT_DIR / "data" / parts[1]
                 c_type = "application/json; charset=utf-8"
