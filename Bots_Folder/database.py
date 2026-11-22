@@ -51,10 +51,17 @@ class BodaDatabase:
                 conn.commit()
 
     def track_user(self, bot_id: str, user_id: int, full_name: str, username: str):
-        """تحديث بيانات المستخدم وتتبع نشاطه في بوت معين."""
+        """تحديث بيانات المستخدم وتتبع نشاطه، وإرجاع معلومات الترقية."""
+        leveled_up = False
+        new_level = ""
+        
         with self._lock:
             with self._get_conn() as conn:
-                # تحديث بيانات المستخدم وإعطائه 5 نقاط XP عند كل استخدام
+                # 1. جلب المستوى القديم
+                old_user = conn.execute("SELECT level FROM users WHERE user_id = ?", (user_id,)).fetchone()
+                old_level = old_user["level"] if old_user else "مبتدئ 🐣"
+
+                # 2. تحديث النقاط والمستوى
                 conn.execute("""
                     INSERT INTO users (user_id, username, full_name, xp_points, last_seen)
                     VALUES (?, ?, ?, 5, CURRENT_TIMESTAMP)
@@ -65,7 +72,7 @@ class BodaDatabase:
                         last_seen=CURRENT_TIMESTAMP
                 """, (user_id, username, full_name))
                 
-                # تحديث مستوى المستخدم بناءً على نقاطه
+                # تحديث الرتبة
                 conn.execute("""
                     UPDATE users SET level = CASE 
                         WHEN xp_points >= 1000 THEN 'أسطورة 👑'
@@ -74,6 +81,12 @@ class BodaDatabase:
                         ELSE 'مبتدئ 🐣'
                     END WHERE user_id = ?
                 """, (user_id,))
+
+                # 3. التأكد من الترقية
+                new_user = conn.execute("SELECT level FROM users WHERE user_id = ?", (user_id,)).fetchone()
+                new_level = new_user["level"]
+                if new_level != old_level:
+                    leveled_up = True
 
                 # تحديث إحصائيات الاستخدام
                 conn.execute("""
@@ -84,6 +97,8 @@ class BodaDatabase:
                         last_used = CURRENT_TIMESTAMP
                 """, (user_id, bot_id))
                 conn.commit()
+                
+        return {"leveled_up": leveled_up, "new_level": new_level}
 
     def get_user_profile(self, user_id: int):
         """استرجاع بيانات الملف الشخصي الموحد للمستخدم."""

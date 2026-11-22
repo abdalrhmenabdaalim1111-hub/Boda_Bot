@@ -75,21 +75,15 @@ def get_db():
 def track_user(bot_name: str, user_id: int,
                full_name: str = "", username: str = ""):
     """
-    تتبع مستخدم في قاعدة البيانات (اختياري — لا يوقف البوت عند الفشل).
-
-    مثال::
-
-        from bot_base import track_user
-        track_user("currency", message.from_user.id,
-                   message.from_user.full_name,
-                   message.from_user.username or "")
+    تتبع مستخدم في قاعدة البيانات.
     """
     try:
         db = get_db()
         if db:
-            db.track_user(bot_name, user_id, full_name, username)
+            return db.track_user(bot_name, user_id, full_name, username)
     except Exception:
         pass
+    return {"leveled_up": False}
 
 
 def record_error(bot_name: str, error: Exception, user_id: int = None):

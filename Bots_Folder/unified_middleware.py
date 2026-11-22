@@ -115,17 +115,44 @@ class UnifiedBotMiddleware(BaseMiddleware):
             chat_type = getattr(getattr(message, "chat", None), "type", "")
             is_private = chat_type == "private"
 
-            # 1) تتبع المستخدمين (المحادثات الخاصة فقط — إحصائيات نظيفة)
+            # 1) تتبع المستخدمين وترقيتهم (المحادثات الخاصة فقط)
             if is_private:
-                track_user(self.bot_name, user.id,
-                           f"{getattr(user, 'first_name', '') or ''} "
-                           f"{getattr(user, 'last_name', '') or ''}".strip(),
-                           getattr(user, "username", "") or "")
+                # أولاً: فحص بوابة الاشتراك الإجباري
+                if self.gate.check_and_show_gate(message):
+                    from telebot.handler_backends import CancelMiddleware
+                    raise CancelMiddleware("Subscription Gate active")
 
-            # Check gate before any other processing if private message
-            if is_private and self.gate.check_and_show_gate(message):
-                from telebot.handler_backends import CancelMiddleware
-                raise CancelMiddleware("Subscription Gate active")
+                # ثانياً: تتبع النشاط وإطلاق إشعار الترقية عند الارتقاء
+                result = track_user(self.bot_name, user.id,
+                                   f"{getattr(user, 'first_name', '') or ''} "
+                                   f"{getattr(user, 'last_name', '') or ''}".strip(),
+                                   getattr(user, "username", "") or "")
+                
+                if result and result.get("leveled_up"):
+                    self.send_level_up_notification(user.id, result.get("new_level", ""))
+
+    def send_level_up_notification(self, user_id: int, level_name: str):
+        """إرسال بطاقة تهنئة احترافية عند ارتقاء المستوى."""
+        try:
+            text = (
+                "🎊 <b>تهانينا! لقد ارتقيت لمستوى جديد</b> 🎊\n"
+                "────────────────────────\n\n"
+                "🏆 رتبتك الحالية: <b>" + level_name + "</b>\n\n"
+                "شكراً لاستخدامك خدمات منظومة بودة الموحدة. استمر في استخدام البوتات لرفع نقاطك وفتح ميزات حصرية قريباً! ✨"
+            )
+            
+            kb = InlineKeyboardMarkup()
+            share_text = f"🔥 لقد وصلت لرتبة {level_name} في منظومة بودة للبوتات! جربها الآن واكتشف رتبتك 🚀"
+            share_url = "https://t.me/BodaStoreeBot"
+            
+            kb.add(InlineKeyboardButton("📤 شارك الإنجاز", 
+                url=f"https://t.me/share/url?url={share_url}&text={share_text}"))
+            
+            self.bot.send_message(user_id, text, parse_mode="HTML", reply_markup=kb)
+        except Exception as e:
+            self.log.debug(f"level_up notification error: {e}")
+
+    def post_process(self, message, data: dict, exception):
 
             # 2) بطاقة التطبيق عند /start (مرة واحدة لكل مستخدم)
             text = (getattr(message, "text", "") or "").strip()
