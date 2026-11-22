@@ -1122,16 +1122,21 @@ async function tr(){
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ اكتب نصاً');
   const f=document.getElementById('from').value, t=document.getElementById('to').value;
-  const res=document.getElementById('res'); res.className='result show'; res.innerHTML='⏳...';
+  const res=document.getElementById('res');
+  res.className='result show';
+  res.innerHTML='<div class="progress indeterminate"><i></i></div>'+
+    '<p class="muted" style="margin-top:8px;font-size:13px">⏳ جاري الترجمة...</p>';
   Boda.haptic('light');
   try{
     const r=await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(txt)+'&langpair='+f+'|'+t);
     const d=await r.json();
     const out=d.responseData.translatedText;
-    res.innerHTML='<div>'+out.replace(/</g,'&lt;')+'</div>'+
-      '<button class="btn secondary" style="margin-top:8px" onclick="Boda.copy(document.getElementById(\'res div\').textContent)">📋 نسخ</button>';
+    res.innerHTML='<div class="result-title">🌐 الترجمة</div>'+
+      '<div style="line-height:2;font-size:15px">'+out.replace(/</g,'&lt;')+'</div>'+
+      '<button class="btn secondary" style="margin-top:10px" id="copy-tr">📋 نسخ</button>';
+    res.querySelector('#copy-tr').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:f+'>'+t});
-  }catch(e){ res.innerHTML='⚠️ تعذر الاتصال بخدمة الترجمة'; }
+  }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>تعذر الاتصال</b></div>'; }
 }
 </script>
 </body>

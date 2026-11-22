@@ -1120,15 +1120,20 @@ async function tr(){
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ ألصق نصاً');
   if(txt.length>4000) return Boda.toast('⚠️ الحد 4000 حرف');
-  const f=document.getElementById('from').value, t=document.getElementById('to').value;
-  const res=document.getElementById('res'); res.className='result show'; res.innerHTML='⏳ جاري الترجمة...';
+  const res=document.getElementById('res');
+  res.className='result show';
+  res.innerHTML='<div class="progress indeterminate"><i></i></div>'+
+    '<p class="muted" style="margin-top:8px;font-size:13px">⏳ جاري الترجمة ('+txt.length+' حرف)...</p>';
   try{
     const r=await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(txt)+'&langpair='+f+'|'+t);
     const d=await r.json();
-    res.innerHTML='<div style="line-height:2">'+d.responseData.translatedText.replace(/</g,'&lt;')+'</div>'+
-      '<button class="btn secondary" style="margin-top:10px" onclick="Boda.copy(document.getElementById(\'res div\').textContent)">📋 نسخ الترجمة</button>';
+    const out=d.responseData.translatedText;
+    res.innerHTML='<div class="result-title">📄 الترجمة الكاملة</div>'+
+      '<div style="line-height:2;font-size:14.5px">'+out.replace(/</g,'&lt;')+'</div>'+
+      '<button class="btn secondary" style="margin-top:10px" id="copy-doc">📋 نسخ الترجمة</button>';
+    res.querySelector('#copy-doc').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:'doc_'+txt.length});
-  }catch(e){ res.innerHTML='⚠️ فشل الاتصال'; }
+  }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>فشل الاتصال</b></div>'; }
 }
 </script>
 </body>

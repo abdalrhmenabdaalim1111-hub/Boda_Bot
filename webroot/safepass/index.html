@@ -1129,13 +1129,17 @@ function gen(){
   const arr=new Uint32Array(n); crypto.getRandomValues(arr);
   const pw=[...arr].map(x=>pool[x%pool.length]).join('');
   Boda.haptic('success');
-  const res=document.getElementById('res'); res.className='result show';
-  res.innerHTML='<code style="font-size:16px;word-break:break-all">'+pw+'</code>'+
-    '<button class="btn secondary" onclick="Boda.copy(\''+pw+'\')">📋 نسخ</button>';
-  // قوة كلمة المرور: تشكيلة + طول
   let bits=n*Math.log2(pool.length);
-  const lv=bits>100?['ممتازة 💪','var(--bd-ok)']:bits>60?['قوية ✔','var(--bd-ok)']:bits>40?['متوسطة ⚠','var(--bd-warn)']:['ضعيفة ✖','var(--bd-danger)'];
-  document.getElementById('strength').innerHTML='<p style="color:'+lv[1]+';font-size:13px;margin-top:8px">القوة: '+lv[0]+' ('+Math.round(bits)+' bit)</p>';
+  const lv=bits>100?['ممتازة 💪','ok']:bits>60?['قوية ✔','ok']:bits>40?['متوسطة ⚠','warn']:['ضعيفة ✖',''];
+  const pct=Math.min(100,Math.round(bits/128*100));
+  const res=document.getElementById('res'); res.className='result show';
+  res.innerHTML='<div class="result-title">🔒 كلمة مرور جديدة</div>'+
+    '<code style="font-size:17px;word-break:break-all;letter-spacing:1px;display:block;margin-bottom:12px">'+pw+'</code>'+
+    '<div class="progress" style="margin-bottom:8px"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="row between" style="margin-bottom:12px"><small class="muted">القوة:</small><span class="badge '+lv[1]+'">'+lv[0]+'</span></div>'+
+    '<button class="btn secondary" id="copy-pw">📋 نسخ كلمة المرور</button>';
+  res.querySelector('#copy-pw').onclick=()=>Boda.copy(pw,'📋 تم نسخ كلمة المرور');
+  document.getElementById('strength').innerHTML='';
   Boda.track('feature_use',{detail:'pw_'+n});
 }
 </script>

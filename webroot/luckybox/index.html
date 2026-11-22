@@ -1139,7 +1139,7 @@ function openBox(){
     localStorage.setItem('boda_lucky_last', today);
     Boda.haptic('success'); Boda.track('feature_use',{detail:'prize_'+pick.e});
     const res=document.getElementById('res'); res.className='result show';
-    res.innerHTML='<h2 style="font-size:22px">'+pick.e+' '+pick.t+'</h2>'+
+    res.innerHTML='<div class="result-title">🎁 جائزتك اليوم!</div>'+'<div style="font-size:40px;margin-bottom:8px">'+pick.e+'</div>'+'<h2 style="font-size:20px">'+pick.t+'</h2>'+
       '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/LuckyBoxX1Bot&#39;)">📤 شارك حظك</button>'+
       '<p style="color:var(--bd-hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
   },1400);

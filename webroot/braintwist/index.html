@@ -1117,11 +1117,11 @@ let i=0, solved=0;
 function render(){
   const p=PUZZLES[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--bd-hint)">لغز '+(i+1)+'/'+PUZZLES.length+' ✔ '+solved+'</small>'+
-    '<h2 style="margin:8px 0">'+p.q+'</h2>'+
-    '<input type="text" id="ans" placeholder="اكتب إجابتك هنا...">'+
-    '<button class="btn" onclick="check()">✅ تحقق</button>'+
-    '<button class="btn secondary" onclick="showHint()">💡 تلميح</button>';
+    '<div class="row between" style="margin-bottom:8px"><small class="muted">لغز '+(i+1)+'/'+PUZZLES.length+'</small><span class="badge ok">✔ '+solved+' محلول</span></div>'+
+    '<div class="progress" style="margin-bottom:12px"><i style="width:'+(Math.round(i/PUZZLES.length*100))+'%"></i></div>'+
+    '<h2 style="margin:8px 0;font-size:17px;line-height:1.9">'+p.q+'</h2>'+
+    '<div class="field"><input type="text" id="ans" placeholder="اكتب إجابتك هنا..."></div>'+
+    '<div class="row" style="gap:8px"><button class="btn" onclick="check()" style="flex:2">✅ تحقق</button><button class="btn secondary" onclick="showHint()" style="flex:1;margin-top:12px">💡 تلميح</button></div>';
   document.getElementById('hint-btn');
 }
 function showHint(){ Boda.toast('💡 '+PUZZLES[i].hint); Boda.track('feature_use',{detail:'hint_used'}); }

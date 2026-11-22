@@ -1122,9 +1122,10 @@ let i=0, t=0;
 function render(){
   const q=QS[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--bd-hint)">سؤال '+(i+1)+'/'+QS.length+'</small>'+
-    '<h2 style="margin:8px 0">'+q.q+'</h2>'+
-    q.o.map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')" style="text-align:right">'+o+'</button>').join('');
+    '<div class="row between" style="margin-bottom:8px"><small class="muted">سؤال '+(i+1)+'/'+QS.length+'</small><span class="badge">'+i+' ✓</span></div>'+
+    '<div class="progress" style="margin-bottom:12px"><i style="width:'+(Math.round(i/QS.length*100))+'%"></i></div>'+
+    '<h2 style="margin:8px 0;font-size:17px">'+q.q+'</h2>'+
+    '<div class="stagger">'+q.o.map((o,k)=>'<button class="btn secondary" type="button" style="text-align:right;justify-content:flex-start" onclick="pick('+k+')">'+o+'</button>').join('')+'</div>';
 }
 function pick(k){
   t+=q_t(i,k); Boda.haptic('light'); i++;

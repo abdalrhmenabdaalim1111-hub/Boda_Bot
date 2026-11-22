@@ -1117,16 +1117,20 @@ async function shorten(){
   if(!/^https?:\/\//.test(u)) return Boda.toast('⚠️ أدخل رابطاً يبدأ بـ http');
   Boda.haptic('light');
   const res=document.getElementById('res');
-  res.className='result show'; res.innerHTML='⏳ جاري الاختصار...';
+  res.className='result show';
+  res.innerHTML='<div class="progress indeterminate"><i></i></div>'+
+    '<p class="muted" style="margin-top:8px;font-size:13px">⏳ جاري الاختصار...</p>';
   try{
-    // is.gd API — مجاني بدون مفتاح
     const r=await fetch('https://is.gd/create.php?format=json&url='+encodeURIComponent(u));
     const d=await r.json();
     if(d.shorturl){
-      res.innerHTML='<code dir="ltr">'+d.shorturl+'</code>'+
-        '<div style="display:flex;gap:8px;margin-top:10px">'+
-        '<button class="btn secondary" onclick="Boda.copy(\''+d.shorturl+'\')">📋 نسخ</button>'+
-        '<button class="btn secondary" onclick="Boda.share(&#39;رابط قصير via متجر بودا&#39;,&#39;'+d.shorturl+'&#39;)">📤 مشاركة</button></div>';
+      res.innerHTML='<div class="result-title">✅ تم الاختصار</div>'+
+        '<code dir="ltr" style="font-size:16px">'+d.shorturl+'</code>'+
+        '<div class="result-actions">'+
+        '<button class="btn secondary" id="copy-s">📋 نسخ</button>'+
+        '<button class="btn secondary" id="share-s">📤 مشاركة</button></div>';
+      res.querySelector('#copy-s').onclick=()=>Boda.copy(d.shorturl,'📋 تم نسخ الرابط المختصر');
+      res.querySelector('#share-s').onclick=()=>Boda.share('رابط قصير via متجر بودا: '+d.shorturl,'https://t.me/ShortLinkXXBot');
       Boda.track('feature_use',{detail:'shorten'});
     } else throw 0;
   }catch(e){ res.innerHTML='⚠️ فشل الاختصار — جرّب رابطاً آخر'; }

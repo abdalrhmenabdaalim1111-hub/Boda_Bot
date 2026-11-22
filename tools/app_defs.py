@@ -243,13 +243,17 @@ function gen(){
   const arr=new Uint32Array(n); crypto.getRandomValues(arr);
   const pw=[...arr].map(x=>pool[x%pool.length]).join('');
   Boda.haptic('success');
-  const res=document.getElementById('res'); res.className='result show';
-  res.innerHTML='<code style="font-size:16px;word-break:break-all">'+pw+'</code>'+
-    '<button class="btn secondary" onclick="Boda.copy(\\''+pw+'\\')">📋 نسخ</button>';
-  // قوة كلمة المرور: تشكيلة + طول
   let bits=n*Math.log2(pool.length);
-  const lv=bits>100?['ممتازة 💪','var(--bd-ok)']:bits>60?['قوية ✔','var(--bd-ok)']:bits>40?['متوسطة ⚠','var(--bd-warn)']:['ضعيفة ✖','var(--bd-danger)'];
-  document.getElementById('strength').innerHTML='<p style="color:'+lv[1]+';font-size:13px;margin-top:8px">القوة: '+lv[0]+' ('+Math.round(bits)+' bit)</p>';
+  const lv=bits>100?['ممتازة 💪','ok']:bits>60?['قوية ✔','ok']:bits>40?['متوسطة ⚠','warn']:['ضعيفة ✖',''];
+  const pct=Math.min(100,Math.round(bits/128*100));
+  const res=document.getElementById('res'); res.className='result show';
+  res.innerHTML='<div class="result-title">🔒 كلمة مرور جديدة</div>'+
+    '<code style="font-size:17px;word-break:break-all;letter-spacing:1px;display:block;margin-bottom:12px">'+pw+'</code>'+
+    '<div class="progress" style="margin-bottom:8px"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="row between" style="margin-bottom:12px"><small class="muted">القوة:</small><span class="badge '+lv[1]+'">'+lv[0]+'</span></div>'+
+    '<button class="btn secondary" id="copy-pw">📋 نسخ كلمة المرور</button>';
+  res.querySelector('#copy-pw').onclick=()=>Boda.copy(pw,'📋 تم نسخ كلمة المرور');
+  document.getElementById('strength').innerHTML='';
   Boda.track('feature_use',{detail:'pw_'+n});
 }
 """,
@@ -273,16 +277,20 @@ async function shorten(){
   if(!/^https?:\\/\\//.test(u)) return Boda.toast('⚠️ أدخل رابطاً يبدأ بـ http');
   Boda.haptic('light');
   const res=document.getElementById('res');
-  res.className='result show'; res.innerHTML='⏳ جاري الاختصار...';
+  res.className='result show';
+  res.innerHTML='<div class="progress indeterminate"><i></i></div>'+
+    '<p class="muted" style="margin-top:8px;font-size:13px">⏳ جاري الاختصار...</p>';
   try{
-    // is.gd API — مجاني بدون مفتاح
     const r=await fetch('https://is.gd/create.php?format=json&url='+encodeURIComponent(u));
     const d=await r.json();
     if(d.shorturl){
-      res.innerHTML='<code dir="ltr">'+d.shorturl+'</code>'+
-        '<div style="display:flex;gap:8px;margin-top:10px">'+
-        '<button class="btn secondary" onclick="Boda.copy(\\''+d.shorturl+'\\')">📋 نسخ</button>'+
-        '<button class="btn secondary" onclick="Boda.share(&#39;رابط قصير via متجر بودا&#39;,&#39;'+d.shorturl+'&#39;)">📤 مشاركة</button></div>';
+      res.innerHTML='<div class="result-title">✅ تم الاختصار</div>'+
+        '<code dir="ltr" style="font-size:16px">'+d.shorturl+'</code>'+
+        '<div class="result-actions">'+
+        '<button class="btn secondary" id="copy-s">📋 نسخ</button>'+
+        '<button class="btn secondary" id="share-s">📤 مشاركة</button></div>';
+      res.querySelector('#copy-s').onclick=()=>Boda.copy(d.shorturl,'📋 تم نسخ الرابط المختصر');
+      res.querySelector('#share-s').onclick=()=>Boda.share('رابط قصير via متجر بودا: '+d.shorturl,'https://t.me/ShortLinkXXBot');
       Boda.track('feature_use',{detail:'shorten'});
     } else throw 0;
   }catch(e){ res.innerHTML='⚠️ فشل الاختصار — جرّب رابطاً آخر'; }
@@ -352,9 +360,10 @@ let i=0, score=0;
 const PTS=[[1,2,3,4],[1,3,2,4],[1,2,3,4],[1,3,2,4],[2,3,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4]];
 function render(){
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--bd-hint)">السؤال '+(i+1)+' من '+QS.length+'</small>'+
-    '<h2 style="margin:8px 0">'+QS[i]+'</h2>'+
-    OPT[i].map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')">'+o+'</button>').join('');
+    '<div class="row between" style="margin-bottom:8px"><small class="muted">السؤال '+(i+1)+' من '+QS.length+'</small><span class="badge">'+i+' ✓</span></div>'+
+    '<div class="progress" style="margin-bottom:12px"><i style="width:'+(Math.round(i/QS.length*100))+'%"></i></div>'+
+    '<h2 style="margin:8px 0;font-size:17px">'+QS[i]+'</h2>'+
+    '<div class="stagger">'+OPT[i].map((o,k)=>'<button class="btn secondary" type="button" style="text-align:right;justify-content:flex-start" onclick="pick('+k+')">'+o+'</button>').join('')+'</div>';
 }
 function pick(k){
   score+=PTS[i][k]; Boda.haptic('light'); i++;
@@ -521,7 +530,7 @@ function openBox(){
     localStorage.setItem('boda_lucky_last', today);
     Boda.haptic('success'); Boda.track('feature_use',{detail:'prize_'+pick.e});
     const res=document.getElementById('res'); res.className='result show';
-    res.innerHTML='<h2 style="font-size:22px">'+pick.e+' '+pick.t+'</h2>'+
+    res.innerHTML='<div class="result-title">🎁 جائزتك اليوم!</div>'+'<div style="font-size:40px;margin-bottom:8px">'+pick.e+'</div>'+'<h2 style="font-size:20px">'+pick.t+'</h2>'+
       '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/LuckyBoxX1Bot&#39;)">📤 شارك حظك</button>'+
       '<p style="color:var(--bd-hint);font-size:12px;margin-top:10px">صندوق جديد يومياً 🔄</p>';
   },1400);
@@ -547,11 +556,11 @@ let i=0, solved=0;
 function render(){
   const p=PUZZLES[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--bd-hint)">لغز '+(i+1)+'/'+PUZZLES.length+' ✔ '+solved+'</small>'+
-    '<h2 style="margin:8px 0">'+p.q+'</h2>'+
-    '<input type="text" id="ans" placeholder="اكتب إجابتك هنا...">'+
-    '<button class="btn" onclick="check()">✅ تحقق</button>'+
-    '<button class="btn secondary" onclick="showHint()">💡 تلميح</button>';
+    '<div class="row between" style="margin-bottom:8px"><small class="muted">لغز '+(i+1)+'/'+PUZZLES.length+'</small><span class="badge ok">✔ '+solved+' محلول</span></div>'+
+    '<div class="progress" style="margin-bottom:12px"><i style="width:'+(Math.round(i/PUZZLES.length*100))+'%"></i></div>'+
+    '<h2 style="margin:8px 0;font-size:17px;line-height:1.9">'+p.q+'</h2>'+
+    '<div class="field"><input type="text" id="ans" placeholder="اكتب إجابتك هنا..."></div>'+
+    '<div class="row" style="gap:8px"><button class="btn" onclick="check()" style="flex:2">✅ تحقق</button><button class="btn secondary" onclick="showHint()" style="flex:1;margin-top:12px">💡 تلميح</button></div>';
   document.getElementById('hint-btn');
 }
 function showHint(){ Boda.toast('💡 '+PUZZLES[i].hint); Boda.track('feature_use',{detail:'hint_used'}); }
@@ -603,7 +612,7 @@ function gen(){
   const t=TITLES[h%TITLES.length], k=NICKS[(h>>3)%NICKS.length], a=ANIMALS[(h>>6)%ANIMALS.length];
   const full=t+' '+n+' '+a+'، '+k;
   document.getElementById('res').className='result show';
-  document.getElementById('res').innerHTML='<div style="font-size:18px;font-weight:700">'+full+'</div>'+
+  document.getElementById('res').innerHTML='<div class="result-title">🎭 اسمك الطريف</div>'+'<div style="font-size:17px;font-weight:700;line-height:1.9">'+full+'</div>'+
     '<button class="btn secondary" onclick="Boda.copy(\\''+full+'\\')">📋 نسخ</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;اسمي الطريف: &#39;+full+&#39; 🎭 ولّد اسمك!&#39;,&#39;https://t.me/FunNameGenBot&#39;)">📤 شارك</button>';
   Boda.track('feature_use',{detail:'name_gen'});
@@ -864,16 +873,21 @@ async function tr(){
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ اكتب نصاً');
   const f=document.getElementById('from').value, t=document.getElementById('to').value;
-  const res=document.getElementById('res'); res.className='result show'; res.innerHTML='⏳...';
+  const res=document.getElementById('res');
+  res.className='result show';
+  res.innerHTML='<div class="progress indeterminate"><i></i></div>'+
+    '<p class="muted" style="margin-top:8px;font-size:13px">⏳ جاري الترجمة...</p>';
   Boda.haptic('light');
   try{
     const r=await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(txt)+'&langpair='+f+'|'+t);
     const d=await r.json();
     const out=d.responseData.translatedText;
-    res.innerHTML='<div>'+out.replace(/</g,'&lt;')+'</div>'+
-      '<button class="btn secondary" style="margin-top:8px" onclick="Boda.copy(document.getElementById(\\'res div\\').textContent)">📋 نسخ</button>';
+    res.innerHTML='<div class="result-title">🌐 الترجمة</div>'+
+      '<div style="line-height:2;font-size:15px">'+out.replace(/</g,'&lt;')+'</div>'+
+      '<button class="btn secondary" style="margin-top:10px" id="copy-tr">📋 نسخ</button>';
+    res.querySelector('#copy-tr').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:f+'>'+t});
-  }catch(e){ res.innerHTML='⚠️ تعذر الاتصال بخدمة الترجمة'; }
+  }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>تعذر الاتصال</b></div>'; }
 }
 """,
 )
@@ -899,15 +913,20 @@ async function tr(){
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ ألصق نصاً');
   if(txt.length>4000) return Boda.toast('⚠️ الحد 4000 حرف');
-  const f=document.getElementById('from').value, t=document.getElementById('to').value;
-  const res=document.getElementById('res'); res.className='result show'; res.innerHTML='⏳ جاري الترجمة...';
+  const res=document.getElementById('res');
+  res.className='result show';
+  res.innerHTML='<div class="progress indeterminate"><i></i></div>'+
+    '<p class="muted" style="margin-top:8px;font-size:13px">⏳ جاري الترجمة ('+txt.length+' حرف)...</p>';
   try{
     const r=await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(txt)+'&langpair='+f+'|'+t);
     const d=await r.json();
-    res.innerHTML='<div style="line-height:2">'+d.responseData.translatedText.replace(/</g,'&lt;')+'</div>'+
-      '<button class="btn secondary" style="margin-top:10px" onclick="Boda.copy(document.getElementById(\\'res div\\').textContent)">📋 نسخ الترجمة</button>';
+    const out=d.responseData.translatedText;
+    res.innerHTML='<div class="result-title">📄 الترجمة الكاملة</div>'+
+      '<div style="line-height:2;font-size:14.5px">'+out.replace(/</g,'&lt;')+'</div>'+
+      '<button class="btn secondary" style="margin-top:10px" id="copy-doc">📋 نسخ الترجمة</button>';
+    res.querySelector('#copy-doc').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:'doc_'+txt.length});
-  }catch(e){ res.innerHTML='⚠️ فشل الاتصال'; }
+  }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>فشل الاتصال</b></div>'; }
 }
 """,
 )
@@ -991,9 +1010,10 @@ let i=0, t=0;
 function render(){
   const q=QS[i];
   document.getElementById('q-box').innerHTML=
-    '<small style="color:var(--bd-hint)">سؤال '+(i+1)+'/'+QS.length+'</small>'+
-    '<h2 style="margin:8px 0">'+q.q+'</h2>'+
-    q.o.map((o,k)=>'<button class="btn secondary" onclick="pick('+k+')" style="text-align:right">'+o+'</button>').join('');
+    '<div class="row between" style="margin-bottom:8px"><small class="muted">سؤال '+(i+1)+'/'+QS.length+'</small><span class="badge">'+i+' ✓</span></div>'+
+    '<div class="progress" style="margin-bottom:12px"><i style="width:'+(Math.round(i/QS.length*100))+'%"></i></div>'+
+    '<h2 style="margin:8px 0;font-size:17px">'+q.q+'</h2>'+
+    '<div class="stagger">'+q.o.map((o,k)=>'<button class="btn secondary" type="button" style="text-align:right;justify-content:flex-start" onclick="pick('+k+')">'+o+'</button>').join('')+'</div>';
 }
 function pick(k){
   t+=q_t(i,k); Boda.haptic('light'); i++;
@@ -1702,6 +1722,7 @@ function check(){
   if(v===seq){
     level++; Boda.haptic('success'); Boda.track('feature_use',{detail:'level_'+level});
     document.getElementById('seq').textContent='✅ صحيح! المستوى '+level;
+    Boda.toast('🎉 المستوى '+level+' — التسلسل أطول الآن!');
     document.getElementById('res').className='result';
     setTimeout(next,1200);
   } else {

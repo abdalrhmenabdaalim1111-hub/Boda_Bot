@@ -1123,7 +1123,7 @@ function gen(){
   const t=TITLES[h%TITLES.length], k=NICKS[(h>>3)%NICKS.length], a=ANIMALS[(h>>6)%ANIMALS.length];
   const full=t+' '+n+' '+a+'، '+k;
   document.getElementById('res').className='result show';
-  document.getElementById('res').innerHTML='<div style="font-size:18px;font-weight:700">'+full+'</div>'+
+  document.getElementById('res').innerHTML='<div class="result-title">🎭 اسمك الطريف</div>'+'<div style="font-size:17px;font-weight:700;line-height:1.9">'+full+'</div>'+
     '<button class="btn secondary" onclick="Boda.copy(\''+full+'\')">📋 نسخ</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;اسمي الطريف: &#39;+full+&#39; 🎭 ولّد اسمك!&#39;,&#39;https://t.me/FunNameGenBot&#39;)">📤 شارك</button>';
   Boda.track('feature_use',{detail:'name_gen'});
