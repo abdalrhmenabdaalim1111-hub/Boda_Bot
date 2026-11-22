@@ -226,6 +226,25 @@ class UnifiedBotMiddleware(BaseMiddleware):
                                 "استخدم المتجر: https://t.me/BodaStoreeBot")
                     from telebot.handler_backends import CancelMiddleware
                     raise CancelMiddleware("global command handled")
+                if cmd in ("/about", "/intro"):
+                    entry = _load_registry_entry(self.bot_name)
+                    name = entry.get("name", self.bot_name)
+                    desc = (entry.get("short_desc") or entry.get("description") or "").strip()
+                    features = entry.get("features") or []
+                    feat_text = "\n".join(f"• {f}" for f in features[:3])
+                    parts = [
+                        f"ℹ️ <b>{name}</b>",
+                        desc or "أداة ذكية من منظومة بودة.",
+                    ]
+                    if feat_text:
+                        parts.append("المميزات:\n" + feat_text)
+                    parts.append("📱 جرّب النسخة التفاعلية: " + (get_miniapps_url(self.bot_name) or "https://t.me/BodaStoreeBot"))
+                    self.bot.send_message(
+                        message.chat.id, "\n\n".join(parts),
+                        parse_mode="HTML",
+                        reply_markup=webapp_keyboard(self.bot_name))
+                    from telebot.handler_backends import CancelMiddleware
+                    raise CancelMiddleware("global about handled")
 
                 _now = time.time()
                 with self._track_lock:
