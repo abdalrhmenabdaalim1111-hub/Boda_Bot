@@ -71,5 +71,5 @@
 - مضيفين `notifications` عند `openTelegramLink`.
 
 ## الجزء النقص الحالي (Work in Progress):
-- [ ] عرض **full ads stats** داخل `dashboard` (بياناتها توجد الآن في `api/ads/status`).
-- [ ] تحسين بناء `dashboard/index.html` (إضافة الإعلانات داخل "Ads" قسم).
+- [x] عرض **full ads stats** داخل `dashboard` (KPI: impressions/clicks/CTR + chart + per-bot table + zones).
+- [x] تحسين بناء `dashboard/index.html` (لوحة أداء إعلانات احترافية + إصلاح تسمية لوحة العمليات).

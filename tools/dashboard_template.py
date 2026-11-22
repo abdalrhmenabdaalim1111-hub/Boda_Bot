@@ -127,6 +127,16 @@ DASHBOARD_CSS = """
   .kpi-card .val { font-size:22px; font-weight:800; }
   .kpi-card .lbl { font-size:11.5px; color:var(--hint); margin-top:2px; }
 
+  /* ── Ad Performance Analytics ── */
+  .ad-perf-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+  .ad-perf-card { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+  .ad-perf-card .val { font-size:20px; font-weight:800; }
+  .ad-perf-card .lbl { font-size:11px; color:var(--hint); margin-top:2px; }
+  .ad-chart { display:flex; flex-direction:column; gap:7px; }
+  .ad-chart-row { display:grid; grid-template-columns:130px 1fr 58px; gap:8px; align-items:center; font-size:11px; }
+  .ad-chart-track { height:8px; background:var(--surface2); border-radius:999px; overflow:hidden; }
+  .ad-chart-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--ok)); border-radius:999px; }
+
   /* ── Bot Management Toolbar ── */
   .bot-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
                  background:var(--surface); border:1px solid var(--border); border-radius:14px;
@@ -2541,6 +2551,35 @@ def build_dashboard(api_base: str = "") -> str:
     <!-- 8 Core Growth & Engagement KPI Cards -->
     <div class="analytics-kpis-grid" id="analytics-cards"></div>
 
+    <!-- Ad Performance Analytics -->
+    <div class="panel" id="ad-analytics-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <h2 style="margin:0;">📢 لوحة أداء الإعلانات (Monetag)</h2>
+        <span id="ad-analytics-status" class="muted" style="font-size:11.5px;">جارٍ التحميل…</span>
+      </div>
+      <div class="ad-perf-grid" id="ad-perf-kpis">
+        <div class="ad-perf-card"><div class="val" id="ad-tot-imp">—</div><div class="lbl">👁️ إجمالي الظهور</div></div>
+        <div class="ad-perf-card"><div class="val" id="ad-tot-clk">—</div><div class="lbl">🖱️ إجمالي النقرات</div></div>
+        <div class="ad-perf-card"><div class="val" id="ad-ctr">—</div><div class="lbl">📈 CTR الكلي</div></div>
+        <div class="ad-perf-card"><div class="val" id="ad-active">—</div><div class="lbl">✅ بوتات مفعّلة</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.05fr .95fr;gap:16px;">
+        <div>
+          <h3 style="font-size:13px;margin:0 0 8px;">📊 أعلى البوتات ظهوراً</h3>
+          <div class="ad-chart" id="ad-chart"><span class="muted">جارٍ التحميل…</span></div>
+        </div>
+        <div>
+          <h3 style="font-size:13px;margin:0 0 8px;">📋 تفاصيل أداء كل بوت</h3>
+          <div style="max-height:280px;overflow:auto;">
+            <table class="studio-table" id="ad-perf-table">
+              <thead><tr><th>البوت</th><th>الظهور</th><th>النقرات</th><th>CTR</th><th>الزون</th></tr></thead>
+              <tbody id="ad-perf-tbody"><tr><td colspan="5" class="muted">جارٍ التحميل…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Main Analytics Content Grid -->
     <div class="grid">
       <!-- Left Column: Top Bots & Funnel -->
@@ -2567,7 +2606,7 @@ def build_dashboard(api_base: str = "") -> str:
         </div>
         <div class="panel">
           <h2>🛡️ استقرار العمليات وسجل الرسائل</h2>
-          <div id="ads"><span class="muted">جارٍ التحميل…</span></div>
+          <div id="ops-stats"><span class="muted">جارٍ التحميل…</span></div>
         </div>
       </div>
     </div>
@@ -2623,6 +2662,7 @@ def build_dashboard(api_base: str = "") -> str:
   }}
 
     let LAST_ANALYTICS_DATA = null;
+    let LAST_AD_DATA = null;
 
   function kpiBox(val, lbl, sub, icon) {{
     return '<div class="analytics-kpi-box">' +
@@ -2744,7 +2784,7 @@ def build_dashboard(api_base: str = "") -> str:
 
   function exportAnalyticsReport() {{
     if (!LAST_ANALYTICS_DATA) return dashToast('⚠️ لا توجد بيانات تحليلات جاهزة للتصدير');
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(LAST_ANALYTICS_DATA, null, 2));
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify({{ analytics: LAST_ANALYTICS_DATA, ads: LAST_AD_DATA }}, null, 2));
     const dl = document.createElement('a');
     dl.setAttribute('href', dataStr);
     dl.setAttribute('download', 'boda_analytics_report_' + new Date().toISOString().slice(0,10) + '.json');
@@ -2754,12 +2794,12 @@ def build_dashboard(api_base: str = "") -> str:
 
   function renderStats(st) {{
     if (!st || st.error) {{
-      document.getElementById('ads').innerHTML =
+      document.getElementById('ops-stats').innerHTML =
         '<span class="muted">تعذر تحميل الإحصائيات</span>';
       return;
     }}
     const rows = st.bots_stats || [];
-    document.getElementById('ads').innerHTML = rows.length ? (
+    document.getElementById('ops-stats').innerHTML = rows.length ? (
       '<table><thead><tr><th>البوت</th><th>رسائل</th><th>أخطاء</th></tr></thead><tbody>' +
       rows.slice(0, 12).map(r =>
         '<tr><td>' + esc(r.bot_name) + '</td><td>' + (r.total_messages || 0) +
@@ -2768,11 +2808,47 @@ def build_dashboard(api_base: str = "") -> str:
     ) : '<span class="muted">لا توجد بيانات استخدام بعد</span>';
   }}
 
+  function renderAdStats(res) {{
+    const status = document.getElementById('ad-analytics-status');
+    if (!res || !res.ok) {{
+      if (status) status.textContent = '⚠️ تعذر تحميل بيانات الإعلانات';
+      return;
+    }}
+    const apps = Object.entries(res.apps || {{}}).map(function (entry) {{
+      return Object.assign({{ id: entry[0] }}, entry[1]);
+    }});
+    LAST_AD_DATA = apps;
+    if (status) status.textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-EG');
+    const active = apps.filter(function (a) {{ return a.has_ad; }});
+    let imp = 0, clk = 0;
+    active.forEach(function (a) {{ imp += (+a.impressions || 0); clk += (+a.clicks || 0); }});
+    const ctr = imp ? (clk * 100 / imp).toFixed(2) : '0.00';
+    document.getElementById('ad-tot-imp').textContent = imp.toLocaleString();
+    document.getElementById('ad-tot-clk').textContent = clk.toLocaleString();
+    document.getElementById('ad-ctr').textContent = ctr + '%';
+    document.getElementById('ad-active').textContent = active.length + ' / ' + apps.length;
+    const top = apps.slice().sort(function (a, b) {{ return (b.impressions || 0) - (a.impressions || 0); }}).slice(0, 8);
+    const max = top.length ? (top[0].impressions || 1) : 1;
+    document.getElementById('ad-chart').innerHTML = top.length ? top.map(function (a) {{
+      const pct = Math.round(((a.impressions || 0) / max) * 100);
+      return '<div class="ad-chart-row"><span>' + esc(a.bot_name || a.id) + '</span>' +
+        '<span class="ad-chart-track"><span class="ad-chart-fill" style="width:' + pct + '%"></span></span>' +
+        '<span>' + (a.impressions || 0).toLocaleString() + '</span></div>';
+    }}).join('') : '<span class="muted">لا توجد بيانات ظهور بعد</span>';
+    document.getElementById('ad-perf-tbody').innerHTML = apps.length ? apps.map(function (a) {{
+      const c = a.impressions ? ((a.clicks || 0) * 100 / a.impressions).toFixed(2) : '0.00';
+      return '<tr><td>' + esc(a.bot_name || a.id) + '</td><td>' + (a.impressions || 0).toLocaleString() +
+        '</td><td>' + (a.clicks || 0).toLocaleString() + '</td><td>' + c + '%</td><td dir="ltr">' +
+        esc(a.zone_id || '—') + '</td></tr>';
+    }}).join('') : '<tr><td colspan="5" class="muted">لا توجد إعلانات مُعدّة</td></tr>';
+  }}
+
   async function refreshAnalytics() {{
     try {{
-      const [ov, st] = await Promise.all([get('/api/overview'), get('/api/stats')]);
+      const [ov, st, ad] = await Promise.all([get('/api/overview'), get('/api/stats'), get('/api/ads/status')]);
       renderOverview(ov);
       renderStats(st);
+      renderAdStats(ad);
     }} catch (e) {{
       document.getElementById('cards').innerHTML =
         '<div class="card"><div class="v err">—</div><div class="l">' +
