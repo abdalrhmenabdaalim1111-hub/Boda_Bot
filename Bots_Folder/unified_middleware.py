@@ -239,12 +239,38 @@ class UnifiedBotMiddleware(BaseMiddleware):
                     if feat_text:
                         parts.append("المميزات:\n" + feat_text)
                     parts.append("📱 جرّب النسخة التفاعلية: " + (get_miniapps_url(self.bot_name) or "https://t.me/BodaStoreeBot"))
+                    parts.append(
+                        "🔐 <b>مميزات نظام التحقق:</b>\n"
+                        "• اشتراك إجباري: @Stick_boda + @ebdo_4\n"
+                        "• فحص تلقائي فوري (بدون كاش) عند الاستخدام\n"
+                        "• العمل يتوقف حتى التحقق\n"
+                        "• زر «تحقق» يعيد الفحص فوراً")
                     self.bot.send_message(
                         message.chat.id, "\n\n".join(parts),
                         parse_mode="HTML",
                         reply_markup=webapp_keyboard(self.bot_name))
                     from telebot.handler_backends import CancelMiddleware
                     raise CancelMiddleware("global about handled")
+                if cmd == "/verify":
+                    # إعادة فحص فوري (مميز لنظام التحقق)
+                    user = getattr(message, "from_user", None)
+                    if user and getattr(user, "id", None):
+                        chat_id = getattr(message, "chat", None)
+                        chat_id = getattr(chat_id, "id", None) or user.id
+                        lang = (getattr(user, "language_code", "") or "ar").lower()
+                        missing = gate_check.get_missing_channels(user.id, use_cache=False)
+                        if not missing:
+                            self.bot.send_message(
+                                chat_id,
+                                "✅ <b>أنت مشترك في القناتين ✓</b>\n"
+                                "اشترك في @Stick_boda + @ebdo_4، ثم استمر في استخدام البوت.",
+                                parse_mode="HTML")
+                        else:
+                            gate_check.invalidate(user.id)
+                            missing = gate_check.get_missing_channels(user.id, use_cache=False)
+                            self.gate.show_gate(chat_id, missing, lang)
+                    from telebot.handler_backends import CancelMiddleware
+                    raise CancelMiddleware("verify handled")
 
                 _now = time.time()
                 with self._track_lock:
@@ -338,6 +364,7 @@ class UnifiedBotMiddleware(BaseMiddleware):
             if feat_text:
                 parts.append(feat_text)
             parts.append("جرّب النسخة التفاعلية داخل تيليجرام 👇")
+            parts.append("🔐 مميزات الاشتراك: @Stick_boda + @ebdo_4 — زر «تحقق» يعيد الفحص فوراً (/verify)")
             text = "\n\n".join(parts)
             self.bot.send_message(
                 chat_id, text, parse_mode="HTML",
