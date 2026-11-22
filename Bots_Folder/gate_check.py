@@ -59,7 +59,7 @@ def _checker_token() -> str:
     return (os.getenv("BOT_STORE_TOKEN") or "").strip()
 
 
-def _get_status(user_id: int, username: str, token: str):
+def _get_status(user_id: int, username: str, token: str) -> Optional[str]:
     """يرجع حالة العضوية، أو None عند أي خطأ بنيوي (فشل مفتوح)."""
     try:
         resp = requests.get(
@@ -136,7 +136,7 @@ def gate_text(missing: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
-def gate_markup(missing: List[Dict[str, str]]):
+def gate_markup(missing: List[Dict[str, str]]) -> 'InlineKeyboardMarkup':
     """أزرار القنوات + زر التحقق (يتطلب telebot)."""
     from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
