@@ -179,7 +179,7 @@ def collect_stats() -> dict:
     try:
         # إحصاءات الإعلانات (Monetag + البوتات المتخذفات بواسطة النظام)
         ads_stats = {"impressions": 0, "clicks": 0, "ctr_percent": 0.0,
-                     "active_ads": 0, "ad_bots": []}
+                     "active_ads": 0, "ad_bots": [], "per_bot": {}}
         con2 = sqlite3.connect(DB)
         try:
             rows = con2.execute(
@@ -189,10 +189,16 @@ def collect_stats() -> dict:
             for bot, im, cl in rows:
                 if not bot or bot == "nonexistent":
                     continue
-                if im or cl:
-                    ads_stats["impressions"] += int(im or 0)
-                    ads_stats["clicks"] += int(cl or 0)
+                im_i, cl_i = int(im or 0), int(cl or 0)
+                if im_i or cl_i:
+                    ads_stats["impressions"] += im_i
+                    ads_stats["clicks"] += cl_i
                     ads_stats["ad_bots"].append(bot)
+                    ads_stats["per_bot"][bot] = {
+                        "impressions": im_i,
+                        "clicks": cl_i,
+                        "ctr_percent": round((cl_i * 100.0) / max(im_i, 1), 2) if im_i else 0.0,
+                    }
             if rows and sum(1 for r in rows if r[1]) > 0:
                 ads_stats["ctr_percent"] = round(
                     (sum((r[2] or 0) for r in rows) / sum((r[1] or 0) for r in rows)) * 100, 2)
@@ -351,6 +357,14 @@ STORE_CSS = """
   background:var(--bd-bg);border-radius:12px;}
 .ads-bot h3{font-size:13px;margin:6px 0 2px;line-height:1.5;}
 .ads-bot p{font-size:10.5px;color:var(--bd-hint);line-height:1.6;margin:0;}
+.stat.ctr{color:var(--bd-brand);font-weight:800;}
+.ad-table{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:8px;}
+.ad-table .ad-card{display:flex;flex-direction:column;gap:3px;background:var(--bd-surface);
+  border:1.5px solid rgba(234,179,8,.35);border-radius:12px;padding:9px 10px;}
+.ad-table .ad-card b{font-size:12.5px;line-height:1.4;}
+.ad-table .ad-card span{font-size:10px;color:var(--bd-hint);}
+.feat-card:hover{transform:scale(1.02);}
+.app-card:hover{transform:scale(1.02);}
 .sub-card{display:flex;align-items:center;gap:10px;background:var(--bd-surface);
   border:1px solid var(--bd-brand-line);border-radius:14px;padding:12px;margin:14px 0 0;}
 .sub-card .ic{font-size:22px;flex:0 0 auto;}
@@ -379,6 +393,7 @@ STORE_CSS = """
 
 STORE_JS = """
 let APPS=[], CATS=[], stats={}, cat='all', q='';
+let _searchTimer=0;
 const byId=id=>APPS.find(a=>a.id===id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>{n=+n||0;return n>=1000?(n/1000).toFixed(1)+'K':n;};
@@ -402,6 +417,9 @@ async function boot(){
     .filter(([k])=>k.indexOf('app_open:')===0).reduce((s,x)=>s+(+x[1]||0),0));
   if(el('cat-hint'))el('cat-hint').textContent=CATS.length-1+' فئات';
   renderAds();
+  renderAdsTable();
+  const imp=ads.impressions||0, cl=ads.clicks||0;
+  if(el('s-ctr'))el('s-ctr').textContent=imp?((cl*100/imp).toFixed(1)+'%'):'—';
   try{if(localStorage.getItem('boda_sub_dismiss')==='1')hideSub();}catch(e){}
 }
 function buildCats(){
@@ -438,15 +456,22 @@ function renderFeatured(){
       '<div class="go">عرض التفاصيل ←</div>'+
     '</div>').join('');
 }
+function fuzzy(q,s){
+  if(!q)return true;
+  const a=s.toLowerCase();
+  if(a.indexOf(q)>=0)return true;
+  const words=q.split(/\\s+/).filter(Boolean);
+  return words.length>0 && words.every(w=>a.indexOf(w)>=0);
+}
 function render(){
-  const query=q.toLowerCase();
+  const query=q.trim().toLowerCase();
   const list=APPS.filter(a=>{
     const okCat=cat==='all'||a.category_key===cat;
     if(!okCat)return false;
     if(!query)return true;
     const hay=(a.name+' '+(a.short_desc||'')+' '+(a.description||'')+' '+
       (a.username||'')+' '+(a.features||[]).join(' ')).toLowerCase();
-    return hay.indexOf(query)>=0;
+    return fuzzy(query,hay);
   });
   const title=document.getElementById('list-title');
   const count=document.getElementById('list-count');
@@ -485,6 +510,23 @@ function renderAds(){
     '</div>';
   }).join(''):'<p style="color:var(--bd-hint);padding:20px 0;text-align:center;font-size:13px">📺 لا توجد بوتات تُجري الاعلانات بعد</p>';
 }
+function renderAdsTable(){
+  const box=document.getElementById('ads-table');
+  if(!box)return;
+  const ids=(stats.ads&&stats.ads.ad_bots)||[];
+  if(!ids.length){ box.innerHTML='<div class="empty">📺 لا توجد بوتات تُجري الاعلانات بعد</div>'; return; }
+  box.innerHTML=ids.map(id=>{
+    const a=byId(id);
+    if(!a)return '';
+    const st=(stats.bots||{})[id]||{};
+    const adb=(stats.ads&&stats.ads.per_bot&&stats.ads.per_bot[id])||{impressions:0,clicks:0,ctr_percent:0};
+    const ctr=adb.impressions?(adb.ctr_percent+'%'):'—';
+    return '<div class="ad-card">'+
+      '<b>'+(a.name||id)+'</b>'+
+      '<span>👥 '+(st.users?fmt(st.users):0)+' · 🚀 '+(st.active_30d?fmt(st.active_30d):0)+' · CTR '+ctr+'</span>'+
+    '</div>';
+  }).join('');
+}
 function openDetails(id){
   const a=byId(id);if(!a)return;
   Boda.haptic('light');Boda.track('store_view_bot',{detail:id});
@@ -520,7 +562,9 @@ function closeSheet(){
 }
 function shareApp(id){
   const a=byId(id);if(!a)return;
-  Boda.share('جرّب '+a.name+' — '+(a.short_desc||''),a.url);
+  const feats=(a.features||[]).slice(0,2).map(f=>' - '+f).join(' | ');
+  const text='🚀 جرّب '+a.name+' — '+(a.short_desc||'')+' | '+feats+' | 🔗 t.me/'+String(a.username||'').replace(/^@/,'');
+  Boda.share(text,a.url);
 }
 function openTg(url){
   Boda.haptic('light');
@@ -535,7 +579,11 @@ function hideSub(){const el=document.getElementById('subCard');if(el)el.style.di
 
 document.addEventListener('DOMContentLoaded',function(){
   const input=document.querySelector('.search-wrap input');
-  if(input)input.addEventListener('input',function(e){q=e.target.value.trim();render();});
+  if(input)input.addEventListener('input',function(e){
+    q=e.target.value.trim();
+    clearTimeout(_searchTimer);
+    _searchTimer=setTimeout(render,120);
+  });
 });
 boot();
 """
@@ -584,6 +632,7 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
     <div class="stat"><b id="s-users">—</b><span>مستخدم</span></div>
     <div class="stat"><b id="s-ads">—</b><span>بوت اعلان</span></div>
     <div class="stat"><b id="s-impressions">—</b><span>اعرضات</span></div>
+    <div class="stat ctr"><b id="s-ctr">—</b><span>CTR</span></div>
   </div>
 </div>
 <div class="search-wrap">
@@ -597,6 +646,7 @@ def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
 <div id="ads-sec">
   <div class="section-head"><h3>📺 بوتات الاعلانات</h3><span id="ads-count"></span></div>
   <div class="grid" id="ads-list"></div>
+  <div class="ad-table" id="ads-table"></div>
 </div>
 <div class="section-head"><h3>📂 تصفح حسب الفئة</h3><span id="cat-hint">—</span></div>
 <div class="cats" id="cats"></div>

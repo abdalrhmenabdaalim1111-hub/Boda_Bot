@@ -94,10 +94,23 @@ def _stats() -> tuple[dict, int, list]:
         db = BodaDatabase.get_instance()
         counts = db.get_bot_user_counts()
         total = sum(int(v or 0) for v in counts.values())
-        top = sorted(counts.items(), key=lambda x: int(x[1] or 0), reverse=True)[:5]
-        return counts, total, top
+        usage: dict = {}
+        try:
+            with db._get_conn() as conn:
+                rows = conn.execute(
+                    "SELECT bot_name, SUM(usage_count) AS s FROM users GROUP BY bot_name"
+                ).fetchall()
+                for r in rows:
+                    usage[r["bot_name"]] = int(r["s"] or 0)
+        except Exception:
+            pass
+        top = sorted(
+            counts.items(),
+            key=lambda x: int(usage.get(x[0], int(x[1] or 0)) or 0), reverse=True
+        )[:5]
+        return counts, total, top, usage
     except Exception:
-        return {}, 0, []
+        return {}, 0, [], {}
 
 
 def _main_markup() -> types.InlineKeyboardMarkup:
@@ -293,7 +306,7 @@ def show_featured(call):
 def show_top(call):
     if _blocked(call):
         return
-    counts, total, top = _stats()
+    counts, total, top, usage = _stats()
     text = "🔥 <b>الأكثر استخداماً في منصة بودة</b>\n\n"
     if top:
         for i, (bot_id, users) in enumerate(top, start=1):
@@ -301,7 +314,9 @@ def show_top(call):
             name = b.get("name") if b else bot_id
             emoji = b.get("emoji", "🤖") if b else "🤖"
             cat = b.get("category", "") if b else ""
-            text += f"{i}. {emoji} <b>{esc(name)}</b> — {int(users or 0):,} مستخدم  ·  {esc(cat)}\n"
+            uses = int(usage.get(bot_id, 0) or 0)
+            text += (f"{i}. {emoji} <b>{esc(name)}</b> — {int(users or 0):,} مستخدم  ·  "
+                     f"{esc(cat)}  ·  {uses:,} استخدام\n")
     else:
         text += "لا توجد بيانات كافية بعد — كن أول المستخدمين!"
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -353,8 +368,9 @@ def show_bot(call):
     cat_key = b.get("category_key", "daily")
     cat_name = b.get("category") or category_meta(cat_key)["name"]
     cat_icon = b.get("category_icon") or category_meta(cat_key)["icon"]
-    counts, _, _ = _stats()
+    counts, _, _, usage = _stats()
     users = int(counts.get(b.get("id"), 0) or 0)
+    uses = int(usage.get(b.get("id"), 0) or 0)
 
     lines = [
         f"{b.get('emoji', '🤖')} <b>{esc(b.get('name', b.get('id', '')))}</b>",
@@ -370,7 +386,9 @@ def show_bot(call):
         lines.append("")
     if b.get("username"):
         lines.append(f"👤 <code>@{esc(str(b['username']).lstrip('@'))}</code>")
-    lines.append(f"👥 {users} مستخدم" if users else "✨ جديد على المنصة")
+    lines.append(f"👥 {users:,} مستخدم" if users else "✨ جديد على المنصة")
+    if uses:
+        lines.append(f"🖱️ {uses:,} استخدام")
     lines.append(f"🧩 التطبيق المصغّر: <a href=\"{esc(web_app_url(b))}\">افتح في المتصفح</a>")
 
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -389,7 +407,7 @@ def show_bot(call):
 def show_stats(call):
     if _blocked(call):
         return
-    counts, total, top = _stats()
+    counts, total, top, _usage = _stats()
     lines = [
         "📊 <b>إحصائيات منصة بودة</b>",
         "────────────────────",
