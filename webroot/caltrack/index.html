@@ -1147,6 +1147,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 let g='m';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322253');
+  setTimeout(()=>{ try{ window.show_12322253 && window.show_12322253(); }catch(e){} }, 120);
+}
 function setG(el,v){ document.querySelectorAll('.chips .chip').forEach(x=>x.classList.remove('active'));
   el.classList.add('active'); g=v; }
 function calc(){
@@ -1157,6 +1171,8 @@ function calc(){
   const bmr=Math.round(10*w+6.25*h-5*a+(g==='m'?5:-161));
   const tdee=Math.round(bmr*act);
   Boda.haptic('success'); Boda.track('feature_use',{detail:'calories'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'caltrack_interstitial', uses:uses}); showAd(); }
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
     '<div class="result-title">🔥 احتياجك اليومي</div>'+

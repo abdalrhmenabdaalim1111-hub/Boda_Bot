@@ -1141,6 +1141,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 let filter='none', img=null;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322314');
+  setTimeout(()=>{ try{ window.show_12322314 && window.show_12322314(); }catch(e){} }, 120);
+}
 function pickF(el){ document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); filter=el.dataset.f;
   if(img) apply(); }
@@ -1163,7 +1177,9 @@ function apply(){
   window._url=url;
 }
 function dl(){ const a=document.createElement('a'); a.download='boosted.png'; a.href=window._url; a.click();
-  Boda.toast('⬇️ تم التحميل'); Boda.haptic('success'); }
+  Boda.toast('⬇️ تم التحميل'); Boda.haptic('success');
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'photoboost_interstitial', uses:uses}); showAd(); } }
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>
 </body>

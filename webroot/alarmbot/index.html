@@ -1137,6 +1137,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 let M=25, left=M*60, iv=null;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322323');
+  setTimeout(()=>{ try{ window.show_12322323 && window.show_12322323(); }catch(e){} }, 120);
+}
 function pick(el){ document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); M=+el.dataset.m; stop(); left=M*60; draw(); }
 function draw(){
@@ -1155,6 +1169,8 @@ function start(){
       Boda.toast('⏰ انتهى الوقت! خد استراحة 🎉');
       document.getElementById('status').textContent='✅ اكتملت الجلسة — شرب ميّة وقوم اتحرك!';
       try{ Boda.tg.showAlert('⏰ انتهى وقت التركيز! أحسنت 👏'); }catch(e){}
+      uses++;
+      if(uses%2===0){ Boda.track('ad_show',{detail:'alarmbot_interstitial', uses:uses}); showAd(); }
     }
   },1000);
 }

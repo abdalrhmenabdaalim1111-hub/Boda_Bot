@@ -1136,6 +1136,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 const COINS=['bitcoin','ethereum','binancecoin','solana','ripple','cardano','dogecoin','tether'];
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322306');
+  setTimeout(()=>{ try{ window.show_12322306 && window.show_12322306(); }catch(e){} }, 120);
+}
 const SYM={bitcoin:'₿',ethereum:'Ξ',binancecoin:'BNB',solana:'SOL',ripple:'XRP',cardano:'ADA',dogecoin:'DOGE',tether:'USDT'};
 async function load(manual){
   const el=document.getElementById('list');
@@ -1153,6 +1167,8 @@ async function load(manual){
         '<small style="color:'+(up?'var(--bd-ok)':'var(--bd-danger)')+'">'+(up?'▲':'▼')+' '+Math.abs(ch).toFixed(2)+'%</small></span></div>';
     }).join('');
     Boda.track('feature_use',{detail:manual?'refresh':'view'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'cryptorate_interstitial', uses:uses}); showAd(); }
   }catch(e){ el.innerHTML='⚠️ تعذر جلب الأسعار — تحقق من الاتصال'; }
 }
 load();

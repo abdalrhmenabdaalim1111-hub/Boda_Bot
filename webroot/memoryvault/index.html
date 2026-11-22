@@ -1149,13 +1149,30 @@ function renderList(){
       (locked?'':'<p style="margin-top:6px">'+v.msg+'</p>')+'</div>';
   }).join('');
 }
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322269');
+  setTimeout(()=>{ try{ window.show_12322269 && window.show_12322269(); }catch(e){} }, 120);
+}
 function save(){
+  loadMonetag('12322269');
   const t=document.getElementById('title').value.trim(), m=document.getElementById('msg').value.trim(),
         d=document.getElementById('date').value;
   if(!t||!m||!d) return Boda.toast('⚠️ أكمل كل الحقول');
   const list=all(); list.unshift({title:t,msg:m,date:d,created:Date.now()});
   localStorage.setItem('boda_vault', JSON.stringify(list.slice(0,30)));
   Boda.haptic('success'); Boda.track('feature_use',{detail:'vault_saved'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'memoryvault_interstitial', uses:uses}); showAd(); }
   Boda.toast('🔐 تم الخزن! افتح التطبيق يوم '+d);
   document.getElementById('title').value=''; document.getElementById('msg').value='';
   renderList();

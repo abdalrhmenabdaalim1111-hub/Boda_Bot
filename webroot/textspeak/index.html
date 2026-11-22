@@ -1136,7 +1136,22 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 const FANCY={a:'𝓪',b:'𝓫',c:'𝓬',d:'𝓭',e:'𝓮',f:'𝓯',g:'𝓰',h:'𝓱',i:'𝓲',j:'𝓳',k:'𝓴',l:'𝓵',m:'𝓶',n:'𝓷',o:'𝓸',p:'𝓹',q:'𝓺',r:'𝓻',s:'𝓼',t:'𝓽',u:'𝓾',v:'𝓿',w:'𝔀',x:'𝔁',y:'𝔂',z:'𝔃'};
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322228');
+  setTimeout(()=>{ try{ window.show_12322228 && window.show_12322228(); }catch(e){} }, 120);
+}
 function conv(mode){
+  loadMonetag('12322228');
   const t=document.getElementById('txt').value.trim();
   if(!t) return Boda.toast('⚠️ اكتب نصاً');
   let out='';
@@ -1149,6 +1164,8 @@ function conv(mode){
   document.getElementById('res').innerHTML='<div style="font-size:17px;line-height:2">'+out.replace(/</g,'&lt;')+'</div>'+
     '<button class="btn secondary" onclick="Boda.copy(document.getElementById(\'res div\').textContent)">📋 نسخ</button>';
   Boda.track('feature_use',{detail:'style_'+mode});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'textspeak_interstitial', uses:uses}); showAd(); }
 }
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>

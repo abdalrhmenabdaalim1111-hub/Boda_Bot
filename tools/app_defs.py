@@ -225,6 +225,20 @@ APPS["cryptorate"] = dict(
 """,
     js="""
 const COINS=['bitcoin','ethereum','binancecoin','solana','ripple','cardano','dogecoin','tether'];
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322306');
+  setTimeout(()=>{ try{ window.show_12322306 && window.show_12322306(); }catch(e){} }, 120);
+}
 const SYM={bitcoin:'₿',ethereum:'Ξ',binancecoin:'BNB',solana:'SOL',ripple:'XRP',cardano:'ADA',dogecoin:'DOGE',tether:'USDT'};
 async function load(manual){
   const el=document.getElementById('list');
@@ -242,6 +256,8 @@ async function load(manual){
         '<small style="color:'+(up?'var(--bd-ok)':'var(--bd-danger)')+'">'+(up?'▲':'▼')+' '+Math.abs(ch).toFixed(2)+'%</small></span></div>';
     }).join('');
     Boda.track('feature_use',{detail:manual?'refresh':'view'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'cryptorate_interstitial', uses:uses}); showAd(); }
   }catch(e){ el.innerHTML='⚠️ تعذر جلب الأسعار — تحقق من الاتصال'; }
 }
 load();
@@ -625,7 +641,22 @@ const PRIZES=[
  {e:'🌟',t:'حظ أسطوري اليوم!',w:10},{e:'💰',t:'كيس ذهب!',w:12},
  {e:'🍀',t:'برسيم الحظ!',w:20},{e:'🎂',t:'كيكة مفاجأة!',w:15},
  {e:'🐱',t:'قطة سعيدة!',w:15},{e:'💥',t:'انفجر الصندوق! 😂',w:15}];
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322258');
+  setTimeout(()=>{ try{ window.show_12322258 && window.show_12322258(); }catch(e){} }, 120);
+}
 function openBox(){
+  loadMonetag('12322258');
   const box=document.getElementById('box');
   if(box.dataset.busy) return;
   const today=new Date().toDateString();
@@ -646,6 +677,8 @@ function openBox(){
     box.textContent=pick.e; delete box.dataset.busy;
     localStorage.setItem('boda_lucky_last', today);
     Boda.haptic('success'); Boda.track('feature_use',{detail:'prize_'+pick.e});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'luckybox_interstitial', uses:uses}); showAd(); }
     const res=document.getElementById('res'); res.className='result show';
     res.innerHTML='<div class="result-title">🎁 جائزتك اليوم!</div>'+'<div style="font-size:40px;margin-bottom:8px">'+pick.e+'</div>'+'<h2 style="font-size:20px">'+pick.t+'</h2>'+
       '<button class="btn secondary" onclick="Boda.share(&#39;فتحت صندوق الحظ وحصلت على &#39;+pick.e+&#39; &#39;+pick.t+&#39; جرّب أنت كمان 🎁&#39;,&#39;https://t.me/LuckyBoxX1Bot&#39;)">📤 شارك حظك</button>'+
@@ -670,6 +703,20 @@ const PUZZLES=[
  {q:'كلمة مقروءة من اليمين ومن اليسار بنفس الطريقة',a:'مثل: كشك أو لا نيل إلا دم',hint:'اقرأها بالعكس'},
  {q:'ما هو الشيء الذي يسمع بلا أذن ويتكلم بلا لسان؟',a:'التليفون',hint:'في جيبك الآن'}];
 let i=0, solved=0;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322239');
+  setTimeout(()=>{ try{ window.show_12322239 && window.show_12322239(); }catch(e){} }, 120);
+}
 function render(){
   const p=PUZZLES[i];
   document.getElementById('q-box').innerHTML=
@@ -699,7 +746,10 @@ function next(){
     '<p style="color:var(--bd-hint)">عد غداً لألغاز جديدة</p>'+
     '<button class="btn" onclick="i=0;solved=0;render()">🔁 من البداية</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;حللت كل ألغاز الأذكياء 🌀 تحداني!&#39;,&#39;https://t.me/BrainTwistXBot&#39;)">📤 تحدى صديقاً</button>';
-    Boda.track('feature_use',{detail:'all_solved'}); }
+    Boda.track('feature_use',{detail:'all_solved'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'braintwist_interstitial', uses:uses}); showAd(); }
+  }
 }
 render();
 """,
@@ -844,6 +894,20 @@ APPS["caltrack"] = dict(
 """,
     js="""
 let g='m';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322253');
+  setTimeout(()=>{ try{ window.show_12322253 && window.show_12322253(); }catch(e){} }, 120);
+}
 function setG(el,v){ document.querySelectorAll('.chips .chip').forEach(x=>x.classList.remove('active'));
   el.classList.add('active'); g=v; }
 function calc(){
@@ -854,6 +918,8 @@ function calc(){
   const bmr=Math.round(10*w+6.25*h-5*a+(g==='m'?5:-161));
   const tdee=Math.round(bmr*act);
   Boda.haptic('success'); Boda.track('feature_use',{detail:'calories'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'caltrack_interstitial', uses:uses}); showAd(); }
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
     '<div class="result-title">🔥 احتياجك اليومي</div>'+
@@ -955,13 +1021,30 @@ function renderList(){
       (locked?'':'<p style="margin-top:6px">'+v.msg+'</p>')+'</div>';
   }).join('');
 }
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322269');
+  setTimeout(()=>{ try{ window.show_12322269 && window.show_12322269(); }catch(e){} }, 120);
+}
 function save(){
+  loadMonetag('12322269');
   const t=document.getElementById('title').value.trim(), m=document.getElementById('msg').value.trim(),
         d=document.getElementById('date').value;
   if(!t||!m||!d) return Boda.toast('⚠️ أكمل كل الحقول');
   const list=all(); list.unshift({title:t,msg:m,date:d,created:Date.now()});
   localStorage.setItem('boda_vault', JSON.stringify(list.slice(0,30)));
   Boda.haptic('success'); Boda.track('feature_use',{detail:'vault_saved'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'memoryvault_interstitial', uses:uses}); showAd(); }
   Boda.toast('🔐 تم الخزن! افتح التطبيق يوم '+d);
   document.getElementById('title').value=''; document.getElementById('msg').value='';
   renderList();
@@ -990,6 +1073,20 @@ APPS["alarmbot"] = dict(
 """,
     js="""
 let M=25, left=M*60, iv=null;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322323');
+  setTimeout(()=>{ try{ window.show_12322323 && window.show_12322323(); }catch(e){} }, 120);
+}
 function pick(el){ document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); M=+el.dataset.m; stop(); left=M*60; draw(); }
 function draw(){
@@ -1008,6 +1105,8 @@ function start(){
       Boda.toast('⏰ انتهى الوقت! خد استراحة 🎉');
       document.getElementById('status').textContent='✅ اكتملت الجلسة — شرب ميّة وقوم اتحرك!';
       try{ Boda.tg.showAlert('⏰ انتهى وقت التركيز! أحسنت 👏'); }catch(e){}
+      uses++;
+      if(uses%2===0){ Boda.track('ad_show',{detail:'alarmbot_interstitial', uses:uses}); showAd(); }
     }
   },1000);
 }
@@ -1289,13 +1388,30 @@ React
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322249');
+  setTimeout(()=>{ try{ window.show_12322249 && window.show_12322249(); }catch(e){} }, 120);
+}
 function build(){
+  loadMonetag('12322249');
   const nm=document.getElementById('nm').value.trim(),
         sum=document.getElementById('sum').value.trim(),
         skills=document.getElementById('skills').value.split('\\n').map(s=>s.trim()).filter(Boolean),
         exp=document.getElementById('exp').value.trim();
   if(!nm) return Boda.toast('⚠️ اكتب اسمك ومسماك');
   Boda.haptic('success'); Boda.track('feature_use',{detail:'cv'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'cvbuilder_interstitial', uses:uses}); showAd(); }
   const cv='════════════════════\\n  '+nm+'\\n════════════════════\\n\\n📌 الملخص:\\n'+(sum||'—')+
     '\\n\\n🛠 المهارات:\\n'+skills.map(s=>'  • '+s).join('\\n')+
     '\\n\\n🏢 آخر خبرة:\\n  '+(exp||'—')+
@@ -1391,10 +1507,27 @@ function hex2rgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16)
 function rgb2hex(r,g,b){ return '#'+[r,g,b].map(x=>Math.max(0,Math.min(255,Math.round(x))).toString(16).padStart(2,'0')).join(''); }
 function shade(h,f){ const [r,g,b]=hex2rgb(h);
   return f<0? rgb2hex(r*(1+f),g*(1+f),b*(1+f)) : rgb2hex(r+(255-r)*f,g+(255-g)*f,b+(255-b)*f); }
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322245');
+  setTimeout(()=>{ try{ window.show_12322245 && window.show_12322245(); }catch(e){} }, 120);
+}
 function pal(){
+  loadMonetag('12322245');
   const base=document.getElementById('pick').value;
   const shades=[shade(base,-0.45),shade(base,-0.25),base,shade(base,0.3),shade(base,0.55),shade(base,0.8)];
   Boda.haptic('light'); Boda.track('feature_use',{detail:'palette'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'colorpick_interstitial', uses:uses}); showAd(); }
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=shades.map(c=>
     '<div class="chip" style="width:100%;justify-content:center;display:flex;padding:14px;background:'+c+
@@ -1494,6 +1627,20 @@ APPS["photoboost"] = dict(
 """,
     js="""
 let filter='none', img=null;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322314');
+  setTimeout(()=>{ try{ window.show_12322314 && window.show_12322314(); }catch(e){} }, 120);
+}
 function pickF(el){ document.querySelectorAll('.chips .chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); filter=el.dataset.f;
   if(img) apply(); }
@@ -1516,7 +1663,9 @@ function apply(){
   window._url=url;
 }
 function dl(){ const a=document.createElement('a'); a.download='boosted.png'; a.href=window._url; a.click();
-  Boda.toast('⬇️ تم التحميل'); Boda.haptic('success'); }
+  Boda.toast('⬇️ تم التحميل'); Boda.haptic('success');
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'photoboost_interstitial', uses:uses}); showAd(); } }
 """,
 )
 
@@ -1657,7 +1806,22 @@ APPS["textspeak"] = dict(
 """,
     js="""
 const FANCY={a:'𝓪',b:'𝓫',c:'𝓬',d:'𝓭',e:'𝓮',f:'𝓯',g:'𝓰',h:'𝓱',i:'𝓲',j:'𝓳',k:'𝓴',l:'𝓵',m:'𝓶',n:'𝓷',o:'𝓸',p:'𝓹',q:'𝓺',r:'𝓻',s:'𝓼',t:'𝓽',u:'𝓾',v:'𝓿',w:'𝔀',x:'𝔁',y:'𝔂',z:'𝔃'};
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322228');
+  setTimeout(()=>{ try{ window.show_12322228 && window.show_12322228(); }catch(e){} }, 120);
+}
 function conv(mode){
+  loadMonetag('12322228');
   const t=document.getElementById('txt').value.trim();
   if(!t) return Boda.toast('⚠️ اكتب نصاً');
   let out='';
@@ -1670,6 +1834,8 @@ function conv(mode){
   document.getElementById('res').innerHTML='<div style="font-size:17px;line-height:2">'+out.replace(/</g,'&lt;')+'</div>'+
     '<button class="btn secondary" onclick="Boda.copy(document.getElementById(\\'res div\\').textContent)">📋 نسخ</button>';
   Boda.track('feature_use',{detail:'style_'+mode});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'textspeak_interstitial', uses:uses}); showAd(); }
 }
 """,
 )

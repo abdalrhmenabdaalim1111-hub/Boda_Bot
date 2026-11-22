@@ -1133,6 +1133,20 @@ const PUZZLES=[
  {q:'كلمة مقروءة من اليمين ومن اليسار بنفس الطريقة',a:'مثل: كشك أو لا نيل إلا دم',hint:'اقرأها بالعكس'},
  {q:'ما هو الشيء الذي يسمع بلا أذن ويتكلم بلا لسان؟',a:'التليفون',hint:'في جيبك الآن'}];
 let i=0, solved=0;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12322239');
+  setTimeout(()=>{ try{ window.show_12322239 && window.show_12322239(); }catch(e){} }, 120);
+}
 function render(){
   const p=PUZZLES[i];
   document.getElementById('q-box').innerHTML=
@@ -1162,7 +1176,10 @@ function next(){
     '<p style="color:var(--bd-hint)">عد غداً لألغاز جديدة</p>'+
     '<button class="btn" onclick="i=0;solved=0;render()">🔁 من البداية</button>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;حللت كل ألغاز الأذكياء 🌀 تحداني!&#39;,&#39;https://t.me/BrainTwistXBot&#39;)">📤 تحدى صديقاً</button>';
-    Boda.track('feature_use',{detail:'all_solved'}); }
+    Boda.track('feature_use',{detail:'all_solved'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'braintwist_interstitial', uses:uses}); showAd(); }
+  }
 }
 render();
 </script>
