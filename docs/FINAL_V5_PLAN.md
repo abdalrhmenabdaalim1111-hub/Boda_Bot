@@ -18,10 +18,10 @@
 ### المرحلة 2: تحسين تجربة المتجر (الأسبوع القادم)
 - [x] تطبيق `ads_count` (عدد البوتات التي تعمل الإعلانات) داخل المتجر.
 - [x] تطبيق `s-ads`, `s-impressions` في عناوين المتجر (اتجاه الإحصاءات).
-- [ ] المتجر: زر `📊 إحصائيات الاعلانات` بالكامل (CTR %, per-bot breakdown).
+- [x] المتجر: زر `📊 إحصائيات الاعلانات` (CTR %, per-bot breakdown).
 - [ ] المتجر: ترتيب "الأكثر استخداماً" ديناميكي بالفتحة (Open rate + retention).
 - [ ] المتجر: وضع "Flashing Ads" عند `uses%2===0` (يظهر الإعلان في الشاشة كاملة عند فتح البوت؟).
-- [ ] المتجر: تحسين "Search" (Fuzzy + category filter + cached results).
+- [x] المتجر: تحسين "Search" (Fuzzy + category filter + cached results + debounce).
 - [ ] المتجر: إضافة "Swipe to Next" (Android UX على الويب).
 
 ### المرحلة 3: تحسين الأداء (أسبوعين)
@@ -35,7 +35,7 @@
 ### المرحلة 4: تطوير البوتات والتطبيقات (الشهر الأول)
 - [x] جميع البوتات تستخدم `ads_cfg` (Monetag + System Ads) بشكل يظهر.
 - [x] جميع البوتات تملك `/about` (وصف موحد).
-- [ ] الجميع: إضافة `**Share Card**` (QR Code + Text Share) للنتائج (Image Card).
+- [x] الجميع: إضافة `Share Card` (Text Share + QR) للنتائج (Image Card + Telegram share).
 - [ ] الجميع: تحسين `Main Button` (سهل وصولاً، Recent Actions).
 - [ ] الجميع: تطوير `Alarm X` إلى توقيت أكثر ذكاءً (Alarms for multiple alarms, smart snooze).
 - [ ] الجميع: إضافة **AI Enhancements** (e.g., in VocabBuilder: use local LLM to practice sentences).
