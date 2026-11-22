@@ -104,7 +104,11 @@ def _main_markup() -> types.InlineKeyboardMarkup:
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("⭐ البوتات المميزة", callback_data="featured"),
+        types.InlineKeyboardButton("🔥 الأكثر استخداماً", callback_data="top"),
+    )
+    markup.add(
         types.InlineKeyboardButton("🔍 بحث عن بوت", callback_data="search"),
+        types.InlineKeyboardButton("📊 إحصائيات", callback_data="stats"),
     )
     for cat in CATEGORIES:
         markup.add(types.InlineKeyboardButton(
@@ -112,8 +116,8 @@ def _main_markup() -> types.InlineKeyboardMarkup:
             callback_data=f"cat:{cat['key']}",
         ))
     markup.add(
-        types.InlineKeyboardButton("📊 إحصائيات المنصة", callback_data="stats"),
         types.InlineKeyboardButton("🔐 حالة الاشتراك", callback_data="check_sub"),
+        types.InlineKeyboardButton("💬 الدعم", url="https://t.me/BodaStoreeBot"),
     )
     markup.add(types.InlineKeyboardButton("🌐 المتجر على الويب", url=WEB_STORE_URL))
     markup.add(
@@ -168,11 +172,93 @@ def _safe_edit(call, text: str, markup):
                          disable_web_page_preview=True)
 
 
-@bot.message_handler(commands=["start"])
+@bot.message_handler(commands=["featured"])
+def cmd_featured(message):
+    if gate.check_and_show_gate(message):
+        return
+    # reuse show_featured logic by creating a fake call? Instead, send featured list directly.
+    text = "⭐ <b>اختيارات فريق بودة</b>\n\nبوتات مميزة تجمع بين الفائدة وسهولة الاستخدام:"
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for b in FEATURED:
+        markup.add(types.InlineKeyboardButton(
+            f"{b.get('emoji', '🤖')} {b.get('name', b.get('id', ''))}",
+            callback_data=f"bot:{b['id']}",
+        ))
+    markup.add(types.InlineKeyboardButton("🏪 القائمة الرئيسية", callback_data="back_main"))
+    bot.send_message(message.chat.id, text, reply_markup=markup)
+
+
+@bot.message_handler(commands=["top"])
+def cmd_top(message):
+    if gate.check_and_show_gate(message):
+        return
+    counts, total, top = _stats()
+    text = "🔥 <b>الأكثر استخداماً</b>\n\n"
+    if top:
+        for i, (bot_id, users) in enumerate(top, start=1):
+            b = next((x for x in VISIBLE if x.get("id") == bot_id), None)
+            name = b.get("name") if b else bot_id
+            emoji = b.get("emoji", "🤖") if b else "🤖"
+            text += f"{i}. {emoji} {esc(name)} — {int(users or 0):,} مستخدم\n"
+    else:
+        text = "لا توجد بيانات كافية بعد."
+    bot.send_message(message.chat.id, text)
+
+
+@bot.message_handler(commands=["stats"])
+def cmd_stats(message):
+    if gate.check_and_show_gate(message):
+        return
+    counts, total, top = _stats()
+    text = (
+        "📊 <b>إحصائيات منصة بودة</b>\n"
+        "────────────────────\n"
+        f"🤖 البوتات: {len(VISIBLE)}\n"
+        f"📂 الفئات: {len(CATEGORIES)}\n"
+        f"👥 المستخدمون: {total:,}\n"
+    )
+    bot.send_message(message.chat.id, text)
+
+
+@bot.message_handler(commands=["start", "menu", "help", "about"])
 def send_welcome(message):
     if gate.check_and_show_gate(message):
         return
+    cmd = (message.text or "").split()[0].lower()
+    if cmd in ("/help", "/about"):
+        text = (
+            "🏪 <b>متجر تطبيقات بودة — المساعدة</b>\n"
+            "────────────────────\n"
+            "• /start أو /menu — القائمة الرئيسية\n"
+            "• /featured — البوتات المميزة\n"
+            "• /top — الأكثر استخداماً\n"
+            "• /stats — إحصائيات المنصة\n"
+            "• /search <كلمة> — بحث (أو استخدم زر البحث)\n\n"
+            "🔐 <b>الاشتراك الإجباري:</b> للوصول إلى أي بوت، اشترك في "
+            "@Stick_boda و @ebdo_4، ثم اضغط «تحقق من الاشتراك».\n\n"
+            "💬 الدعم: @BodaStoreeBot"
+        )
+        bot.send_message(message.chat.id, text, disable_web_page_preview=True)
+        return
     send_store_menu(message.chat.id)
+
+
+@bot.message_handler(func=lambda m: True, content_types=["text"])
+def unknown_text(message):
+    if gate.check_and_show_gate(message):
+        return
+    text = (message.text or "").strip()
+    if text.startswith("/search "):
+        handle_search(message)
+        return
+    if text.startswith("/"):
+        bot.send_message(
+            message.chat.id,
+            "❓ أمر غير معروف. استخدم /help لعرض الأوامر المتاحة.",
+        )
+        return
+    # treat any non-command text as search
+    handle_search(message)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_main")
@@ -198,6 +284,34 @@ def show_featured(call):
             f"{b.get('emoji', '🤖')} {b.get('name', b.get('id', ''))}",
             callback_data=f"bot:{b['id']}",
         ))
+    markup.add(types.InlineKeyboardButton("🏪 القائمة الرئيسية", callback_data="back_main"))
+    _safe_edit(call, text, markup)
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "top")
+def show_top(call):
+    if _blocked(call):
+        return
+    counts, total, top = _stats()
+    text = "🔥 <b>الأكثر استخداماً في منصة بودة</b>\n\n"
+    if top:
+        for i, (bot_id, users) in enumerate(top, start=1):
+            b = next((x for x in VISIBLE if x.get("id") == bot_id), None)
+            name = b.get("name") if b else bot_id
+            emoji = b.get("emoji", "🤖") if b else "🤖"
+            cat = b.get("category", "") if b else ""
+            text += f"{i}. {emoji} <b>{esc(name)}</b> — {int(users or 0):,} مستخدم  ·  {esc(cat)}\n"
+    else:
+        text += "لا توجد بيانات كافية بعد — كن أول المستخدمين!"
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for bot_id, _ in (top or []):
+        b = next((x for x in VISIBLE if x.get("id") == bot_id), None)
+        if b:
+            markup.add(types.InlineKeyboardButton(
+                f"{b.get('emoji', '🤖')} {b.get('name', bot_id)}",
+                callback_data=f"bot:{bot_id}",
+            ))
     markup.add(types.InlineKeyboardButton("🏪 القائمة الرئيسية", callback_data="back_main"))
     _safe_edit(call, text, markup)
     bot.answer_callback_query(call.id)
@@ -326,14 +440,13 @@ def check_subscription(call):
 def ask_search(call):
     if _blocked(call):
         return
-    msg = bot.send_message(
+    bot.send_message(
         call.message.chat.id,
         "🔍 <b>ابحث في المتجر</b>\n\n"
         "أرسل اسم البوت أو كلمة من وصفه (مثال: صور، ترجمة، تيك توك، سيرة).\n"
-        "أرسل /start للعودة للقائمة.",
+        "أو أرسل /start للعودة للقائمة.",
         reply_markup=types.ForceReply(selective=True),
     )
-    bot.register_next_step_handler(msg, handle_search)
     bot.answer_callback_query(call.id)
 
 
