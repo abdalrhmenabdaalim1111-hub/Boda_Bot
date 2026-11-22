@@ -7,6 +7,10 @@
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#8b5cf6">
 <meta name="format-detection" content="telephone=no">
+<meta name="robots" content="index,follow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2032%2032%27%3E%3Ctext%20x=%270%27%20y=%2726%27%20font-size=%2726%27%3E🔇%3C/text%3E%3C/svg%3E">
 <link rel="preload" href="../assets/fonts/cairo-arabic.woff2" as="font"
       type="font/woff2" crossorigin>
@@ -518,6 +522,17 @@ textarea{ min-height:92px; resize:vertical; }
   .result.show,.stagger > *{ animation:none !important; }
 }
 
+
+
+.app-group{display:inline-block;margin-top:6px;font-size:10.5px;font-weight:800;
+  color:var(--bd-brand);background:var(--bd-brand-soft);border:1px solid var(--bd-brand-line);
+  padding:3px 10px;border-radius:999px;}
+.footer-links{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;}
+.footer-link{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;
+  background:var(--bd-surface-2);color:var(--bd-text);font-size:11.5px;font-weight:700;
+  text-decoration:none;border:none;cursor:pointer;font-family:inherit;}
+.footer-link:active{transform:scale(.96);}
+.footer-brand{opacity:.7;}
 </style>
 </head>
 <body class="boda-app" data-bot="silentcut" data-group="media">
@@ -526,6 +541,7 @@ textarea{ min-height:92px; resize:vertical; }
     <span class="emoji" aria-hidden="true">🔇</span>
     <h1>مزيل صمت الفيديو</h1>
     <p>يحلّل صوتك داخل جهازك ويكشف كل لحظات الصمت</p>
+    <span class="app-group">فيديو 🎬</span>
   </header>
 
   <main id="app">
@@ -545,8 +561,11 @@ textarea{ min-height:92px; resize:vertical; }
   </main>
 
   <footer class="app-footer">
-    <a href="../store/">🏠 الصفحة الرئيسية</a> · <a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>
-    Powered by Boda Bot System
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="Boda.share('جرّب هذا البوت — Boda','https://t.me/SilentCutXBot')">📤 مشاركة</button>
+      <a class="footer-link" href="https://t.me/BodaStoreeBot">💬 الدعم</a>
+    </div>
+    <div class="footer-brand">Powered by Boda Bot System</div>
   </footer>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1187,5 +1206,6 @@ function copyPlan(){
 }
 Boda.track('app_open',{detail:'tool'});
 </script>
+<noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>
 </body>
 </html>

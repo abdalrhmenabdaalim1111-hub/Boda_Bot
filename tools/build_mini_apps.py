@@ -33,6 +33,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from app_template import build_html          # noqa: E402
 from app_defs import APPS                    # noqa: E402
+from Bots_Folder.store_catalog import (      # noqa: E402
+    visible_bots,
+)
 
 ROOT   = Path(__file__).parent.parent
 DATA   = ROOT / "Data"
@@ -191,12 +194,15 @@ def collect_stats() -> dict:
 def landing_body(app: dict, username: str) -> tuple[str, str]:
     emoji = app.get("emoji", "🤖")
     name = app.get("name", "")
-    desc = app.get("short_desc") or app.get("description") or ""
+    desc = app.get("description") or app.get("short_desc") or ""
+    features = app.get("features") or []
+    features_html = "".join(f"<li>{f}</li>" for f in features)
     body = f"""
 <div class="card" style="text-align:center">
   <div style="font-size:64px">{emoji}</div>
   <h2 style="margin:10px 0">{name}</h2>
   <p style="color:var(--hint);line-height:2;font-size:14px">{desc}</p>
+  {f'<ul class="feat-list" style="text-align:start">{features_html}</ul>' if features_html else ''}
   <p style="font-size:13.5px;line-height:2">هذا البوت يعمل بالكامل عبر المحادثة.<br>
   <b>النسخة التفاعلية قيد التطوير</b> — افتح البوت الآن واستمتع!</p>
   <button class="btn" onclick="location.href='https://t.me/{username}'">🤖 فتح البوت في تيليجرام</button>
@@ -235,127 +241,319 @@ def render_app(app: dict, ads_cfg: dict, api_base: str, username: str) -> str:
 
 # ── المتجر كتطبيق مصغّر ──────────────────────────────────────────────────────
 STORE_CSS = """
-.cats { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; }
-.cats::-webkit-scrollbar { display:none; }
-.cat { flex-shrink:0; padding:8px 14px; border-radius:999px; font-size:13.5px;
-  cursor:pointer; background:var(--surface); border:1.5px solid var(--hint); }
-.cat.active { background:var(--accent); color:var(--btn-txt); border-color:var(--accent); }
-.search { width:100%; padding:12px 16px; border-radius:999px; border:1.5px solid transparent;
-  background:var(--surface); color:var(--text); font-size:15px; outline:none; margin-bottom:4px; }
-.search:focus { border-color:var(--accent); }
-.app-card { display:flex; gap:12px; align-items:center; background:var(--surface);
-  border-radius:14px; padding:14px; margin-bottom:10px; cursor:pointer;
-  transition:transform .15s; border:1.5px solid transparent; }
-.app-card:active { transform:scale(.98); border-color:var(--accent); }
-.app-card .ic { font-size:34px; width:56px; height:56px; display:flex; align-items:center;
-  justify-content:center; background:var(--bg); border-radius:13px; flex-shrink:0; }
-.app-card .info { flex:1; min-width:0; }
-.app-card h3 { font-size:15px; margin-bottom:3px; }
-.app-card p { color:var(--hint); font-size:12.5px; white-space:nowrap; overflow:hidden;
-  text-overflow:ellipsis; }
-.app-card .meta { color:var(--link); font-size:11.5px; margin-top:4px; }
-.badge-new { background:var(--warn); color:#111; font-size:10px; font-weight:800;
-  padding:2px 8px; border-radius:999px; margin-inline-start:6px; vertical-align:middle; }
-.badge-soon { background:var(--hint); color:var(--bg); font-size:10px; font-weight:800;
-  padding:2px 8px; border-radius:999px; margin-inline-start:6px; vertical-align:middle; }
-.app-card.soon { opacity:.55; }
-.hero { background:linear-gradient(135deg,rgba(82,136,193,.25),rgba(82,136,193,.08));
-  border:1px solid rgba(82,136,193,.4); border-radius:16px; padding:18px;
-  text-align:center; margin-bottom:14px; }
-.hero .big { font-size:34px; }
-.hero h2 { margin:6px 0 2px; }
-.hero p { color:var(--hint); font-size:13px; }
-.stat-row { display:flex; gap:8px; margin-top:12px; }
-.stat { flex:1; background:var(--bg); border-radius:11px; padding:10px 6px; }
-.stat b { font-size:17px; display:block; }
-.stat span { font-size:11px; color:var(--hint); }
+.store-hero{position:relative;overflow:hidden;border-radius:20px;padding:20px 18px;
+  background:linear-gradient(135deg,rgba(234,179,8,.22),rgba(249,115,22,.10) 45%,transparent 80%),
+             var(--bd-surface);
+  border:1px solid rgba(234,179,8,.32);margin-bottom:14px;}
+.store-hero::after{content:"";position:absolute;inset:auto -30px -60px auto;width:160px;height:160px;
+  background:radial-gradient(circle,rgba(234,179,8,.28),transparent 70%);pointer-events:none;}
+.store-hero .kicker{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;
+  color:var(--bd-warn);background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.35);
+  padding:4px 10px;border-radius:999px;margin-bottom:8px;}
+.store-hero h2{font-size:21px;line-height:1.5;margin:0 0 4px;}
+.store-hero p{color:var(--bd-hint);font-size:12.5px;line-height:1.9;margin:0;}
+.store-hero .stat-row{display:flex;gap:8px;margin-top:14px;}
+.store-hero .stat{flex:1;background:rgba(0,0,0,.16);border:1px solid var(--bd-surface-2);
+  border-radius:12px;padding:8px 4px;text-align:center;}
+.store-hero .stat b{display:block;font-size:17px;line-height:1.3;}
+.store-hero .stat span{font-size:10.5px;color:var(--bd-hint);}
+.search-wrap{position:relative;margin:4px 0 12px;}
+.search-wrap .ic{position:absolute;inset-inline-start:14px;top:50%;transform:translateY(-50%);
+  font-size:15px;opacity:.7;pointer-events:none;}
+.search-wrap input{width:100%;padding:13px 42px 13px 14px;border-radius:999px;
+  border:1.5px solid var(--bd-surface-2);background:var(--bd-surface);color:var(--bd-text);
+  font-size:14px;font-family:inherit;outline:none;transition:border-color .2s,box-shadow .2s;}
+.search-wrap input:focus{border-color:var(--bd-brand);box-shadow:0 0 0 3px var(--bd-brand-soft);}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:18px 2px 9px;}
+.section-head h3{font-size:15px;margin:0;}
+.section-head span{font-size:11px;color:var(--bd-hint);}
+.cats{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none;}
+.cats::-webkit-scrollbar{display:none;}
+.cat{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;
+  font-size:12.5px;font-weight:700;cursor:pointer;background:var(--bd-surface);
+  border:1.5px solid var(--bd-surface-2);color:var(--bd-text);
+  transition:transform .12s,border-color .2s,background .2s;}
+.cat:active{transform:scale(.96);}
+.cat.active{background:var(--bd-brand);border-color:var(--bd-brand);color:#fff;}
+.cat .n{font-size:10.5px;opacity:.75;}
+.featured{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;
+  scroll-snap-type:x mandatory;scrollbar-width:none;}
+.featured::-webkit-scrollbar{display:none;}
+.feat-card{flex:0 0 190px;scroll-snap-align:start;background:var(--bd-surface);
+  border:1px solid var(--bd-surface-2);border-radius:16px;padding:13px;cursor:pointer;
+  position:relative;overflow:hidden;transition:transform .15s,border-color .2s;}
+.feat-card:active{transform:scale(.98);}
+.feat-card::before{content:"";position:absolute;inset:0 auto auto 0;width:100%;height:3px;
+  background:linear-gradient(90deg,var(--bd-warn),transparent 70%);opacity:.8;}
+.feat-card .e{font-size:30px;line-height:1;margin-bottom:8px;}
+.feat-card h4{font-size:13.5px;margin:0 0 4px;line-height:1.5;}
+.feat-card p{font-size:11px;color:var(--bd-hint);line-height:1.7;margin:0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.feat-card .go{margin-top:9px;font-size:11px;font-weight:800;color:var(--bd-link);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:9px;}
+.app-card{display:flex;flex-direction:column;gap:6px;background:var(--bd-surface);
+  border:1px solid var(--bd-surface-2);border-radius:15px;padding:12px;cursor:pointer;
+  transition:transform .15s,border-color .2s;position:relative;overflow:hidden;}
+.app-card:active{transform:scale(.98);border-color:var(--bd-brand-line);}
+.app-card .top{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.app-card .ic{font-size:27px;width:44px;height:44px;display:grid;place-items:center;
+  background:var(--bd-bg);border-radius:12px;flex-shrink:0;}
+.app-card .cat-tag{font-size:9.5px;font-weight:800;color:var(--bd-hint);background:var(--bd-bg);
+  border:1px solid var(--bd-surface-2);padding:2px 7px;border-radius:999px;white-space:nowrap;}
+.app-card h3{font-size:13px;margin:0;line-height:1.5;}
+.app-card p{font-size:11px;color:var(--bd-hint);line-height:1.65;margin:0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.app-card .meta{font-size:10px;color:var(--bd-link);margin-top:auto;padding-top:4px;}
+.badge-feat{position:absolute;inset-inline-end:10px;top:10px;font-size:9px;font-weight:800;
+  color:#111;background:var(--bd-warn);padding:2px 7px;border-radius:999px;}
+.empty{text-align:center;color:var(--bd-hint);padding:30px 10px;font-size:13px;}
+.sub-card{display:flex;align-items:center;gap:10px;background:var(--bd-surface);
+  border:1px solid var(--bd-brand-line);border-radius:14px;padding:12px;margin:14px 0 0;}
+.sub-card .ic{font-size:22px;flex:0 0 auto;}
+.sub-card .tx{flex:1;min-width:0;}
+.sub-card b{font-size:12px;display:block;margin-bottom:2px;}
+.sub-card p{font-size:10.5px;color:var(--bd-hint);line-height:1.6;margin:0;}
+.sub-card .btn{width:auto;min-height:34px;margin:0;padding:6px 12px;font-size:11px;flex:0 0 auto;}
+.sub-card .x{background:none;border:none;color:var(--bd-hint);font-size:15px;cursor:pointer;padding:2px;}
+.sheet .sheet-head{display:flex;gap:12px;align-items:center;margin-bottom:10px;}
+.sheet .sheet-emoji{font-size:38px;width:58px;height:58px;display:grid;place-items:center;
+  background:var(--bd-bg);border-radius:15px;flex-shrink:0;}
+.sheet .sheet-head h3{font-size:17px;margin:0 0 2px;line-height:1.5;}
+.sheet .sheet-head span{font-size:11px;color:var(--bd-hint);}
+.sheet .sheet-desc{font-size:12.5px;line-height:1.95;color:var(--bd-text);margin:0 0 10px;}
+.sheet .feat-list{list-style:none;padding:0;margin:0 0 12px;display:grid;gap:5px;}
+.sheet .feat-list li{font-size:11.5px;line-height:1.7;color:var(--bd-hint);}
+.sheet .feat-list li::before{content:"✓";color:var(--bd-ok);font-weight:800;margin-inline-end:6px;}
+.sheet .sheet-stats{display:flex;gap:8px;margin-bottom:10px;}
+.sheet .sheet-stats .s{flex:1;background:var(--bd-bg);border-radius:10px;padding:7px;text-align:center;}
+.sheet .sheet-stats b{display:block;font-size:14px;}
+.sheet .sheet-stats span{font-size:9.5px;color:var(--bd-hint);}
+.sheet .sheet-actions{display:grid;gap:7px;}
+.sheet .sheet-actions .btn{min-height:44px;font-size:13px;margin:0;}
+.sheet .sheet-actions .row{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
 """
 
 STORE_JS = """
-let APPS=[], CATS={}, stats={}, cat='الكل', q='';
-const urlp=new URLSearchParams(location.search);
-const CATEGORIZED = urlp.get('web')==='1';   // فتح كصفحة ويب يعرض كل التطبيقات
+let APPS=[], CATS=[], stats={}, cat='all', q='';
+const byId=id=>APPS.find(a=>a.id===id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>{n=+n||0;return n>=1000?(n/1000).toFixed(1)+'K':n;};
+const CAT_ORDER=['daily','design','media','learn','fun','health','business'];
 
 async function boot(){
-  try { const r=await fetch('../data/stats.json'); stats=await r.json(); } catch(e){}
-  try {
-    const r=await fetch('../data/catalog.json');
-    APPS=await r.json();
-  } catch(e) { APPS=[]; }
-  buildCats(); render();
-  document.getElementById('s-users').textContent = fmt((stats.total_users||0));
-  document.getElementById('s-apps').textContent  = APPS.length;
+  try{const r=await fetch('../data/stats.json');stats=await r.json();}catch(e){stats={};}
+  try{const r=await fetch('../data/catalog.json');APPS=await r.json();}
+  catch(e){APPS=window.__BODA_CATALOG__||[];}
+  if(!Array.isArray(APPS))APPS=[];
+  APPS.sort((a,b)=>(a.order||9999)-(b.order||9999));
+  buildCats();render();
+  const el=id=>document.getElementById(id);
+  if(el('s-apps'))el('s-apps').textContent=APPS.length;
+  if(el('s-users'))el('s-users').textContent=fmt(stats.total_users||0);
   const ev=stats.events||{};
-  document.getElementById('s-opens').textContent = fmt(Object.entries(ev)
-    .filter(([k])=>k.startsWith('app_open:')).reduce((s,[,v])=>s+v,0));
+  if(el('s-opens'))el('s-opens').textContent=fmt(Object.entries(ev)
+    .filter(([k])=>k.indexOf('app_open:')===0).reduce((s,x)=>s+(+x[1]||0),0));
+  if(el('cat-hint'))el('cat-hint').textContent=CATS.length-1+' فئات';
+  try{if(localStorage.getItem('boda_sub_dismiss')==='1')hideSub();}catch(e){}
 }
-function fmt(n){ n=+n||0; return n>=1000?(n/1000).toFixed(1)+'K':n; }
 function buildCats(){
-  const box=document.getElementById('cats'); const set=new Set(APPS.map(a=>a.tag||'أخرى'));
-  CATS=['الكل',...[...set].sort()];
-  box.innerHTML=CATS.map(c=>'<span class="cat'+(c===cat?' active':'')+'" onclick="setCat(\\''+c+'\\',this)">'+c+'</span>').join('');
+  const map=new Map();
+  APPS.forEach(a=>{
+    const k=a.category_key||'daily';
+    if(!map.has(k))map.set(k,{key:k,name:a.category||'أخرى',icon:a.category_icon||'📂',count:0});
+    map.get(k).count++;
+  });
+  CATS=[{key:'all',name:'الكل',icon:'✨',count:APPS.length}]
+    .concat(CAT_ORDER.filter(k=>map.has(k)).map(k=>map.get(k)));
+  document.getElementById('cats').innerHTML=CATS.map(c=>
+    '<span class="cat'+(c.key===cat?' active':'')+'" onclick="setCat(\\''+c.key+'\\',this)">'+
+    c.icon+' '+esc(c.name)+' <span class="n">'+c.count+'</span></span>').join('');
 }
-function setCat(c,el){ cat=c; document.querySelectorAll('.cat').forEach(x=>x.classList.remove('active'));
-  el.classList.add('active'); render(); }
+function setCat(k,el){
+  cat=k;
+  document.querySelectorAll('.cat').forEach(x=>x.classList.remove('active'));
+  if(el)el.classList.add('active');
+  Boda.haptic('select');Boda.track('store_cat',{detail:k});
+  render();
+}
+function renderFeatured(){
+  const sec=document.getElementById('featured-sec'),box=document.getElementById('featured');
+  if(!sec||!box)return;
+  const list=APPS.filter(a=>a.featured).slice(0,8);
+  if(!list.length||cat!=='all'||q){sec.style.display='none';return;}
+  sec.style.display='';
+  box.innerHTML=list.map(a=>
+    '<div class="feat-card" onclick="openDetails(\\''+a.id+'\\')">'+
+      '<div class="e">'+(a.emoji||'🤖')+'</div>'+
+      '<h4>'+esc(a.name)+'</h4>'+
+      '<p>'+esc(a.short_desc||a.description)+'</p>'+
+      '<div class="go">عرض التفاصيل ←</div>'+
+    '</div>').join('');
+}
 function render(){
-  const list=APPS.filter(a=>(cat==='الكل'||a.tag===cat)&&
-    (!q||(a.name+' '+a.short_desc+' '+(a.username||'')).toLowerCase().includes(q.toLowerCase())));
-  // الظاهر أولاً، والمخفي (قريباً) آخراً
-  list.sort((x,y)=>(x.hidden?1:0)-(y.hidden?1:0));
-  document.getElementById('list').innerHTML = list.length? list.map(a=>{
+  const query=q.toLowerCase();
+  const list=APPS.filter(a=>{
+    const okCat=cat==='all'||a.category_key===cat;
+    if(!okCat)return false;
+    if(!query)return true;
+    const hay=(a.name+' '+(a.short_desc||'')+' '+(a.description||'')+' '+
+      (a.username||'')+' '+(a.features||[]).join(' ')).toLowerCase();
+    return hay.indexOf(query)>=0;
+  });
+  const title=document.getElementById('list-title');
+  const count=document.getElementById('list-count');
+  if(title)title.textContent=cat==='all'?'كل البوتات':((CATS.find(c=>c.key===cat)||{}).name||'البوتات');
+  if(count)count.textContent=list.length+' بوت';
+  const box=document.getElementById('list');
+  if(!box)return;
+  box.innerHTML=list.length?list.map(a=>{
     const st=(stats.bots||{})[a.id]||{};
-    const isNew=a.added_date && !a.hidden && (Date.now()-new Date(a.added_date))<30*864e5;
-    return '<div class="app-card'+(a.hidden?' soon':'')+'" onclick="openApp(\\''+a.url+'\\',\\''+a.web+'\\')">'+
-      '<div class="ic">'+a.emoji+'</div>'+
-      '<div class="info"><h3>'+a.name+(isNew?'<span class="badge-new">جديد</span>':'')+
-        (a.hidden?'<span class="badge-soon">قريباً</span>':'')+'</h3>'+
-      '<p>'+(a.description||a.short_desc)+'</p>'+
-      '<div class="meta">'+(a.username?'<b dir="ltr">'+a.username+'</b> · ':'')+'👥 '+
-        (st.users?st.users+' مستخدم':'جديد على المنصة')+
-        (st.active_30d?' · 🔥 '+st.active_30d+' نشط هذا الشهر':'')+'</div></div>'+
-      '<div style="color:var(--hint);font-size:20px">‹</div></div>';
-  }).join('') : '<p style="text-align:center;color:var(--hint);padding:30px 0">🔍 لا نتائج</p>';
+    return '<div class="app-card" onclick="openDetails(\\''+a.id+'\\')">'+
+      (a.featured?'<span class="badge-feat">مميز</span>':'')+
+      '<div class="top"><div class="ic">'+(a.emoji||'🤖')+'</div>'+
+      '<span class="cat-tag">'+(a.category_icon||'')+' '+esc(a.category||'')+'</span></div>'+
+      '<h3>'+esc(a.name)+'</h3>'+
+      '<p>'+esc(a.short_desc||a.description)+'</p>'+
+      '<div class="meta">'+(st.users?('👥 '+fmt(st.users)+' مستخدم'):'✨ جديد')+
+        (st.active_30d?(' · 🔥 '+fmt(st.active_30d)+' نشط'):'')+'</div>'+
+    '</div>';
+  }).join(''):'<div class="empty">🔍 لا توجد نتائج مطابقة</div>';
+  renderFeatured();
 }
-function openApp(url, web){
-  Boda.haptic('light'); Boda.track('store_open',{detail:web||url});
-  try{ Boda.tg.openTelegramLink(url); }catch(e){ location.href=url; }
+function openDetails(id){
+  const a=byId(id);if(!a)return;
+  Boda.haptic('light');Boda.track('store_view_bot',{detail:id});
+  const st=(stats.bots||{})[id]||{};
+  const feats=(a.features||[]).map(f=>'<li>'+esc(f)+'</li>').join('');
+  const username=String(a.username||'').replace(/^@/,'');
+  document.getElementById('sheetBody').innerHTML=
+    '<div class="grabber"></div>'+
+    '<div class="sheet-head"><div class="sheet-emoji">'+(a.emoji||'🤖')+'</div>'+
+      '<div><h3>'+esc(a.name)+'</h3><span>'+(a.category_icon||'')+' '+esc(a.category||'')+
+      (username?' · @'+esc(username):'')+'</span></div></div>'+
+    '<p class="sheet-desc">'+esc(a.description||a.short_desc)+'</p>'+
+    (feats?'<ul class="feat-list">'+feats+'</ul>':'')+
+    '<div class="sheet-stats">'+
+      '<div class="s"><b>'+(st.users?fmt(st.users):'—')+'</b><span>مستخدم</span></div>'+
+      '<div class="s"><b>'+(st.active_30d?fmt(st.active_30d):'—')+'</b><span>نشط شهرياً</span></div>'+
+      '<div class="s"><b>'+(a.has_app?'✓':'—')+'</b><span>تطبيق</span></div>'+
+    '</div>'+
+    '<div class="sheet-actions">'+
+      '<button class="btn" onclick="openTg(\\''+a.url+'\\')">🚀 افتح البوت في تيليجرام</button>'+
+      (a.has_app?'<a class="btn secondary" href="../'+a.web+'">📱 جرّب التطبيق المصغّر</a>':'')+
+      '<div class="row">'+
+        '<button class="btn ghost" onclick="shareApp(\\''+a.id+'\\')">📤 مشاركة</button>'+
+        '<button class="btn ghost" onclick="closeSheet()">✕ إغلاق</button>'+
+      '</div>'+
+    '</div>';
+  document.getElementById('sheet').classList.add('show');
+  document.getElementById('sheetBody').classList.add('show');
 }
-document.querySelector('.search').addEventListener('input',e=>{ q=e.target.value; render(); });
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('show');
+  document.getElementById('sheetBody').classList.remove('show');
+}
+function shareApp(id){
+  const a=byId(id);if(!a)return;
+  Boda.share('جرّب '+a.name+' — '+(a.short_desc||''),a.url);
+}
+function openTg(url){
+  Boda.haptic('light');
+  try{if(Boda.tg&&Boda.tg.openTelegramLink)Boda.tg.openTelegramLink(url);else location.href=url;}
+  catch(e){location.href=url;}
+}
+function dismissSub(){
+  try{localStorage.setItem('boda_sub_dismiss','1');}catch(e){}
+  hideSub();
+}
+function hideSub(){const el=document.getElementById('subCard');if(el)el.style.display='none';}
+
+document.addEventListener('DOMContentLoaded',function(){
+  const input=document.querySelector('.search-wrap input');
+  if(input)input.addEventListener('input',function(e){q=e.target.value.trim();render();});
+});
 boot();
 """
 
 
-def render_store(apps: list, ads_cfg: dict, api_base: str) -> str:
-    body = """
-<div class="hero">
-  <p>كل بوتاتك وتطبيقاتك — في مكان واحد ✨</p>
+def _catalog_entry(app: dict) -> dict:
+    """بطاقة بوت واحدة داخل catalog.json — بدون بوت المتجر."""
+    bot_id = app["id"]
+    app_def = APPS.get(bot_id) or {}
+    return {
+        "id": bot_id,
+        "emoji": app.get("emoji", "🤖"),
+        "name": app.get("name", ""),
+        "short_desc": app.get("short_desc", ""),
+        "description": app.get("description", ""),
+        "features": app.get("features") or [],
+        "tag": app.get("tag", "أخرى"),
+        "category": app.get("category", ""),
+        "category_key": app.get("category_key", "daily"),
+        "category_icon": app.get("category_icon", ""),
+        "username": app.get("username", ""),
+        "url": app.get("url", STORE_URL),
+        "web": f"{bot_id}/",
+        "featured": bool(app.get("featured")),
+        "order": int(app.get("order", 9999) or 9999),
+        "added_date": app.get("added_date", ""),
+        "hidden": bool(app.get("hidden")),
+        "has_app": bool(app_def.get("interactive")),
+    }
+
+
+def build_catalog(apps: list) -> list:
+    """كتالوج المتجر: 33 بوتاً فقط — بوت المتجر مستبعد."""
+    return [_catalog_entry(a) for a in visible_bots(apps)]
+
+
+def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
+    cat_count = len({a.get("category_key") for a in catalog if a.get("category_key")})
+    body = f"""
+<div class="store-hero">
+  <div class="kicker">✨ منصة بودة</div>
+  <h2>كل أدواتك الذكية… في مكان واحد</h2>
+  <p>{len(catalog)} بوتاً وتطبيقاً مصغّراً في {cat_count} فئات — مرتبة، سريعة، وبدون إعلانات.</p>
   <div class="stat-row">
-    <div class="stat"><b id="s-apps">—</b><span>تطبيق</span></div>
+    <div class="stat"><b id="s-apps">—</b><span>بوت</span></div>
     <div class="stat"><b id="s-users">—</b><span>مستخدم</span></div>
     <div class="stat"><b id="s-opens">—</b><span>فتح تطبيق</span></div>
   </div>
 </div>
-<input class="search" placeholder="🔍 ابحث عن بوت...">
+<div class="search-wrap">
+  <span class="ic">🔍</span>
+  <input type="search" placeholder="ابحث بالاسم أو الوصف أو الميزة..." aria-label="بحث في المتجر">
+</div>
+<div id="featured-sec">
+  <div class="section-head"><h3>⭐ بوتات مميزة</h3><span>اختيارات فريق بودة</span></div>
+  <div class="featured" id="featured"></div>
+</div>
+<div class="section-head"><h3>📂 تصفح حسب الفئة</h3><span id="cat-hint">—</span></div>
 <div class="cats" id="cats"></div>
-<div id="list"></div>"""
-    catalog = [{"id": a["id"], "emoji": a.get("emoji", "🤖"), "name": a.get("name", ""),
-                "short_desc": a.get("short_desc", ""), "tag": a.get("tag", "أخرى"),
-                "description": a.get("description", ""),
-                "username": a.get("username", ""),
-                "url": a.get("url", STORE_URL), "web": f"{a['id']}/",
-                "added_date": a.get("added_date", ""),
-                "hidden": bool(a.get("hidden"))}
-               for a in apps]
+<div class="section-head"><h3 id="list-title">كل البوتات</h3><span id="list-count"></span></div>
+<div id="list" class="grid"></div>
+<div class="sub-card" id="subCard">
+  <div class="ic">🔐</div>
+  <div class="tx"><b>الوصول الكامل عبر الاشتراك</b>
+    <p>اشترك في قناتي بودة وعبده، ثم فعّل الاشتراك من بوت المتجر.</p></div>
+  <button class="btn" onclick="openTg('https://t.me/BodaStoreeBot?start=verify')">تحقق</button>
+  <button class="x" onclick="dismissSub()" aria-label="إغلاق">×</button>
+</div>
+<div class="sheet-backdrop" id="sheet" onclick="closeSheet()">
+  <div class="sheet" id="sheetBody" onclick="event.stopPropagation()"></div>
+</div>"""
+    catalog_json = json.dumps(catalog, ensure_ascii=False)
     return build_html(
         bot_id="store", emoji="🏪", title="متجر تطبيقات بودة",
-        subtitle="تصفح كل البوتات والتطبيقات المصغّرة",
+        subtitle=f"{len(catalog)} بوتاً وتطبيقاً في {cat_count} فئات — بدون إعلانات",
         body_html=body, app_js=STORE_JS, app_css=STORE_CSS,
-        api_base=api_base, ads_cfg={"banner": None, "sponsor": ads_cfg.get("sponsor"), "every": 99},
+        api_base=api_base,
+        ads_cfg={"banner": None, "sponsor": None, "every": 999},
         share_url=STORE_URL, group="متجر 🏪",
         page_url=f"{MINIAPPS_BASE}/store/" if MINIAPPS_BASE else "").replace(
         "window.__BODA_BOT_ID__   = \"store\";",
         "window.__BODA_BOT_ID__   = \"store\";\nwindow.__BODA_CATALOG__ = "
-        + json.dumps(catalog, ensure_ascii=False))
+        + catalog_json + ";")
 
 
 def write_seo_files(out_dir: Path, apps: list) -> None:
@@ -436,15 +634,8 @@ def main():
                     shutil.rmtree(child, ignore_errors=True)
     (out_dir / "data").mkdir(parents=True, exist_ok=True)
 
-    # catalog.json — مصدر المتجر (نفس بنية النسخة المضمنة في store/index.html)
-    catalog = [{"id": a["id"], "emoji": a.get("emoji", "🤖"), "name": a.get("name", ""),
-                "short_desc": a.get("short_desc", ""), "tag": a.get("tag", "أخرى"),
-                "description": a.get("description", ""),
-                "username": a.get("username", ""),
-                "url": a.get("url", STORE_URL), "web": f"{a['id']}/",
-                "added_date": a.get("added_date", ""),
-                "hidden": bool(a.get("hidden"))}
-               for a in apps]
+    # catalog.json — مصدر المتجر (33 بوتاً، بوت المتجر مستبعد)
+    catalog = build_catalog(apps)
     (out_dir / "data" / "catalog.json").write_text(
         json.dumps(catalog, ensure_ascii=False, indent=1), encoding="utf-8")
 
@@ -453,10 +644,10 @@ def main():
     (out_dir / "data" / "stats.json").write_text(
         json.dumps(stats, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    # كل تطبيق — بما فيها المخفية (المتجر يعرض الجميع مع وسم "قريباً" للمخفي)
+    # كل تطبيق — بوت المتجر له صفحته الخاصة أدناه ولا يُولَّد داخل نفسه
     n_interactive = 0
     for app in apps:
-        if not app.get("id"):
+        if not app.get("id") or app["id"] == "store":
             continue
         bid = app["id"]
         username = (app.get("username") or "").lstrip("@") or "BodaStoreeBot"
@@ -494,7 +685,7 @@ def main():
     # المتجر
     (out_dir / "store").mkdir(exist_ok=True)
     (out_dir / "store" / "index.html").write_text(
-        render_store(apps, ads_cfg, api_base), encoding="utf-8")
+        render_store(catalog, ads_cfg, api_base), encoding="utf-8")
 
     # لوحة التحليلات (Control Center dashboard) — صفحة مستقلة
     try:
@@ -519,8 +710,9 @@ def main():
 
     print(f"✅ تم البناء في {out_dir.name}/")
     print(f"   📱 تطبيقات تفاعلية: {n_interactive}")
-    print(f"   📄 صفحات بوتات: {sum(1 for a in apps if not a.get('hidden'))}")
-    print(f"   🔍 خريطة الموقع: {1 + sum(1 for a in apps if not a.get('hidden'))} رابطًا")
+    print(f"   🏪 بوتات في المتجر: {len(catalog)}")
+    print(f"   📄 صفحات بوتات: {sum(1 for a in apps if a.get('id') != 'store' and not a.get('hidden'))}")
+    print(f"   🔍 خريطة الموقع: {1 + sum(1 for a in apps if a.get('id') != 'store' and not a.get('hidden'))} رابطًا")
     print(f"   👥 إجمالي المستخدمين المكتشفين: {stats['total_users']}")
     return 0
 

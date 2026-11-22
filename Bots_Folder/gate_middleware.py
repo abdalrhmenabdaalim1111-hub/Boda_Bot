@@ -38,7 +38,8 @@ class GateMiddleware:
         """البوابة مفعّلة لكل البوتات (يمكن تعطيلها بـ BODA_SUB_GATE=0)."""
         return gate_check.gate_enabled()
 
-    def check_and_show_gate(self, message: types.Message) -> bool:
+    def check_and_show_gate(self, message: types.Message,
+                            use_cache: bool = True) -> bool:
         """
         True  = محجوب (تم إرسال رسالة الاشتراك).
         False = مسموح بالمتابعة.
@@ -47,14 +48,16 @@ class GateMiddleware:
         if not user or not getattr(user, "id", None):
             return False
         return self.check_user(user.id, message.chat.id,
-                               (getattr(user, "language_code", "") or "ar"))
+                               (getattr(user, "language_code", "") or "ar"),
+                               use_cache=use_cache)
 
-    def check_user(self, user_id: int, chat_id: int, lang: str = "ar") -> bool:
+    def check_user(self, user_id: int, chat_id: int, lang: str = "ar",
+                   use_cache: bool = True) -> bool:
         """فحص مستخدم عبر معرّفه (يُستخدم أيضاً داخل أزرار الكولباك)."""
         if not self.should_enforce(user_id):
             return False
 
-        missing = gate_check.get_missing_channels(user_id, use_cache=True)
+        missing = gate_check.get_missing_channels(user_id, use_cache=use_cache)
         if not missing:
             return False
 

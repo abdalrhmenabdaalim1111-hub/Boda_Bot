@@ -13,12 +13,15 @@
 #  إذا كان فارغاً → تُعطَّل مزايا الويب بأمان دون أي خطأ.
 # =============================================================================
 import os
+import json
 import re
+from pathlib import Path
 import time
 import threading
 
 from telebot.handler_backends import BaseMiddleware
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonWebApp, WebAppInfo
+from telebot.types import (InlineKeyboardMarkup, InlineKeyboardButton,
+                           MenuButtonWebApp, WebAppInfo, BotCommand)
 
 from bot_base import get_logger, track_user
 
@@ -53,6 +56,17 @@ def webapp_keyboard(bot_id: str) -> InlineKeyboardMarkup:
             kb.add(InlineKeyboardButton("🔥  عرض حصري", url=sponsor_url))
     except Exception:
         pass
+    # زر مشاركة البوت
+    try:
+        entry = _load_registry_entry(bot_id)
+        username = (entry.get("username") or "").lstrip("@") or bot_id
+        share_text = entry.get("short_desc") or entry.get("name") or bot_id
+        from urllib.parse import quote_plus
+        kb.add(InlineKeyboardButton(
+            "📤  شارك البوت",
+            url=f"https://t.me/share/url?url=https://t.me/{username}&text={quote_plus(share_text)}"))
+    except Exception:
+        pass
     kb.add(InlineKeyboardButton("🏪  متجر تطبيقات بودة",
                                 url="https://t.me/BodaStoreeBot"))
     return kb
@@ -73,7 +87,50 @@ def setup_menu_button(bot, bot_id: str):
         return False
 
 
-from Bots_Folder.gate_middleware import GateMiddleware
+def _load_registry_entry(bot_name: str) -> dict:
+    """قراءة إدخال البوت من bots_registry.json (best-effort)."""
+    try:
+        path = Path(__file__).resolve().parent.parent / "bots_registry.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for item in data:
+            if item.get("id") == bot_name:
+                return item
+    except Exception:
+        pass
+    return {}
+
+
+def _clip(text: str, limit: int) -> str:
+    text = (text or "").strip()
+    return text[:limit] if len(text) > limit else text
+
+
+def apply_bot_profile(bot, bot_name: str) -> None:
+    """ضبط وصف/أوامر البوت في تيليجرام من الريجستري (best-effort)."""
+    entry = _load_registry_entry(bot_name)
+    if not entry:
+        return
+    try:
+        desc = _clip(entry.get("description", ""), 512)
+        short = _clip(entry.get("short_desc", ""), 120)
+        if desc:
+            bot.set_my_description(description=desc)
+        if short:
+            bot.set_my_short_description(short_description=short)
+        commands = [
+            BotCommand("start", "بدء الاستخدام"),
+            BotCommand("app", "فتح التطبيق المصغّر"),
+            BotCommand("store", "متجر تطبيقات بودة"),
+        ]
+        bot.set_my_commands(commands)
+    except Exception as e:
+        get_logger(bot_name).debug(f"bot profile apply: {e}")
+
+
+try:
+    from .gate_middleware import GateMiddleware
+except ImportError:
+    from gate_middleware import GateMiddleware
 
 
 # ── البرمجية الوسيطة ──────────────────────────────────────────────────────────
@@ -96,12 +153,28 @@ class UnifiedBotMiddleware(BaseMiddleware):
 
     def pre_process(self, message, data: dict):
         """تُستدعى قبل أي معالج رسائل في البوت"""
-        # Handle callback queries for gate verification
+        # Handle callback queries for gate verification + enforce gate
         if message.content_type == "callback_query":
             if (message.data or "").startswith("gate_verify"):
                 self.gate.handle_verify_callback(message)
                 from telebot.handler_backends import CancelMiddleware
                 raise CancelMiddleware("gate verify handled")
+            user = getattr(message, "from_user", None)
+            if user and getattr(user, "id", None):
+                chat = getattr(message, "message", None)
+                chat_id = getattr(getattr(chat, "chat", None), "id", None) or user.id
+                lang = (getattr(user, "language_code", "") or "ar").lower()
+                if self.gate.check_user(user.id, chat_id, lang):
+                    try:
+                        self.bot.answer_callback_query(
+                            message.id,
+                            "🔐 اشترك في القناتين ثم اضغط «تحقق».",
+                            show_alert=True,
+                        )
+                    except Exception:
+                        pass
+                    from telebot.handler_backends import CancelMiddleware
+                    raise CancelMiddleware("Subscription Gate active")
             return
 
         if data is not None:
@@ -121,6 +194,35 @@ class UnifiedBotMiddleware(BaseMiddleware):
                 if self.gate.check_and_show_gate(message):
                     from telebot.handler_backends import CancelMiddleware
                     raise CancelMiddleware("Subscription Gate active")
+
+                # أوامر موحّدة: /app و /store (لا تعتمد على كود البوت)
+                text = (getattr(message, "text", "") or "").strip()
+                cmd = text.split()[0].lower() if text else ""
+                if cmd in ("/app", "/apps", "/store"):
+                    if cmd == "/store":
+                        kb = InlineKeyboardMarkup()
+                        kb.add(InlineKeyboardButton(
+                            "🏪  متجر تطبيقات بودة", url="https://t.me/BodaStoreeBot"))
+                        self.bot.send_message(
+                            message.chat.id,
+                            "🏪 <b>متجر تطبيقات بودة</b>\n"
+                            "33 بوتاً وتطبيقاً في 7 فئات — بدون إعلانات.",
+                            parse_mode="HTML", reply_markup=kb)
+                    else:
+                        url = get_miniapps_url(self.bot_name)
+                        if url:
+                            self.bot.send_message(
+                                message.chat.id,
+                                "📱 <b>التطبيق المصغّر</b> لهذا البوت:",
+                                parse_mode="HTML",
+                                reply_markup=webapp_keyboard(self.bot_name))
+                        else:
+                            self.bot.send_message(
+                                message.chat.id,
+                                "📱 التطبيق المصغّر قيد التفعيل. "
+                                "استخدم المتجر: https://t.me/BodaStoreeBot")
+                    from telebot.handler_backends import CancelMiddleware
+                    raise CancelMiddleware("global command handled")
 
                 res = track_user(self.bot_name, user.id,
                                  f"{getattr(user, 'first_name', '') or ''} "
@@ -211,6 +313,9 @@ def install_unified_layer(bot, bot_name: str):
     تعمل حتى لو أُنشئ البوت بدون use_class_middlewares (تفعيل ديناميكي).
     """
     log = get_logger(bot_name)
+
+    apply_bot_profile(bot, bot_name)
+    log.info("📝 وصف/أوامر البوت محدّثة في تيليجرام")
 
     menu_ok = setup_menu_button(bot, bot_name)
     if menu_ok:

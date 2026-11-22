@@ -1,12 +1,16 @@
 <!DOCTYPE html>
-<html dir="rtl" lang="ar" data-group="fun">
+<html dir="rtl" lang="ar" data-group="text">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="ألغاز تمسك الدماغ — كل يوم لغز جديد">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#f97316">
+<meta name="theme-color" content="#14b8a6">
 <meta name="format-detection" content="telephone=no">
+<meta name="robots" content="index,follow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2032%2032%27%3E%3Ctext%20x=%270%27%20y=%2726%27%20font-size=%2726%27%3E🌀%3C/text%3E%3C/svg%3E">
 <link rel="preload" href="../assets/fonts/cairo-arabic.woff2" as="font"
       type="font/woff2" crossorigin>
@@ -124,7 +128,7 @@
     --bd-surface-2: var(--tg-theme-section-separator-color, rgba(0,0,0,.07));
   }
 }
-:root{--bd-brand:#f97316;--bd-brand-2:#f43f5e;--bd-brand-soft:rgba(249,115,22,.15);--bd-brand-line:rgba(249,115,22,.42);}
+:root{--bd-brand:#14b8a6;--bd-brand-2:#38bdf8;--bd-brand-soft:rgba(20,184,166,.15);--bd-brand-line:rgba(20,184,166,.42);}
 *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0;
   -webkit-tap-highlight-color:transparent; }
 html,body{ min-height:100%; }
@@ -518,14 +522,26 @@ textarea{ min-height:92px; resize:vertical; }
   .result.show,.stagger > *{ animation:none !important; }
 }
 
+
+
+.app-group{display:inline-block;margin-top:6px;font-size:10.5px;font-weight:800;
+  color:var(--bd-brand);background:var(--bd-brand-soft);border:1px solid var(--bd-brand-line);
+  padding:3px 10px;border-radius:999px;}
+.footer-links{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;}
+.footer-link{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;
+  background:var(--bd-surface-2);color:var(--bd-text);font-size:11.5px;font-weight:700;
+  text-decoration:none;border:none;cursor:pointer;font-family:inherit;}
+.footer-link:active{transform:scale(.96);}
+.footer-brand{opacity:.7;}
 </style>
 </head>
-<body class="boda-app" data-bot="braintwist" data-group="fun">
+<body class="boda-app" data-bot="braintwist" data-group="text">
 <div class="container">
   <header class="app-header">
     <span class="emoji" aria-hidden="true">🌀</span>
     <h1>بوت الألغاز</h1>
     <p>ألغاز تمسك الدماغ — كل يوم لغز جديد</p>
+    <span class="app-group">تعلّم 🧠</span>
   </header>
 
   <main id="app">
@@ -535,15 +551,18 @@ textarea{ min-height:92px; resize:vertical; }
   </main>
 
   <footer class="app-footer">
-    <a href="../store/">🏠 الصفحة الرئيسية</a> · <a href="https://t.me/BodaStoreeBot">🏪 متجر تطبيقات بودا</a><br>
-    Powered by Boda Bot System
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="Boda.share('جرّب هذا البوت — Boda','https://t.me/BrainTwistXBot')">📤 مشاركة</button>
+      <a class="footer-link" href="https://t.me/BodaStoreeBot">💬 الدعم</a>
+    </div>
+    <div class="footer-brand">Powered by Boda Bot System</div>
   </footer>
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
 window.__BODA_BOT_ID__   = "braintwist";
-window.__BODA_GROUP__    = "fun";
-window.__BODA_BRAND__    = "#f97316";
+window.__BODA_GROUP__    = "text";
+window.__BODA_BRAND__    = "#14b8a6";
 window.__BODA_API__      = "";
 window.__BODA_SHARE__    = "https://t.me/BrainTwistXBot";
 window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
@@ -1147,5 +1166,6 @@ function next(){
 }
 render();
 </script>
+<noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>
 </body>
 </html>
