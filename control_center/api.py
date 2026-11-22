@@ -129,7 +129,7 @@ def system_health(request) -> Response:
         host = {
             "memory_percent": round(vm.percent, 1),
             "memory_used_mb": int((vm.total - vm.available) / (1024 * 1024)),
-            "cpu_percent": round(psutil.cpu_percent(interval=None), 1),
+            "cpu_percent": round(psutil.cpu_percent(interval=0.1), 1),
         }
     except Exception:
         host = {}
