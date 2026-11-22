@@ -47,11 +47,13 @@ _lock = threading.Lock()
 
 
 def gate_enabled() -> bool:
+    """Check if the gate is enabled."""
     """البوابة مفعّلة افتراضياً. يمكن تعطيلها مؤقتاً بـ BODA_SUB_GATE=0."""
     return os.getenv("BODA_SUB_GATE", "1").strip().lower() not in ("0", "false", "no", "off")
 
 
 def _checker_token() -> str:
+    """Get the checker token."""
     token = (os.getenv("BOT_GATE_CHECKER_TOKEN") or "").strip()
     if token:
         return token
@@ -60,6 +62,7 @@ def _checker_token() -> str:
 
 
 def _get_status(user_id: int, username: str, token: str) -> Optional[str]:
+    """Get membership status for a user in a channel."""
     """يرجع حالة العضوية، أو None عند أي خطأ بنيوي (فشل مفتوح)."""
     try:
         resp = requests.get(
@@ -81,6 +84,7 @@ def _get_status(user_id: int, username: str, token: str) -> Optional[str]:
 
 
 def get_missing_channels(user_id: int, use_cache: bool = True) -> List[Dict[str, str]]:
+    """Return list of channels the user is not subscribed to."""
     """قائمة القنوات التي لم يشترك بها المستخدم (فارغة = مسموح)."""
     if not gate_enabled():
         return []
@@ -111,17 +115,20 @@ def get_missing_channels(user_id: int, use_cache: bool = True) -> List[Dict[str,
 
 
 def is_subscribed(user_id: int, use_cache: bool = True) -> bool:
+    """Check if user is subscribed to both channels."""
     """True إذا كان المستخدم مشتركاً في القناتين (أو البوابة معطّلة)."""
     return not get_missing_channels(user_id, use_cache=use_cache)
 
 
 def invalidate(user_id: int) -> None:
+    """Invalidate the cache for a user."""
     """مسح الكاش بعد ضغط زر التحقق لإعادة الفحص فوراً."""
     with _lock:
         _cache.pop(user_id, None)
 
 
 def gate_text(missing: List[Dict[str, str]]) -> str:
+    """Generate the gate message text."""
     lines = [
         "🔐 <b>أنت لست مشتركاً بالقناتين المطلوبتين:</b>",
         "",
@@ -137,6 +144,7 @@ def gate_text(missing: List[Dict[str, str]]) -> str:
 
 
 def gate_markup(missing: List[Dict[str, str]]) -> 'InlineKeyboardMarkup':
+    """Generate the gate markup with channel buttons and verify button."""
     """أزرار القنوات + زر التحقق (يتطلب telebot)."""
     from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
