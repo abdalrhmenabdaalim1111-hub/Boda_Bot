@@ -34,13 +34,44 @@ DEFAULT_NETWORK_CONFIG = {
     # ── النظام الذكي ─────────────────────────────────────────────
     "assignment_size": 5,            # عدد بوتات التفعيل لكل مستخدم
     "activation_ttl_days": 7,        # إعادة التحقق كل N أيام
-    "fixed_bot_ids": [],      # بوتات ثابتة دائماً ضمن الخمسة
+    "fixed_bot_ids": ["store"],      # بوتات ثابتة دائماً ضمن الخمسة
     "exclude_ids": [],               # بوتات مستبعدة من التعيين
     "balance": True,                 # توجيه المستخدمين للبوتات الأقل مستخدمين
     # ── قديم (احتياطي) ───────────────────────────────────────────
     "store_bot_username": "@BodaStoreeBot",
     "store_bot_url": "https://t.me/BodaStoreeBot",
-    "required_network_bots": [],
+    "required_network_bots": [
+        {
+            "id": "store",
+            "name": "🏪 متجر تطبيقات بودا",
+            "username": "@BodaStoreeBot",
+            "url": "https://t.me/BodaStoreeBot"
+        },
+        {
+            "id": "vidload",
+            "name": "📥 تحميل الفيديوهات (VidLoad)",
+            "username": "@VidLoadXBot",
+            "url": "https://t.me/VidLoadXBot"
+        },
+        {
+            "id": "stickerx",
+            "name": "🎨 صانع الملصقات (StickerX)",
+            "username": "@StickerXMakerBot",
+            "url": "https://t.me/StickerXMakerBot"
+        },
+        {
+            "id": "cleantok",
+            "name": "🎵 تيك توك بلا علامة (CleanTok)",
+            "username": "@CleanTokVidBot",
+            "url": "https://t.me/CleanTokVidBot"
+        },
+        {
+            "id": "transbot",
+            "name": "🌐 المترجم الفوري (TransBot)",
+            "username": "@TransXNowBot",
+            "url": "https://t.me/TransXNowBot"
+        }
+    ],
     "viral_rewards": {
         "required_invites_for_vip": 3,
         "vip_title": "🌟 عضوية VIP الذهبية"

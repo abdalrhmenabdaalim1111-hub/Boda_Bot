@@ -163,6 +163,16 @@ class BodaDatabase:
                     status        TEXT    DEFAULT 'new'
                 );
 
+                -- جدول أحداث A/B لتجربة حمل الإعلانات (تجريبي)
+                CREATE TABLE IF NOT EXISTS ab_events (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    bot_id      TEXT,
+                    format      TEXT,
+                    variant     TEXT NOT NULL,
+                    is_click    INTEGER DEFAULT 0,
+                    created_at  TEXT DEFAULT (datetime('now'))
+                );
+
                 -- Indexes للأداء
                 CREATE INDEX IF NOT EXISTS idx_users_bot
                     ON users(bot_name);
@@ -182,6 +192,10 @@ class BodaDatabase:
                     ON error_events(bot_name);
                 CREATE INDEX IF NOT EXISTS idx_error_events_fp
                     ON error_events(fingerprint);
+                CREATE INDEX IF NOT EXISTS idx_ab_events_variant
+                    ON ab_events(variant);
+                CREATE INDEX IF NOT EXISTS idx_ab_events_is_click
+                    ON ab_events(is_click);
             """)
 
     def _get_conn(self) -> sqlite3.Connection:
@@ -516,6 +530,75 @@ class BodaDatabase:
                         clicks = clicks + 1,
                         ctr_percent = ROUND(((clicks + 1) * 100.0) / MAX(impressions, 1), 2)
                 """, (clean_bot, today, ad_format))
+
+    # ── A/B Testing (تجريب حمل الإعلانات) ────────────────────────────────────
+    def record_ab_event(self, bot_id: str, format_type: str, variant: str,
+                        is_click: bool = False) -> None:
+        """تسجيل حدث A/B: ظهور (is_click=False) أو نقرة (is_click=True)."""
+        try:
+            with self._conn_lock:
+                with self._get_conn() as conn:
+                    conn.execute(
+                        "INSERT INTO ab_events (bot_id, format, variant, is_click, created_at) "
+                        "VALUES (?, ?, ?, ?, datetime('now'))",
+                        (bot_id or "", format_type or "direct_link",
+                         variant or "A", 1 if is_click else 0),
+                    )
+        except Exception:
+            pass
+
+    def get_ab_report(self, days: int = 30) -> Dict[str, Any]:
+        """تقرير A/B لكل مجموعة (impressions/clicks/CTR) + تفصيل لكل بوت."""
+        variants = {
+            "A": {"impressions": 0, "clicks": 0, "ctr_percent": 0.0},
+            "B": {"impressions": 0, "clicks": 0, "ctr_percent": 0.0},
+        }
+        bots: Dict[str, Dict[str, int]] = {}
+        since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT bot_id, variant, is_click, COUNT(*) AS cnt "
+                "FROM ab_events WHERE created_at >= ? "
+                "GROUP BY bot_id, variant, is_click",
+                (since,),
+            ).fetchall()
+            for r in rows:
+                v = r["variant"] if r["variant"] in variants else "A"
+                bid = (r["bot_id"] or "").replace("bot_", "", 1) or "unknown"
+                side = variants[v]
+                cnt = int(r["cnt"] or 0)
+                if r["is_click"]:
+                    side["clicks"] += cnt
+                else:
+                    side["impressions"] += cnt
+                bot = bots.setdefault(bid, {"impressions": 0, "clicks": 0})
+                if r["is_click"]:
+                    bot["clicks"] += cnt
+                else:
+                    bot["impressions"] += cnt
+            for side in variants.values():
+                side["ctr_percent"] = round(
+                    (side["clicks"] * 100.0) / max(side["impressions"], 1), 2)
+
+        per_bot = [
+            {
+                "bot_name": bid,
+                "impressions": stats["impressions"],
+                "clicks": stats["clicks"],
+                "ctr_percent": round(
+                    (stats["clicks"] * 100.0) / max(stats["impressions"], 1), 2),
+            }
+            for bid, stats in bots.items()
+        ]
+        per_bot.sort(key=lambda r: (-r["impressions"], r["bot_name"]))
+        return {
+            "variants": variants,
+            "days": days,
+            "total_impressions": variants["A"]["impressions"] + variants["B"]["impressions"],
+            "total_clicks": variants["A"]["clicks"] + variants["B"]["clicks"],
+            "per_bot": per_bot,
+            "bots": bots,
+        }
 
     def get_ad_stats(self, bot_name: Optional[str] = None, days: int = 30) -> List[Dict]:
         """إرجاع إحصائيات الإعلانات لبوت معين أو لجميع البوتات لآخر N أيام."""

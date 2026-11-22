@@ -558,6 +558,34 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200 if payload.get("ready") else 503, payload)
             return
 
+        # تقديم الأصول الثابتة (الخطوط/الصور) — متاح على /assets و /apps/assets
+        if path == "/assets" or path.startswith("/assets/"):
+            rel = path[len("/assets/"):] if path.startswith("/assets/") else ""
+            target = (WEBROOT_DIR / "assets" / rel) if rel else None
+            if target and target.exists() and target.is_file():
+                ct = "font/woff2" if target.suffix == ".woff2" else \
+                     "font/woff" if target.suffix == ".woff" else \
+                     "image/webp" if target.suffix == ".webp" else \
+                     "image/png" if target.suffix == ".png" else \
+                     "image/svg+xml" if target.suffix == ".svg" else "application/octet-stream"
+                self._send_bytes(200, target.read_bytes(), content_type=ct)
+                return
+            self._send_bytes(404, b"Not Found")
+            return
+        if path == "/apps/assets" or path.startswith("/apps/assets/"):
+            rel = path[len("/apps/assets/"):] if path.startswith("/apps/assets/") else ""
+            target = (WEBROOT_DIR / "assets" / rel) if rel else None
+            if target and target.exists() and target.is_file():
+                ct = "font/woff2" if target.suffix == ".woff2" else \
+                     "font/woff" if target.suffix == ".woff" else \
+                     "image/webp" if target.suffix == ".webp" else \
+                     "image/png" if target.suffix == ".png" else \
+                     "image/svg+xml" if target.suffix == ".svg" else "application/octet-stream"
+                self._send_bytes(200, target.read_bytes(), content_type=ct)
+                return
+            self._send_bytes(404, b"Not Found")
+            return
+
         # تقديم تطبيقات الويب بدون حجب المفتاح (متاح لمستخدمي تيليجرام)
         if path.startswith("/apps"):
             parts = [p for p in path.split("/") if p and p != "apps"]
