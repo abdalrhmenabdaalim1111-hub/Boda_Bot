@@ -26,8 +26,8 @@
 
 ### المرحلة 3: تحسين الأداء (أسبوعين)
 - [x] إضافة `/assets` handler في `api_server.py` (fonts are now served).
-- [ ] إضافة `Cache-Control: max-age=31536000, immutable` لكل تطبيق وصوره (no refetch).
-- [ ] إضافة `<link rel="preload">` لجميع `app_pages` (البوتات الأكثر استخداماً).
+- [x] إضافة `Cache-Control` للأصول (`/assets`: immutable) وصفحات البوتات (`/apps`: max-age=60, stale-while-revalidate).
+- [x] إضافة `<link rel="preload">` لصفحة المتجر (`data/catalog.json`, `data/stats.json`).
 - [ ] إضافة lazy loading للمحتوى الثقيل (images, large data).
 - [ ] تقليل حجم `webroot/*/index.html` (minify CSS/JS per-app, shared assets).
 - [ ] استخدام `IntersectionObserver` لتشغيل الإعلانات فقط عند ظهورها (يوفر النفاذ).

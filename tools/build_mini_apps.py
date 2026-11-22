@@ -623,6 +623,8 @@ def build_catalog(apps: list) -> list:
 def render_store(catalog: list, ads_cfg: dict, api_base: str) -> str:
     cat_count = len({a.get("category_key") for a in catalog if a.get("category_key")})
     body = f"""
+<link rel="preload" as="fetch" href="../data/catalog.json">
+<link rel="preload" as="fetch" href="../data/stats.json">
 <div class="store-hero">
   <div class="kicker">✨ منصة بودة</div>
   <h2>كل أدواتك الذكية… في مكان واحد</h2>

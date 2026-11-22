@@ -397,11 +397,12 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def _send_bytes(self, status_code: int, body: bytes, content_type: str = "text/html; charset=utf-8"):
+    def _send_bytes(self, status_code: int, body: bytes, content_type: str = "text/html; charset=utf-8",
+                    cache_control: str | None = None):
         self.send_response(status_code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        self.send_header("Cache-Control", cache_control or "no-cache, no-store, must-revalidate")
         cors = self._cors_origin()
         if cors:
             self.send_header("Access-Control-Allow-Origin", cors)
@@ -568,7 +569,8 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
                      "image/webp" if target.suffix == ".webp" else \
                      "image/png" if target.suffix == ".png" else \
                      "image/svg+xml" if target.suffix == ".svg" else "application/octet-stream"
-                self._send_bytes(200, target.read_bytes(), content_type=ct)
+                self._send_bytes(200, target.read_bytes(), content_type=ct,
+                                 cache_control="public, max-age=31536000, immutable")
                 return
             self._send_bytes(404, b"Not Found")
             return
@@ -581,7 +583,8 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
                      "image/webp" if target.suffix == ".webp" else \
                      "image/png" if target.suffix == ".png" else \
                      "image/svg+xml" if target.suffix == ".svg" else "application/octet-stream"
-                self._send_bytes(200, target.read_bytes(), content_type=ct)
+                self._send_bytes(200, target.read_bytes(), content_type=ct,
+                                 cache_control="public, max-age=31536000, immutable")
                 return
             self._send_bytes(404, b"Not Found")
             return
@@ -608,7 +611,11 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
 
             if target_file and target_file.exists():
                 try:
-                    self._send_bytes(200, target_file.read_bytes(), content_type=c_type)
+                    cache_control = ("public, max-age=60, must-revalidate"
+                                     if parts and parts[0] == "data"
+                                     else "public, max-age=60, stale-while-revalidate=300")
+                    self._send_bytes(200, target_file.read_bytes(), content_type=c_type,
+                                     cache_control=cache_control)
                     return
                 except Exception as e:
                     self._send_json(500, {"error": f"Failed reading file: {e}"})
