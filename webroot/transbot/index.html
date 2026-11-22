@@ -1135,8 +1135,22 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 })();
 </script>
 <script>
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321698');
+  setTimeout(()=>{ try{ window.show_12321698 && window.show_12321698(); }catch(e){} }, 120);
+}
 function swap(){ const f=document.getElementById('from'), t=document.getElementById('to');
-  [f.value,t.value]=[t.value,f.value]; }
+   [f.value,t.value]=[t.value,f.value]; }
 async function tr(){
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ اكتب نصاً');
@@ -1155,6 +1169,8 @@ async function tr(){
       '<button class="btn secondary" style="margin-top:10px" id="copy-tr">📋 نسخ</button>';
     res.querySelector('#copy-tr').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:f+'>'+t});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'transbot_interstitial', uses:uses}); showAd(); }
   }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>تعذر الاتصال</b></div>'; }
 }
 </script>

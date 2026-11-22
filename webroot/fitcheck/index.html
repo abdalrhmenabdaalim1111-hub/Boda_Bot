@@ -1134,7 +1134,22 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 })();
 </script>
 <script>
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321793');
+  setTimeout(()=>{ try{ window.show_12321793 && window.show_12321793(); }catch(e){} }, 120);
+}
 function calc(){
+  loadMonetag('12321793');
   const w=+document.getElementById('w').value, h=+document.getElementById('h').value/100,
         age=+document.getElementById('age').value;
   if(!w||!h||!age) return Boda.toast('⚠️ أكمل البيانات');
@@ -1143,6 +1158,8 @@ function calc(){
              bmi<30?['زيادة وزن ⚠','var(--bd-warn)']:['سمنة — خليك نشيط 💪','var(--bd-danger)'];
   const max=Math.round(220-age), fat=Math.round(max*0.65), cardio=Math.round(max*0.8);
   Boda.haptic('success'); Boda.track('feature_use',{detail:'bmi_'+Math.round(bmi)});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'fitcheck_interstitial', uses:uses}); showAd(); }
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
     '<div class="result-title">📏 نتيجة الفحص</div>'+

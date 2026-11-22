@@ -1136,6 +1136,20 @@ const STYLES=[['درجات زرقاء',['#0f2027','#203a43','#2c5364']],['غرو
  ['بنفسجي ملكي',['#41295a','#2F0743','#56ab2f']],['نعناع',['#11998e','#38ef7d','#11998e']],
  ['ذهبي',['#3E2723','#7b4397','#dc2430']],['ليلي',['#141e30','#243b55','#141e30']]];
 let si=0;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321796');
+  setTimeout(()=>{ try{ window.show_12321796 && window.show_12321796(); }catch(e){} }, 120);
+}
 document.getElementById('styles').innerHTML=STYLES.map((s,k)=>
  '<span class="chip'+(k===0?' active':'')+'" onclick="pickS('+k+',this)">'+s[0]+'</span>').join('');
 function pickS(k,el){ si=k; document.querySelectorAll('#styles .chip').forEach(c=>c.classList.remove('active'));
@@ -1155,6 +1169,8 @@ function gen(){
   document.getElementById('res').innerHTML='<img src="'+url+'" style="max-width:100%;border-radius:14px">'+
     '<button class="btn secondary" style="margin-top:10px" onclick="dl()">⬇️ تحميل PNG</button>';
   window._svg=svg; Boda.track('feature_use',{detail:'logo_'+si});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'logotext_interstitial', uses:uses}); showAd(); }
 }
 async function dl(){
   const img=new Image(); img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(window._svg)));

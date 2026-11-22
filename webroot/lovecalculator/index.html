@@ -1131,7 +1131,22 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 })();
 </script>
 <script>
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321731');
+  setTimeout(()=>{ try{ window.show_12321731 && window.show_12321731(); }catch(e){} }, 120);
+}
 function calc(){
+  loadMonetag('12321731');
   const a=document.getElementById('a').value.trim(), b=document.getElementById('b').value.trim();
   if(!a||!b) return Boda.toast('⚠️ اكتب الاسمايين');
   Boda.haptic('light');
@@ -1148,6 +1163,8 @@ function calc(){
     '<p style="font-size:16px;margin-bottom:14px">'+msg+'</p>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;نسبة الحب بيني وبين... جرب حاسبة الحب 💌&#39;,&#39;https://t.me/LoveMatchRBot&#39;)">📤 تحدى أصدقاءك</button>';
   Boda.track('feature_use',{detail:'love_'+(pct>=70)});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'lovecalculator_interstitial', uses:uses}); showAd(); }
 }
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>

@@ -1145,6 +1145,20 @@ const QS=[
  {q:'قطرة ماء واحدة = 10 ثوانٍ. كم ساعة يمتلئ كوب 360 قطرة؟',a:['1 ساعة','10 دقائق','ساعة ونصف','36 دقيقة'],c:0},
  {q:'الغريب دخل قرية كل أهلها كاذبون. قاله أحدهم: "أنا كاذب". هو...؟',a:['كاذب لأنهم كلهم كاذبون','صادق لأن الكاذب يكذب','متناقض — لا يمكن الحسم','أهلك القلعة'],c:2}];
 const SHARE_BOT='https://t.me/GeniusCheck1Bot';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321718');
+  setTimeout(()=>{ try{ window.show_12321718 && window.show_12321718(); }catch(e){} }, 120);
+}
 let i=0, correct=0, t0=0, started=false;
 
 function start(){
@@ -1202,6 +1216,8 @@ function finish(){
     Boda.share('🧠 نتيجتي في اختبار الذكاء: '+iq+' IQ — جرّبها!', SHARE_BOT);
   Boda.haptic('success');
   Boda.track('feature_use',{detail:'iq_'+iq});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'iqtest_interstitial', uses:uses}); showAd(); }
   Boda.Cloud.set('iq_last', String(iq));
   if(Boda.MainButton.set('🔁 إعادة الاختبار', start)){
     const b=document.getElementById('go'); if(b) b.style.display='none';

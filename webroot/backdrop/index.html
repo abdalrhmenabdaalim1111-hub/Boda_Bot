@@ -1141,6 +1141,20 @@ const THEMES={فضاء:['#000428','#004e92'],بحر:['#2193b0','#6dd5ed'],
  غروب:['#355C7D','#f8b195'],غابة:['#134E5E','#71b280'],default:['#5288c1','#232e3c']};
 function kw2(k){ document.getElementById('kw').value=k; gen(); }
 let _url='';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321667');
+  setTimeout(()=>{ try{ window.show_12321667 && window.show_12321667(); }catch(e){} }, 120);
+}
 function gen(){
   const k=document.getElementById('kw').value.trim();
   const th=THEMES[k]||THEMES.default;
@@ -1158,6 +1172,8 @@ function gen(){
   document.getElementById('res').innerHTML='<img src="'+_url+'" style="max-height:280px;border-radius:14px">'+
     '<button class="btn secondary" style="margin-top:10px" onclick="dl()">⬇️ تحميل الخلفية</button>';
   Boda.track('feature_use',{detail:'backdrop_'+(k||'random')});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'backdrop_interstitial', uses:uses}); showAd(); }
 }
 function dl(){
   const img=new Image(); img.src=_url;

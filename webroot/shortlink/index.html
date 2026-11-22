@@ -1131,7 +1131,22 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 })();
 </script>
 <script>
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321784');
+  setTimeout(()=>{ try{ window.show_12321784 && window.show_12321784(); }catch(e){} }, 120);
+}
 async function shorten(){
+  loadMonetag('12321784');
   const u=document.getElementById('url').value.trim();
   if(!/^https?:\/\//.test(u)) return Boda.toast('⚠️ أدخل رابطاً يبدأ بـ http');
   Boda.haptic('light');
@@ -1151,6 +1166,8 @@ async function shorten(){
       res.querySelector('#copy-s').onclick=()=>Boda.copy(d.shorturl,'📋 تم نسخ الرابط المختصر');
       res.querySelector('#share-s').onclick=()=>Boda.share('رابط قصير via متجر بودا: '+d.shorturl,'https://t.me/ShortLinkXXBot');
       Boda.track('feature_use',{detail:'shorten'});
+      uses++;
+      if(uses%2===0){ Boda.track('ad_show',{detail:'shortlink_interstitial', uses:uses}); showAd(); }
     } else throw 0;
   }catch(e){ res.innerHTML='⚠️ فشل الاختصار — جرّب رابطاً آخر'; }
 }

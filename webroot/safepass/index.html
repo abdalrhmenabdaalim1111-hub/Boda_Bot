@@ -1139,6 +1139,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 const on={up:1,lo:1,di:1,sy:1};
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321772');
+  setTimeout(()=>{ try{ window.show_12321772 && window.show_12321772(); }catch(e){} }, 120);
+}
 function tog(k){ on[k]=!on[k]; document.getElementById('c-'+k).classList.toggle('active',!!on[k]); }
 const SETS={up:'ABCDEFGHIJKLMNOPQRSTUVWXYZ',lo:'abcdefghijklmnopqrstuvwxyz',di:'0123456789',sy:'!@#$%^&*_-+=?'};
 function gen(){
@@ -1160,6 +1174,8 @@ function gen(){
   res.querySelector('#copy-pw').onclick=()=>Boda.copy(pw,'📋 تم نسخ كلمة المرور');
   document.getElementById('strength').innerHTML='';
   Boda.track('feature_use',{detail:'pw_'+n});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'safepass_interstitial', uses:uses}); showAd(); }
 }
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>

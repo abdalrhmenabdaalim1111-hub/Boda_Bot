@@ -172,6 +172,20 @@ APPS["qrgen"] = dict(
 """,
     js="""
 let SIZE=300;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321678');
+  setTimeout(()=>{ try{ window.show_12321678 && window.show_12321678(); }catch(e){} }, 120);
+}
 function pickSize(el){ document.querySelectorAll('#size-chips .chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); SIZE=+el.dataset.s; }
 function preset(v){ document.getElementById('txt').value=v; }
@@ -184,7 +198,11 @@ async function gen(){
           '&margin=12&data='+encodeURIComponent(txt);
   img.style.display='inline-block';
   document.getElementById('res').className='result show';
-  img.onload=()=>Boda.track('feature_use',{detail:'qr_generated'});
+  img.onload=()=>{
+    Boda.track('feature_use',{detail:'qr_generated'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'qrgen_interstitial', uses:uses}); showAd(); }
+  };
 }
 """,
 )
@@ -251,6 +269,20 @@ APPS["safepass"] = dict(
 """,
     js="""
 const on={up:1,lo:1,di:1,sy:1};
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321772');
+  setTimeout(()=>{ try{ window.show_12321772 && window.show_12321772(); }catch(e){} }, 120);
+}
 function tog(k){ on[k]=!on[k]; document.getElementById('c-'+k).classList.toggle('active',!!on[k]); }
 const SETS={up:'ABCDEFGHIJKLMNOPQRSTUVWXYZ',lo:'abcdefghijklmnopqrstuvwxyz',di:'0123456789',sy:'!@#$%^&*_-+=?'};
 function gen(){
@@ -272,6 +304,8 @@ function gen(){
   res.querySelector('#copy-pw').onclick=()=>Boda.copy(pw,'📋 تم نسخ كلمة المرور');
   document.getElementById('strength').innerHTML='';
   Boda.track('feature_use',{detail:'pw_'+n});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'safepass_interstitial', uses:uses}); showAd(); }
 }
 """,
 )
@@ -289,7 +323,22 @@ APPS["shortlink"] = dict(
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321784');
+  setTimeout(()=>{ try{ window.show_12321784 && window.show_12321784(); }catch(e){} }, 120);
+}
 async function shorten(){
+  loadMonetag('12321784');
   const u=document.getElementById('url').value.trim();
   if(!/^https?:\\/\\//.test(u)) return Boda.toast('⚠️ أدخل رابطاً يبدأ بـ http');
   Boda.haptic('light');
@@ -309,6 +358,8 @@ async function shorten(){
       res.querySelector('#copy-s').onclick=()=>Boda.copy(d.shorturl,'📋 تم نسخ الرابط المختصر');
       res.querySelector('#share-s').onclick=()=>Boda.share('رابط قصير via متجر بودا: '+d.shorturl,'https://t.me/ShortLinkXXBot');
       Boda.track('feature_use',{detail:'shorten'});
+      uses++;
+      if(uses%2===0){ Boda.track('ad_show',{detail:'shortlink_interstitial', uses:uses}); showAd(); }
     } else throw 0;
   }catch(e){ res.innerHTML='⚠️ فشل الاختصار — جرّب رابطاً آخر'; }
 }
@@ -330,7 +381,22 @@ APPS["lovecalculator"] = dict(
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321731');
+  setTimeout(()=>{ try{ window.show_12321731 && window.show_12321731(); }catch(e){} }, 120);
+}
 function calc(){
+  loadMonetag('12321731');
   const a=document.getElementById('a').value.trim(), b=document.getElementById('b').value.trim();
   if(!a||!b) return Boda.toast('⚠️ اكتب الاسمايين');
   Boda.haptic('light');
@@ -347,6 +413,8 @@ function calc(){
     '<p style="font-size:16px;margin-bottom:14px">'+msg+'</p>'+
     '<button class="btn secondary" onclick="Boda.share(&#39;نسبة الحب بيني وبين... جرب حاسبة الحب 💌&#39;,&#39;https://t.me/LoveMatchRBot&#39;)">📤 تحدى أصدقاءك</button>';
   Boda.track('feature_use',{detail:'love_'+(pct>=70)});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'lovecalculator_interstitial', uses:uses}); showAd(); }
 }
 """,
 )
@@ -374,6 +442,20 @@ const OPT=[['🔴 الأحمر','🔵 الأزرق','🟢 الأخضر','🟡 ا
   ['قديم وبسيط','حديث','فلاجشيب','أدوات ذكية كتير'],
   ['مخيف','غامض','تحدي','فرصة']];
 let i=0, score=0;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321739');
+  setTimeout(()=>{ try{ window.show_12321739 && window.show_12321739(); }catch(e){} }, 120);
+}
 const PTS=[[1,2,3,4],[1,3,2,4],[1,2,3,4],[1,3,2,4],[2,3,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4],[1,2,3,4]];
 function render(){
   document.getElementById('q-box').innerHTML=
@@ -389,6 +471,8 @@ function pick(k){
 function finish(){
   const age=Math.max(12, Math.min(70, Math.round(75-score*1.35)));
   Boda.track('feature_use',{detail:'age_'+age});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'mentalage_interstitial', uses:uses}); showAd(); }
   document.getElementById('q-box').innerHTML='';
   const res=document.getElementById('res'); res.className='result show';
   const txt = age<20?'عقلك شبابي مليان حيوية! 🎉':age<30?'عقلك في القمة — توازن رائع 🌟':
@@ -430,6 +514,20 @@ const QS=[
  {q:'قطرة ماء واحدة = 10 ثوانٍ. كم ساعة يمتلئ كوب 360 قطرة؟',a:['1 ساعة','10 دقائق','ساعة ونصف','36 دقيقة'],c:0},
  {q:'الغريب دخل قرية كل أهلها كاذبون. قاله أحدهم: "أنا كاذب". هو...؟',a:['كاذب لأنهم كلهم كاذبون','صادق لأن الكاذب يكذب','متناقض — لا يمكن الحسم','أهلك القلعة'],c:2}];
 const SHARE_BOT='https://t.me/GeniusCheck1Bot';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321718');
+  setTimeout(()=>{ try{ window.show_12321718 && window.show_12321718(); }catch(e){} }, 120);
+}
 let i=0, correct=0, t0=0, started=false;
 
 function start(){
@@ -487,6 +585,8 @@ function finish(){
     Boda.share('🧠 نتيجتي في اختبار الذكاء: '+iq+' IQ — جرّبها!', SHARE_BOT);
   Boda.haptic('success');
   Boda.track('feature_use',{detail:'iq_'+iq});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'iqtest_interstitial', uses:uses}); showAd(); }
   Boda.Cloud.set('iq_last', String(iq));
   if(Boda.MainButton.set('🔁 إعادة الاختبار', start)){
     const b=document.getElementById('go'); if(b) b.style.display='none';
@@ -783,7 +883,22 @@ APPS["fitcheck"] = dict(
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321793');
+  setTimeout(()=>{ try{ window.show_12321793 && window.show_12321793(); }catch(e){} }, 120);
+}
 function calc(){
+  loadMonetag('12321793');
   const w=+document.getElementById('w').value, h=+document.getElementById('h').value/100,
         age=+document.getElementById('age').value;
   if(!w||!h||!age) return Boda.toast('⚠️ أكمل البيانات');
@@ -792,6 +907,8 @@ function calc(){
              bmi<30?['زيادة وزن ⚠','var(--bd-warn)']:['سمنة — خليك نشيط 💪','var(--bd-danger)'];
   const max=Math.round(220-age), fat=Math.round(max*0.65), cardio=Math.round(max*0.8);
   Boda.haptic('success'); Boda.track('feature_use',{detail:'bmi_'+Math.round(bmi)});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'fitcheck_interstitial', uses:uses}); showAd(); }
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
     '<div class="result-title">📏 نتيجة الفحص</div>'+
@@ -917,8 +1034,22 @@ APPS["transbot"] = dict(
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321698');
+  setTimeout(()=>{ try{ window.show_12321698 && window.show_12321698(); }catch(e){} }, 120);
+}
 function swap(){ const f=document.getElementById('from'), t=document.getElementById('to');
-  [f.value,t.value]=[t.value,f.value]; }
+   [f.value,t.value]=[t.value,f.value]; }
 async function tr(){
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ اكتب نصاً');
@@ -937,6 +1068,8 @@ async function tr(){
       '<button class="btn secondary" style="margin-top:10px" id="copy-tr">📋 نسخ</button>';
     res.querySelector('#copy-tr').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:f+'>'+t});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'transbot_interstitial', uses:uses}); showAd(); }
   }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>تعذر الاتصال</b></div>'; }
 }
 """,
@@ -959,7 +1092,22 @@ APPS["doctrans"] = dict(
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321775');
+  setTimeout(()=>{ try{ window.show_12321775 && window.show_12321775(); }catch(e){} }, 120);
+}
 async function tr(){
+  loadMonetag('12321775');
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ ألصق نصاً');
   if(txt.length>4000) return Boda.toast('⚠️ الحد 4000 حرف');
@@ -976,6 +1124,8 @@ async function tr(){
       '<button class="btn secondary" style="margin-top:10px" id="copy-doc">📋 نسخ الترجمة</button>';
     res.querySelector('#copy-doc').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:'doc_'+txt.length});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'doctrans_interstitial', uses:uses}); showAd(); }
   }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>فشل الاتصال</b></div>'; }
 }
 """,
@@ -1005,8 +1155,23 @@ APPS["weathernow"] = dict(
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321805');
+  setTimeout(()=>{ try{ window.show_12321805 && window.show_12321805(); }catch(e){} }, 120);
+}
 function setCity(c){ document.getElementById('city').value=c; load(); }
 async function load(){
+  loadMonetag('12321805');
   const c=document.getElementById('city').value.trim();
   if(!c) return Boda.toast('⚠️ اكتب مدينة');
   const res=document.getElementById('res'); res.className='result show'; res.innerHTML='⏳...';
@@ -1029,6 +1194,8 @@ async function load(){
       d.weather.slice(1,3).map((w,i)=>'<div class="list-item"><div class="li-body"><b>'+( i===0?'📅 غداً':'📅 بعد غد')+'</b><span>'+w.mintempC+'° — '+w.maxtempC+'°C</span></div></div>').join('')+
       '</div>';
     Boda.track('feature_use',{detail:'weather'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'weathernow_interstitial', uses:uses}); showAd(); }
   }catch(e){ res.innerHTML='⚠️ تعذر جلب الطقس — تحقق من اسم المدينة'; }
 }
 load();
@@ -1057,6 +1224,20 @@ const TYPES=[
  {n:'المفكر الهادئ',e:'🦉',d:'عمق ونظرة مختلفة — حلولك تأتي من زاوية لا يراها أحد'},
  {n:'المنظّم الاستراتيجي',e:'🐝',d:'دقة وتنظيم — الأمور ما تضيع في يدك أبداً'}];
 let i=0, t=0;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321751');
+  setTimeout(()=>{ try{ window.show_12321751 && window.show_12321751(); }catch(e){} }, 120);
+}
 function render(){
   const q=QS[i];
   document.getElementById('q-box').innerHTML=
@@ -1074,6 +1255,8 @@ function finish(){
   const idx=Math.min(3,Math.round(t/4));
   const ty=TYPES[idx];
   Boda.track('feature_use',{detail:'type_'+idx});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'psyche_interstitial', uses:uses}); showAd(); }
   document.getElementById('q-box').innerHTML='';
   const res=document.getElementById('res'); res.className='result show';
   res.innerHTML='<div style="font-size:54px">'+ty.e+'</div>'+
@@ -1142,6 +1325,20 @@ const STYLES=[['درجات زرقاء',['#0f2027','#203a43','#2c5364']],['غرو
  ['بنفسجي ملكي',['#41295a','#2F0743','#56ab2f']],['نعناع',['#11998e','#38ef7d','#11998e']],
  ['ذهبي',['#3E2723','#7b4397','#dc2430']],['ليلي',['#141e30','#243b55','#141e30']]];
 let si=0;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321796');
+  setTimeout(()=>{ try{ window.show_12321796 && window.show_12321796(); }catch(e){} }, 120);
+}
 document.getElementById('styles').innerHTML=STYLES.map((s,k)=>
  '<span class="chip'+(k===0?' active':'')+'" onclick="pickS('+k+',this)">'+s[0]+'</span>').join('');
 function pickS(k,el){ si=k; document.querySelectorAll('#styles .chip').forEach(c=>c.classList.remove('active'));
@@ -1161,6 +1358,8 @@ function gen(){
   document.getElementById('res').innerHTML='<img src="'+url+'" style="max-width:100%;border-radius:14px">'+
     '<button class="btn secondary" style="margin-top:10px" onclick="dl()">⬇️ تحميل PNG</button>';
   window._svg=svg; Boda.track('feature_use',{detail:'logo_'+si});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'logotext_interstitial', uses:uses}); showAd(); }
 }
 async function dl(){
   const img=new Image(); img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(window._svg)));
@@ -1228,6 +1427,20 @@ const THEMES={فضاء:['#000428','#004e92'],بحر:['#2193b0','#6dd5ed'],
  غروب:['#355C7D','#f8b195'],غابة:['#134E5E','#71b280'],default:['#5288c1','#232e3c']};
 function kw2(k){ document.getElementById('kw').value=k; gen(); }
 let _url='';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321667');
+  setTimeout(()=>{ try{ window.show_12321667 && window.show_12321667(); }catch(e){} }, 120);
+}
 function gen(){
   const k=document.getElementById('kw').value.trim();
   const th=THEMES[k]||THEMES.default;
@@ -1245,6 +1458,8 @@ function gen(){
   document.getElementById('res').innerHTML='<img src="'+_url+'" style="max-height:280px;border-radius:14px">'+
     '<button class="btn secondary" style="margin-top:10px" onclick="dl()">⬇️ تحميل الخلفية</button>';
   Boda.track('feature_use',{detail:'backdrop_'+(k||'random')});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'backdrop_interstitial', uses:uses}); showAd(); }
 }
 function dl(){
   const img=new Image(); img.src=_url;
@@ -1479,7 +1694,20 @@ APPS["silentcut"] = dict(
     js="""
 const MAX_MB = 80;
 let PLAN = null;
-
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321801');
+  setTimeout(()=>{ try{ window.show_12321801 && window.show_12321801(); }catch(e){} }, 120);
+}
 async function analyze(){
   const f = document.getElementById('file').files[0];
   if(!f) return Boda.toast('⚠️ اختر ملفاً أولاً');
@@ -1536,6 +1764,8 @@ async function analyze(){
       document.getElementById('copyplan').style.display='none';
     }
     Boda.track('feature_use',{detail:'silence_analyze'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'silentcut_interstitial', uses:uses}); showAd(); }
   }catch(e){
     Boda.toast('⚠️ صيغة الملف غير مدعومة بالتحليل المحلي — أرسله للبوت');
   }
@@ -1569,6 +1799,20 @@ APPS["cleantok"] = dict(
 """,
     js="""
 let QUAL='بدون علامة مائية';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321654');
+  setTimeout(()=>{ try{ window.show_12321654 && window.show_12321654(); }catch(e){} }, 120);
+}
 function setQ(v, el){
   if(el){ el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
           el.classList.add('active'); }
@@ -1586,6 +1830,8 @@ function send(){
       '<br><small style="color:var(--bd-hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
       (m?'<br>ID الفيديو: '+m[1]:'')+'</small>';
   Boda.haptic('light'); Boda.track('feature_use',{detail:'clean_link_ready'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'cleantok_interstitial', uses:uses}); showAd(); }
   Boda.copy(val, '📋 تم نسخ الرابط');
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=
@@ -1748,7 +1994,20 @@ APPS["stickerx"] = dict(
 """,
     js="""
 let frame='none', round=false, imgSrc=null;
-
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321658');
+  setTimeout(()=>{ try{ window.show_12321658 && window.show_12321658(); }catch(e){} }, 120);
+}
 function setChip(el){
   el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
@@ -1781,6 +2040,7 @@ function paint(){
 }
 
 function download(){
+  loadMonetag('12321658');
   Boda.haptic('light');
   const a=document.createElement('a');
   a.href=document.getElementById('cv').toDataURL('image/png');
@@ -1788,6 +2048,8 @@ function download(){
   a.click();
   Boda.toast('✅ نُزّل الملصق — أرسله للبوت لإضافته للعبوة');
   Boda.track('feature_use',{detail:'sticker_export'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'stickerx_interstitial', uses:uses}); showAd(); }
 }
 
 document.getElementById('img').onchange=e=>{
@@ -1815,7 +2077,22 @@ APPS["formatfix"] = dict(
 </div>
 """,
     js="""
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321704');
+  setTimeout(()=>{ try{ window.show_12321704 && window.show_12321704(); }catch(e){} }, 120);
+}
 function fix(mode){
+  loadMonetag('12321704');
   let t=document.getElementById('txt').value;
   if(!t.trim()) return Boda.toast('⚠️ ألصق نصاً');
   if(mode===1) t=t.replace(/[ \\t]+/g,' ').replace(/\\n{3,}/g,'\\n\\n').trim();
@@ -1826,6 +2103,8 @@ function fix(mode){
   document.getElementById('res').innerHTML='<div style="line-height:1.9">'+t.replace(/</g,'&lt;')+'</div>'+
     '<button class="btn secondary" style="margin-top:8px" onclick="Boda.copy(document.getElementById(\\'res div\\').textContent)">📋 نسخ</button>';
   Boda.track('feature_use',{detail:'fix_'+mode});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'formatfix_interstitial', uses:uses}); showAd(); }
 }
 """,
 )
@@ -1923,6 +2202,20 @@ APPS["cashier"] = dict(
 """,
     js="""
 const SHARE_BOT='https://t.me/CashierCalcBot';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321767');
+  setTimeout(()=>{ try{ window.show_12321767 && window.show_12321767(); }catch(e){} }, 120);
+}
 function setDiscount(v){ document.getElementById('c-discount').value=v; calcCashier(); }
 function setTax(v){
   document.getElementById('c-tax').value=v;
@@ -1960,10 +2253,12 @@ function calcCashier(){
       '<button class="btn secondary" id="share-bill">📤 مشاركة</button>' +
     '</div>';
 
-  const billSummary = '🧾 فاتورة كاشير:\nالمبلغ: ' + sub.toFixed(2) + '\nالخصم: -' + discVal.toFixed(2) + '\nالضريبة: +' + taxVal.toFixed(2) + '\nالإجمالي: ' + total.toFixed(2);
+  const billSummary = '🧾 فاتورة كاشير:\\nالمبلغ: ' + sub.toFixed(2) + '\\nالخصم: -' + discVal.toFixed(2) + '\\nالضريبة: +' + taxVal.toFixed(2) + '\\nالإجمالي: ' + total.toFixed(2);
   res.querySelector('#copy-bill').onclick = () => Boda.copy(billSummary, '📋 تم نسخ ملخص الفاتورة');
   res.querySelector('#share-bill').onclick = () => Boda.share(billSummary, SHARE_BOT);
   Boda.track('feature_use', {detail: 'cashier_calc'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'cashier_interstitial', uses:uses}); showAd(); }
 }
 """
 )

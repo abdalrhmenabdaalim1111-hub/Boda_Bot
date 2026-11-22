@@ -1135,7 +1135,22 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 })();
 </script>
 <script>
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321704');
+  setTimeout(()=>{ try{ window.show_12321704 && window.show_12321704(); }catch(e){} }, 120);
+}
 function fix(mode){
+  loadMonetag('12321704');
   let t=document.getElementById('txt').value;
   if(!t.trim()) return Boda.toast('⚠️ ألصق نصاً');
   if(mode===1) t=t.replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim();
@@ -1146,6 +1161,8 @@ function fix(mode){
   document.getElementById('res').innerHTML='<div style="line-height:1.9">'+t.replace(/</g,'&lt;')+'</div>'+
     '<button class="btn secondary" style="margin-top:8px" onclick="Boda.copy(document.getElementById(\'res div\').textContent)">📋 نسخ</button>';
   Boda.track('feature_use',{detail:'fix_'+mode});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'formatfix_interstitial', uses:uses}); showAd(); }
 }
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>

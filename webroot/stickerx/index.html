@@ -1149,7 +1149,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 let frame='none', round=false, imgSrc=null;
-
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321658');
+  setTimeout(()=>{ try{ window.show_12321658 && window.show_12321658(); }catch(e){} }, 120);
+}
 function setChip(el){
   el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
@@ -1182,6 +1195,7 @@ function paint(){
 }
 
 function download(){
+  loadMonetag('12321658');
   Boda.haptic('light');
   const a=document.createElement('a');
   a.href=document.getElementById('cv').toDataURL('image/png');
@@ -1189,6 +1203,8 @@ function download(){
   a.click();
   Boda.toast('✅ نُزّل الملصق — أرسله للبوت لإضافته للعبوة');
   Boda.track('feature_use',{detail:'sticker_export'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'stickerx_interstitial', uses:uses}); showAd(); }
 }
 
 document.getElementById('img').onchange=e=>{

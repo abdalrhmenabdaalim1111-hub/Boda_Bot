@@ -1138,6 +1138,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 let QUAL='بدون علامة مائية';
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321654');
+  setTimeout(()=>{ try{ window.show_12321654 && window.show_12321654(); }catch(e){} }, 120);
+}
 function setQ(v, el){
   if(el){ el.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
           el.classList.add('active'); }
@@ -1155,6 +1169,8 @@ function send(){
       '<br><small style="color:var(--bd-hint)">الرابط '+(short?'مختصر (سيحدده البوت تلقائياً)':'مباشر')+
       (m?'<br>ID الفيديو: '+m[1]:'')+'</small>';
   Boda.haptic('light'); Boda.track('feature_use',{detail:'clean_link_ready'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'cleantok_interstitial', uses:uses}); showAd(); }
   Boda.copy(val, '📋 تم نسخ الرابط');
   document.getElementById('res').className='result show';
   document.getElementById('res').innerHTML=

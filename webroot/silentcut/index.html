@@ -1138,7 +1138,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 <script>
 const MAX_MB = 80;
 let PLAN = null;
-
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321801');
+  setTimeout(()=>{ try{ window.show_12321801 && window.show_12321801(); }catch(e){} }, 120);
+}
 async function analyze(){
   const f = document.getElementById('file').files[0];
   if(!f) return Boda.toast('⚠️ اختر ملفاً أولاً');
@@ -1195,6 +1208,8 @@ async function analyze(){
       document.getElementById('copyplan').style.display='none';
     }
     Boda.track('feature_use',{detail:'silence_analyze'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'silentcut_interstitial', uses:uses}); showAd(); }
   }catch(e){
     Boda.toast('⚠️ صيغة الملف غير مدعومة بالتحليل المحلي — أرسله للبوت');
   }

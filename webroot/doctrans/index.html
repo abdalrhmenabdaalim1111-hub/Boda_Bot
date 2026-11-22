@@ -1135,7 +1135,22 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 })();
 </script>
 <script>
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321775');
+  setTimeout(()=>{ try{ window.show_12321775 && window.show_12321775(); }catch(e){} }, 120);
+}
 async function tr(){
+  loadMonetag('12321775');
   const txt=document.getElementById('txt').value.trim();
   if(!txt) return Boda.toast('⚠️ ألصق نصاً');
   if(txt.length>4000) return Boda.toast('⚠️ الحد 4000 حرف');
@@ -1152,6 +1167,8 @@ async function tr(){
       '<button class="btn secondary" style="margin-top:10px" id="copy-doc">📋 نسخ الترجمة</button>';
     res.querySelector('#copy-doc').onclick=()=>Boda.copy(out,'📋 تم نسخ الترجمة');
     Boda.track('feature_use',{detail:'doc_'+txt.length});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'doctrans_interstitial', uses:uses}); showAd(); }
   }catch(e){ res.innerHTML='<div class="empty"><div class="big">⚠️</div><b>فشل الاتصال</b></div>'; }
 }
 </script>

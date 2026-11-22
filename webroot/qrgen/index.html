@@ -1144,6 +1144,20 @@ window.__BODA_ADS__      = {"banner": null, "sponsor": null, "every": 999};
 </script>
 <script>
 let SIZE=300;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321678');
+  setTimeout(()=>{ try{ window.show_12321678 && window.show_12321678(); }catch(e){} }, 120);
+}
 function pickSize(el){ document.querySelectorAll('#size-chips .chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active'); SIZE=+el.dataset.s; }
 function preset(v){ document.getElementById('txt').value=v; }
@@ -1156,7 +1170,11 @@ async function gen(){
           '&margin=12&data='+encodeURIComponent(txt);
   img.style.display='inline-block';
   document.getElementById('res').className='result show';
-  img.onload=()=>Boda.track('feature_use',{detail:'qr_generated'});
+  img.onload=()=>{
+    Boda.track('feature_use',{detail:'qr_generated'});
+    uses++;
+    if(uses%2===0){ Boda.track('ad_show',{detail:'qrgen_interstitial', uses:uses}); showAd(); }
+  };
 }
 </script>
 <noscript>هذا التطبيق يتطلب JavaScript للعمل.</noscript>

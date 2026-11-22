@@ -1138,6 +1138,20 @@ const TYPES=[
  {n:'المفكر الهادئ',e:'🦉',d:'عمق ونظرة مختلفة — حلولك تأتي من زاوية لا يراها أحد'},
  {n:'المنظّم الاستراتيجي',e:'🐝',d:'دقة وتنظيم — الأمور ما تضيع في يدك أبداً'}];
 let i=0, t=0;
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('12321751');
+  setTimeout(()=>{ try{ window.show_12321751 && window.show_12321751(); }catch(e){} }, 120);
+}
 function render(){
   const q=QS[i];
   document.getElementById('q-box').innerHTML=
@@ -1155,6 +1169,8 @@ function finish(){
   const idx=Math.min(3,Math.round(t/4));
   const ty=TYPES[idx];
   Boda.track('feature_use',{detail:'type_'+idx});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'psyche_interstitial', uses:uses}); showAd(); }
   document.getElementById('q-box').innerHTML='';
   const res=document.getElementById('res'); res.className='result show';
   res.innerHTML='<div style="font-size:54px">'+ty.e+'</div>'+
