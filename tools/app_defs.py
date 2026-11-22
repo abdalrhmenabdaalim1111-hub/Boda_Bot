@@ -1702,6 +1702,20 @@ function zodiacSign(m,d){
   return 'الجدي ♑';
 }
 function isLeap(y){return (y%4===0&&y%100!==0)||y%400===0;}
+let uses=0;
+function loadMonetag(zoneId){
+  if(document.querySelector('script[data-sdk="show_'+zoneId+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.setAttribute('data-zone', zoneId);
+  s.setAttribute('data-sdk', 'show_'+zoneId);
+  s.async=true;
+  document.head.appendChild(s);
+}
+function showAd(){
+  loadMonetag('10274259');
+  setTimeout(()=>{ try{ window.show_10274259 && window.show_10274259(); }catch(e){} }, 120);
+}
 function ageDetails(birthStr){
   const b=new Date(birthStr+'T00:00:00');
   const now=new Date();
@@ -1752,6 +1766,7 @@ function card(title, a, extra){
     '</div>'+extra+'</div>';
 }
 function calc(){
+  loadMonetag('10274259');
   const v1=document.getElementById('bd1').value;
   if(!v1){Boda.toast('⚠️ اختر تاريخ ميلادك');return;}
   const a1=ageDetails(v1);
@@ -1771,6 +1786,8 @@ function calc(){
     }
   }
   Boda.haptic('success');Boda.track('feature_use',{detail:'age'});
+  uses++;
+  if(uses%2===0){ Boda.track('ad_show',{detail:'birth_age_interstitial', uses:uses}); showAd(); }
   const res=document.getElementById('res');
   res.className='result show';
   res.innerHTML='<div class="result-title">🎂 تفاصيل عمرك</div>'+card('أنت',a1,compareHtml)+
