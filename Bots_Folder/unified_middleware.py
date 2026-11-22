@@ -30,6 +30,7 @@ MINIAPPS_BASE_URL = os.getenv("MINIAPPS_BASE_URL", "").strip().rstrip("/")
 
 
 def get_miniapps_url(bot_id: str) -> str:
+    """Get mini-app URL for a bot."""
     """رابط تطبيق بوت معيّن (أو نص فارغ إن لم تُضبط القاعدة)"""
     if not MINIAPPS_BASE_URL:
         return ""
@@ -37,6 +38,7 @@ def get_miniapps_url(bot_id: str) -> str:
 
 
 def webapp_keyboard(bot_id: str) -> InlineKeyboardMarkup:
+    """Get webapp keyboard for a bot."""
     """لوحة أزرار التطبيق: افتح التطبيق + الموقع بالمتصفح + راعي + المتجر"""
     kb = InlineKeyboardMarkup(row_width=1)
     url = get_miniapps_url(bot_id)
@@ -73,6 +75,7 @@ def webapp_keyboard(bot_id: str) -> InlineKeyboardMarkup:
 
 
 def setup_menu_button(bot, bot_id: str) -> bool:
+    """Set up menu button."""
     """ضبط زر القائمة (☰ بجانل مربع الكتابة) ليفتح تطبيق الويب مباشرة"""
     url = get_miniapps_url(bot_id)
     if not url:
@@ -88,6 +91,7 @@ def setup_menu_button(bot, bot_id: str) -> bool:
 
 
 def _load_registry_entry(bot_name: str) -> dict:
+    """Load a bot's registry entry."""
     """قراءة إدخال البوت من bots_registry.json (best-effort)."""
     try:
         path = Path(__file__).resolve().parent.parent / "bots_registry.json"
@@ -101,11 +105,13 @@ def _load_registry_entry(bot_name: str) -> dict:
 
 
 def _clip(text: str, limit: int) -> str:
+    """Clip text to a limit."""
     text = (text or "").strip()
     return text[:limit] if len(text) > limit else text
 
 
 def apply_bot_profile(bot, bot_name: str) -> None:
+    """Apply bot profile from registry."""
     """ضبط وصف/أوامر البوت في تيليجرام من الريجستري (best-effort)."""
     entry = _load_registry_entry(bot_name)
     if not entry:
@@ -374,6 +380,7 @@ class UnifiedBotMiddleware(BaseMiddleware):
 
 
 def install_unified_layer(bot, bot_name: str) -> None:
+    """Install unified layer."""
     """
     تركيب الطبقة الموحدة على بوت قيد التشغيل:
     زر القائمة + البرمجية الوسيطة.
