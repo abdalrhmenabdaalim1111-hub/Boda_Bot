@@ -153,6 +153,7 @@ def send_store_menu(chat_id: int, edit_message_id: int | None = None):
 
 
 def _blocked(call) -> bool:
+    """Check if user is blocked by the subscription gate."""
     """فحص البوابة داخل أزرار الكولباك (فحص فوري بدون كاش)."""
     user = getattr(call, "from_user", None)
     if not user:
@@ -174,6 +175,7 @@ def _blocked(call) -> bool:
 
 
 def _safe_edit(call, text: str, markup) -> None:
+    """Safely edit a message or send a new one."""
     chat_id = call.message.chat.id
     try:
         bot.edit_message_text(
@@ -235,6 +237,7 @@ def cmd_stats(message):
 
 @bot.message_handler(commands=["start", "menu", "help", "about"])
 def send_welcome(message) -> None:
+    """Handle /start command."""
     if gate.check_and_show_gate(message, use_cache=False):
         return
     cmd = (message.text or "").split()[0].lower()
@@ -276,6 +279,7 @@ def unknown_text(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_main")
 def back_main(call) -> None:
+    """Return to main menu."""
     if _blocked(call):
         return
     try:
@@ -288,6 +292,7 @@ def back_main(call) -> None:
 
 @bot.callback_query_handler(func=lambda call: call.data == "featured")
 def show_featured(call) -> None:
+    """Show featured bots."""
     if _blocked(call):
         return
     text = "⭐ <b>اختيارات فريق بودة</b>\n\nبوتات مميزة تجمع بين الفائدة وسهولة الاستخدام:"
@@ -334,6 +339,7 @@ def show_top(call):
 
 @bot.callback_query_handler(func=lambda call: (call.data or "").startswith("cat:"))
 def show_category(call) -> None:
+    """Show bots in a category."""
     if _blocked(call):
         return
     key = (call.data or "").split(":", 1)[1]
@@ -357,6 +363,7 @@ def show_category(call) -> None:
 
 @bot.callback_query_handler(func=lambda call: (call.data or "").startswith("bot:"))
 def show_bot(call) -> None:
+    """Show bot details."""
     if _blocked(call):
         return
     bot_id = (call.data or "").split(":", 1)[1]
@@ -405,6 +412,7 @@ def show_bot(call) -> None:
 
 @bot.callback_query_handler(func=lambda call: call.data == "stats")
 def show_stats(call) -> None:
+    """Show platform statistics."""
     if _blocked(call):
         return
     counts, total, top, _usage = _stats()
@@ -432,6 +440,7 @@ def show_stats(call) -> None:
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_sub")
 def check_subscription(call) -> None:
+    """Check subscription status."""
     user = call.from_user
     lang = (getattr(user, "language_code", "") or "ar").lower()
     missing = gate_check.get_missing_channels(user.id, use_cache=False)
@@ -456,6 +465,7 @@ def check_subscription(call) -> None:
 
 @bot.callback_query_handler(func=lambda call: call.data == "search")
 def ask_search(call) -> None:
+    """Ask for search query."""
     if _blocked(call):
         return
     bot.send_message(
@@ -469,6 +479,7 @@ def ask_search(call) -> None:
 
 
 def handle_search(message) -> None:
+    """Handle search query."""
     if gate.check_and_show_gate(message):
         return
     text = (message.text or "").strip()
@@ -504,10 +515,12 @@ def handle_search(message) -> None:
 
 @bot.callback_query_handler(func=lambda call: (call.data or "").startswith("gate_verify"))
 def verify_sub(call) -> None:
+    """Handle verify callback."""
     gate.handle_verify_callback(call)
 
 
 def register_handlers(bot_instance) -> None:
+    """Register handlers (no-op)."""
     pass
 
 
