@@ -80,7 +80,8 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
         return _json(200, {"ok": True, "templates": store.list_templates()})
 
     if method == "GET" and p.startswith("/thumb/"):
-        tid = p.rsplit("/", 1)[-1]
+        from urllib.parse import unquote
+        tid = unquote(p.rsplit("/", 1)[-1])
         tpl = store.get_template(tid)
         image = Path(tpl.get("image_path") or "")
         if not tpl or not tpl.get("image_path") or not image.exists():
@@ -215,6 +216,53 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
         except Exception as e:
             return _json(500, {"ok": False, "error": str(e)[:120]})
         return 200, png, "image/png"
+
+    if method == "POST" and p == "/admin/measure":
+        tid = str(body.get("template_id") or "")
+        base = store.get_template(tid) if tid else {}
+        if body.get("settings") and isinstance(body["settings"], dict):
+            base.update(body["settings"])
+        ip = Path(base.get("image_path") or "")
+        if not ip.exists():
+            return _json(404, {"ok": False, "error": "القالب غير موجود"})
+        from PIL import Image
+        with Image.open(ip) as im:
+            size = im.size
+        names = ["أحمد", "محمد عبد الرحمن بن سلطان القحطاني العتيبي", "Ahmed Mohamed"]
+        out = []
+        for n in names:
+            fs = renderer.measure_text(base, n, size)
+            out.append({"name": n, "font_size": fs,
+                        "ratio": round(fs / max(1, size[1]), 4),
+                        "warning": fs < size[1] * 0.03})
+        return _json(200, {"ok": True, "tests": out})
+
+    if method == "POST" and p == "/admin/detect":
+        fname = str(body.get("filename") or body.get("template_id") or "").strip()
+        if "/" in fname or "\\" in fname:
+            return _json(400, {"ok": False, "error": "اسم ملف غير صالح"})
+        # لا نسمح بأي مسار أو امتداد خارج مجلد القوالب
+        clean = "".join(ch for ch in fname if ch.isalnum() or ch in "-_.")[:120]
+        if not clean or "/" in clean or "\\" in clean:
+            return _json(400, {"ok": False, "error": "اسم ملف غير صالح"})
+        candidate = store.templates_dir() / clean
+        if not candidate.exists() or not candidate.is_file():
+            return _json(404, {"ok": False, "error": "الصورة غير موجودة — ارفع القالب أولاً"})
+        if candidate.stat().st_size > 10 * 1024 * 1024:
+            return _json(413, {"ok": False, "error": "حجم الصورة يتجاوز 10MB"})
+        try:
+            from PIL import Image
+            with Image.open(candidate) as im:
+                im.verify()
+        except Exception:
+            return _json(400, {"ok": False, "error": "الملف ليس صورة صالحة"})
+        try:
+            from .detect import suggest_slots
+            suggestion = suggest_slots(candidate)
+        except Exception as e:
+            return _json(500, {"ok": False, "error": "تعذر الكشف: " + str(e)[:120]})
+        return _json(200, {"ok": True, "suggestion": suggestion,
+                           "filename": clean})
 
     if method == "GET" and p == "/admin/fonts":
         return _json(200, {"ok": True, "fonts": store.list_fonts()})

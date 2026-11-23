@@ -83,6 +83,36 @@ def _hex_color(value, default=(0, 0, 0)) -> Tuple[int, int, int]:
     return default
 
 
+def measure_text(template: Dict, text: str, image_size: tuple) -> int:
+    """احسب حجم الخط الفعلي بعد التصغير التلقائي ليناسب مكان الاسم."""
+    W, H = image_size
+    dummy = Image.new("RGBA", (max(1, W), max(1, H)))
+    dr = ImageDraw.Draw(dummy)
+    font_path = ""
+    if template.get("font_id"):
+        try:
+            from . import store as _store
+            fp = _store.get_font_path(template.get("font_id"))
+            if fp:
+                font_path = str(fp)
+        except Exception:
+            pass
+    if not font_path and template.get("style") in STYLE_FONTS and STYLE_FONTS[template.get("style")]:
+        c = ROOT / STYLE_FONTS[template.get("style")]
+        if c.exists():
+            font_path = str(c)
+    if not font_path:
+        font_path = _font_path(str(template.get("font") or ""))
+    box = template.get("name_box") or [int(W*0.1), int(H*0.35), int(W*0.8), int(H*0.2)]
+    try:
+        box = tuple(int(v) for v in box)
+    except Exception:
+        box = (int(W*0.1), int(H*0.35), int(W*0.8), int(H*0.2))
+    font = _fit_font(dr, _shape(text), box, font_path,
+                     int(template.get("font_size", 56)))
+    return int(font.size)
+
+
 def render_card(template: Dict, name: str, name2: str = "",
                 watermark_text: str = "@BodaNameCardsBot",
                 draw_watermark: bool = True) -> bytes:

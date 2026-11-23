@@ -37,6 +37,8 @@ th{color:var(--hint);font-weight:normal}
 .editor img{display:block;max-width:100%;max-height:430px}
 #overlay{position:absolute;border:2px dashed #ffcf4d;background:rgba(255,207,77,.14);cursor:move;display:none}
 #ov-handle{position:absolute;bottom:-6px;left:-6px;width:13px;height:13px;background:#ffcf4d;border-radius:3px;cursor:nwse-resize}
+.sug{position:absolute;border:2px dashed #3fb950;background:rgba(63,185,80,.10);pointer-events:none;display:none}
+.sug.quote{border-color:#62bcf9;background:rgba(98,188,249,.10)}
 #preview-img{max-width:100%;border-radius:10px;display:block;margin-top:9px}
 .thumb{width:54px;height:54px;object-fit:contain;border-radius:7px;background:#0d131b}
 .fontpreview{font-size:22px;line-height:1.4;padding:6px 0;color:var(--text)}
@@ -78,10 +80,19 @@ th{color:var(--hint);font-weight:normal}
         <h3>🖼️ محرّر القالب</h3>
         <div id="drop" class="drop">اسحب صورة القالب هنا أو اضغط للاختيار<br><span class="hint">PNG / JPG / WebP — حتى 10MB</span></div>
         <input id="file" type="file" accept="image/*" hidden>
+        <div class="row" style="margin-bottom:8px">
+          <button class="ghost sm" onclick="autoDetect()">🔍 اقتراح تلقائي</button>
+          <button class="ghost sm" onclick="acceptSuggestion()">✅ اعتماد الاقتراح</button>
+          <button class="ghost sm" onclick="testNames()">🧪 معاينة 3 أسماء</button>
+        </div>
+        <div id="sug-badge" class="badge" style="display:none"></div>
         <div id="editor" class="editor" style="display:none">
           <img id="editor-img" alt="قالب">
+          <div id="sug-name" class="sug"></div>
+          <div id="sug-quote" class="sug quote"></div>
           <div id="overlay"><div id="ov-handle" title="اسحب لتغيير الحجم"></div></div>
         </div>
+        <div id="test-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
         <p class="hint">اسحب على الصورة لتحديد مكان الاسم الكبير (name_box). للاسم الثاني فعّل الخيار ثم ارسم مستطيلاً ثانياً.</p>
         <label>معرّف القالب</label><input id="id" placeholder="art_gold">
         <label>اسم العرض</label><input id="tname" placeholder="ذهبي أنيق">
@@ -211,6 +222,7 @@ async function editTpl(id){
   if(!j.ok)return say(j.error,'err');
   const t=j.template;
   document.getElementById('id').value=t.id;document.getElementById('tname').value=t.name||'';
+  window.CURRENT_FILENAME=t.image||'';
   document.getElementById('stylesel').value=t.style||'classic';showStyleSample();
   document.getElementById('fontsel').value=t.font_id||'';
   document.getElementById('fontsize').value=t.font_size||110;
@@ -329,7 +341,68 @@ async function saveTemplate(){
   const s=settings();const payload=Object.assign(s,{image_base64:window.IMG_DATA?window.IMG_DATA.split(',')[1]:'',
     id:id,two_names:s.two_names,watermark:s.watermark,active:s.active});
   const j=await api('/api/cards/admin/upload',{method:'POST',headers:h(),body:JSON.stringify(payload)});
-  say(j.ok?'✅ تم حفظ القالب':(j.error||'فشل'),j.ok?'':'err');if(j.ok){await loadTemplates();if(j.template&&j.template.id)editTpl(j.template.id)}
+  say(j.ok?'✅ تم حفظ القالب':(j.error||'فشل'),j.ok?'':'err');
+  if(j.ok){
+    window.CURRENT_FILENAME=(j.template&&j.template.image)||(document.getElementById('id').value.trim()+'.png');
+    await loadTemplates();
+    if(j.template&&j.template.id)editTpl(j.template.id);
+    await autoDetect();
+  }
+}
+
+/* ── الكشف التلقائي عن منطقة الكتابة ─────────────────────────────────────── */
+function drawSuggestion(s){
+  const im=document.getElementById('editor-img');
+  const n=document.getElementById('sug-name'),q=document.getElementById('sug-quote');
+  if(!im||!s||!s.name){n.style.display='none';q.style.display='none';return}
+  const put=(el,r)=>{if(!r){el.style.display='none';return}
+    el.style.display='block';el.style.right=(r.x*100)+'%';el.style.top=(r.y*100)+'%';
+    el.style.width=(r.w*100)+'%';el.style.height=(r.h*100)+'%';};
+  put(n,s.name);put(q,s.quote);
+  const b=document.getElementById('sug-badge');
+  b.style.display='inline-flex';
+  b.textContent='🔍 ثقة الاقتراح: '+Math.round((s.confidence||0)*100)+'% · تباين '+(s.contrast||0);
+  b.className='badge'+((s.confidence||0)<0.5?' off':'');
+}
+async function autoDetect(){
+  const id=document.getElementById('id').value.trim();
+  const fn=window.CURRENT_FILENAME||(id?id+'.png':'');
+  if(!fn)return say('ارفع القالب أولاً ثم اطلب الاقتراح','err');
+  say('جارٍ تحليل الصورة…','warn');
+  const j=await api('/api/cards/admin/detect',{method:'POST',headers:h(),body:JSON.stringify({filename:fn})});
+  if(!j.ok){document.getElementById('sug-badge').style.display='none';return say(j.error||'فشل الكشف','err')}
+  window.SUGGESTION=j.suggestion;
+  drawSuggestion(j.suggestion);
+  const s=j.suggestion;
+  say(s.warning||('تم الاقتراح — راجعه ثم اضغط «اعتماد الاقتراح»'),s.warning?'warn':'');
+}
+function acceptSuggestion(){
+  const s=window.SUGGESTION,im=document.getElementById('editor-img');
+  if(!s||!s.name||!im)return say('لا يوجد اقتراح لاعتماده','err');
+  const W=im.naturalWidth||600,H=im.naturalHeight||600;
+  const px=r=>[Math.round(r.x*W),Math.round(r.y*H),Math.round(r.w*W),Math.round(r.h*H)];
+  window.EDIT_BOX=px(s.name);
+  window.EDIT_BOX2=s.quote?px(s.quote):null;
+  document.getElementById('two').checked=!!s.quote;
+  if(s.text_color)document.getElementById('color').value=s.text_color;
+  if(window._placeOverlay)window._placeOverlay();
+  say('✅ تم اعتماد الاقتراح — يمكنك تعديله بالسحب','ok');
+}
+async function testNames(){
+  const id=document.getElementById('id').value.trim();
+  if(!id)return say('احفظ القالب أولاً','err');
+  const box=document.getElementById('test-previews');box.innerHTML='⏳…';
+  const m=await api('/api/cards/admin/measure',{method:'POST',headers:h(),
+    body:JSON.stringify({template_id:id,settings:settings()})});
+  const previews=[];
+  for(const n of ['أحمد','محمد عبد الرحمن بن سلطان القحطاني العتيبي','Ahmed Mohamed']){
+    const r=await fetch(API+'/api/cards/admin/preview',{method:'POST',headers:h(),
+      body:JSON.stringify({template_id:id,name:n})});
+    if(r.ok)previews.push(URL.createObjectURL(await r.blob()));
+  }
+  box.innerHTML=previews.map((u,i)=>'<div style="text-align:center"><img src="'+u+'" style="width:190px;border-radius:8px">'+
+    '<div class="hint">'+['قصير','طويل جداً','إنجليزي'][i]+(m.ok&&m.tests[i]&&m.tests[i].warning?'<br><span style="color:var(--warn)">⚠️ الخط صغير جداً</span>':'')+'</div></div>').join('');
+  say('تم توليد معاينة الأسماء الثلاثة');
 }
 
 async function loadFonts(){
