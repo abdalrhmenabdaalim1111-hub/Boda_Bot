@@ -3,117 +3,332 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>⚙️ إدارة قوالب البطاقات — Boda</title>
+<title>⚙️ استوديو بطاقات بودة — الأدمن</title>
 <style>
-body{background:#0f141a;color:#eef2f7;font-family:Tahoma,Arial,sans-serif;padding:16px;max-width:820px;margin:auto}
-h1{font-size:20px} label{display:block;color:#93a4b8;font-size:12px;margin:8px 0 4px}
-input,textarea{width:100%;background:#111820;color:#eef2f7;border:1px solid #2b3542;border-radius:8px;padding:9px;font-family:inherit}
-button{background:#6d5dfc;color:#fff;border:none;border-radius:9px;padding:10px 14px;font-weight:bold;cursor:pointer;margin-top:10px}
-button.red{background:#b6233a}.card{background:#1a212a;border:1px solid #2b3542;border-radius:12px;padding:14px;margin-bottom:12px}
-pre{white-space:pre-wrap;font-size:11px;color:#93a4b8}.msg{font-size:13px;color:#3fb950}.err{color:#f85149}
-table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:6px;border-bottom:1px solid #2b3542;text-align:right}
+:root{--bg:#0b0f14;--surface:#131a22;--surface2:#1a2430;--text:#e8eef5;--hint:#8fa3b8;
+--brand:#6d5dfc;--line:#2a3644;--ok:#3fb950;--err:#f85149;--warn:#e3a33d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Tahoma,'Segoe UI',Arial,sans-serif;padding:14px;font-size:13px}
+.wrap{max-width:1100px;margin:auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+h1{font-size:20px;margin:0}.sub{color:var(--hint);font-size:12px;margin-top:3px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:#162b1c;color:var(--ok);font-size:11.5px}
+.badge.off{background:#3a1a1f;color:var(--err)}
+button{border:none;border-radius:9px;padding:9px 14px;font-size:12.5px;font-weight:bold;font-family:inherit;cursor:pointer;background:var(--brand);color:#fff}
+button.ghost{background:var(--surface2);color:var(--text)}button.red{background:#8f2338}
+button.sm{padding:5px 9px;font-size:11px}button:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{width:100%;background:#0d131b;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font-family:inherit;font-size:12.5px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+input[type=color]{padding:3px;height:36px}
+label{display:block;color:var(--hint);font-size:11.5px;margin:9px 0 4px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:12px}
+.tabs{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{background:var(--surface2);color:var(--hint)}.tabs button.active{background:var(--brand);color:#fff}
+.grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
+@media(max-width:850px){.grid2{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+th{color:var(--hint);font-weight:normal}
+.msg{min-height:20px;font-size:12.5px;color:var(--ok);margin-top:8px}
+.msg.err{color:var(--err)}.msg.warn{color:var(--warn)}
+.drop{border:2px dashed var(--line);border-radius:11px;padding:18px;text-align:center;color:var(--hint);cursor:pointer;margin-bottom:9px}
+.drop.over{border-color:var(--brand);color:var(--text)}
+.editor{position:relative;display:inline-block;max-width:100%;border-radius:10px;overflow:hidden;background:#000}
+.editor img{display:block;max-width:100%;max-height:430px}
+#overlay{position:absolute;border:2px dashed #ffcf4d;background:rgba(255,207,77,.14);cursor:crosshair;display:none}
+#preview-img{max-width:100%;border-radius:10px;display:block;margin-top:9px}
+.thumb{width:54px;height:54px;object-fit:contain;border-radius:7px;background:#0d131b}
+.fontpreview{font-size:22px;line-height:1.4;padding:6px 0;color:var(--text)}
+.hint{color:var(--hint);font-size:11.5px;line-height:1.8}
+.login{max-width:430px;margin:60px auto;text-align:center}
+.row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.row>input{flex:1;min-width:90px}
 </style>
 </head>
 <body>
-<h1>⚙️ إدارة قوالب «بطاقات بالاسم»</h1>
-<div class="card">
-  <label>مفتاح API (X-API-Key)</label>
-  <input id="key" type="password" placeholder="API_SERVER_KEY">
-  <button onclick="saveKey()">حفظ المفتاح وتحميل القوالب</button>
-  <div id="msg" class="msg"></div>
+<div class="wrap">
+<header>
+  <div><h1>⚙️ استوديو بطاقات بودة</h1><div class="sub">إدارة القوالب والخطوط والإحصائيات — Boda Name Cards</div></div>
+  <div id="auth-badge" class="badge off">🔒 غير مسجّل</div>
+</header>
+
+<!-- تسجيل الدخول -->
+<div id="login-box" class="card login">
+  <h2>🔐 مفتاح API (X-API-Key)</h2>
+  <p class="hint">هذا مفتاح حماية لوحة التحكم، وليس توكن البوت.<br>
+  الأسهل: افتح البوت وأرسل <b>/admin</b> — سيُدخلك تلقائياً.<br>
+  أو الصق المفتاح من ملف <code>.env</code> (السطر <code>API_SERVER_KEY</code>).</p>
+  <input id="key" type="password" placeholder="boda_xxxxx...">
+  <button onclick="login()">دخول اللوحة</button>
 </div>
 
-<div class="card">
-  <h3>القوالب الحالية</h3>
-  <div id="list">—</div>
-</div>
+<div id="app" style="display:none">
+  <div class="tabs">
+    <button data-tab="templates" class="active">🖼️ القوالب</button>
+    <button data-tab="fonts">🔤 الخطوط</button>
+    <button data-tab="stats">📊 الإحصائيات</button>
+    <button class="ghost" onclick="logout()">🚪 خروج</button>
+  </div>
 
-<div class="card">
-  <h3>مكتبة الخطوط (أرفع خطوطك مرة واحدة)</h3>
-  <div id="font-list" class="muted">—</div>
-  <label>معرّف الخط (مثال: calligraphy)</label><input id="font-id" placeholder="calligraphy">
-  <label>ملف الخط (TTF/OTF حتى 10MB)</label><input id="font-file" type="file" accept=".ttf,.otf">
-  <button onclick="uploadFont()">⬆️ رفع الخط</button>
-</div>
+  <!-- القوالب -->
+  <section id="tab-templates">
+    <div class="grid2">
+      <div class="card">
+        <h3>🖼️ محرّر القالب</h3>
+        <div id="drop" class="drop">اسحب صورة القالب هنا أو اضغط للاختيار<br><span class="hint">PNG / JPG / WebP — حتى 10MB</span></div>
+        <input id="file" type="file" accept="image/*" hidden>
+        <div id="editor" class="editor" style="display:none">
+          <img id="editor-img" alt="قالب">
+          <div id="overlay"></div>
+        </div>
+        <p class="hint">اسحب على الصورة لتحديد مكان الاسم الكبير (name_box). للاسم الثاني فعّل الخيار ثم ارسم مستطيلاً ثانياً.</p>
+        <label>معرّف القالب</label><input id="id" placeholder="art_gold">
+        <label>اسم العرض</label><input id="tname" placeholder="ذهبي أنيق">
+        <label>الخط الثابت</label><select id="fontsel"><option value="">افتراضي النظام</option></select>
+        <label>حجم الخط</label><input id="fontsize" value="110" type="number">
+        <div class="row">
+          <div><label>لون الخط</label><input id="color" type="color" value="#111111"></div>
+          <div><label>لون الظل</label><input id="shadow-color" type="color" value="#000000"></div>
+          <div><label>لون الحد</label><input id="stroke-color" type="color" value="#ffffff"></div>
+        </div>
+        <div class="row">
+          <div><label>ظل X</label><input id="shadow-x" value="3" type="number"></div>
+          <div><label>ظل Y</label><input id="shadow-y" value="5" type="number"></div>
+          <div><label>تمويه الظل</label><input id="shadow-blur" value="2" type="number"></div>
+          <div><label>عرض الحد</label><input id="stroke-w" value="0" type="number"></div>
+        </div>
+        <label>المحاذاة</label><select id="align"><option value="center">وسط</option><option value="right">يمين</option><option value="left">يسار</option></select>
+        <div class="row" style="margin-top:9px">
+          <label><input type="checkbox" id="two" style="width:auto"> قالب باسمين</label>
+          <label><input type="checkbox" id="wm" style="width:auto"> علامة مائية</label>
+          <label><input type="checkbox" id="active" checked style="width:auto"> مفعّل</label>
+        </div>
+        <label>نص تجريبي للمعاينة</label>
+        <div class="row"><input id="test-name" value="محمد"><input id="test-name2" value="سارة"></div>
+        <div class="row" style="margin-top:9px">
+          <button class="ghost" onclick="preview()">👁️ معاينة حية</button>
+          <button onclick="saveTemplate()">💾 حفظ القالب</button>
+        </div>
+        <div id="msg" class="msg"></div>
+        <img id="preview-img" style="display:none" alt="معاينة">
+      </div>
 
-<div class="card">
-  <h3>رفع قالب جديد</h3>
-  <label>معرّف القالب (إنجليزي، بدون مسافات)</label><input id="id" placeholder="elegant_gold">
-  <label>اسم العرض</label><input id="tname" placeholder="ذهبي أنيق">
-  <label>صورة القالب (PNG/JPG/WebP، حتى 10MB)</label><input id="file" type="file" accept="image/*">
-  <label>مكان الاسم — JSON: [x,y,w,h] (حسب بكسلات الصورة)</label>
-  <textarea id="box" rows="2">[20, 90, 460, 100]</textarea>
-  <label>مكان الاسم الثاني (اختياري)</label>
-  <textarea id="box2" rows="2">[20, 220, 460, 90]</textarea>
-  <label>الخط الثابت للقالب</label><select id="fontsel"><option value="">افتراضي النظام</option></select>
-  <label>حجم الخط / لون الخط / المحاذاة</label>
-  <input id="fontsize" value="56" type="number"><input id="color" type="color" value="#141414"><input id="align" value="center">
-  <label>الظل: اللون / الإزاحة الأفقية / العمودية / التمويه (Blur)</label>
-  <input id="shadow-color" type="color" value="#000000">
-  <input id="shadow-x" value="0" type="number"><input id="shadow-y" value="3" type="number"><input id="shadow-blur" value="0" type="number">
-  <label>حدود الحرف: العرض / اللون (0 يعني بلا حدود)</label>
-  <input id="stroke-w" value="0" type="number"><input id="stroke-color" type="color" value="#ffffff">
-  <label><input type="checkbox" id="two" style="width:auto"> قالب باسمين &nbsp; <input type="checkbox" id="wm" style="width:auto"> علامة مائية افتراضية &nbsp; <input type="checkbox" id="active" checked style="width:auto"> مفعّل</label>
-  <button onclick="upload()">⬆️ رفع القالب</button>
+      <div class="card">
+        <h3>📋 القوالب المحفوظة</h3>
+        <input id="search" placeholder="🔍 بحث..." oninput="renderTemplates()">
+        <div id="list" style="margin-top:9px;max-height:560px;overflow:auto"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- الخطوط -->
+  <section id="tab-fonts" class="hide">
+    <div class="grid2">
+      <div class="card">
+        <h3>🔤 رفع خط جديد</h3>
+        <div id="font-drop" class="drop">اسحب ملف TTF/OTF هنا أو اضغط للاختيار<br><span class="hint">حتى 10MB</span></div>
+        <input id="font-file" type="file" accept=".ttf,.otf" hidden>
+        <label>معرّف الخط</label><input id="font-id" placeholder="calligraphy">
+        <button onclick="uploadFont()">⬆️ رفع الخط</button>
+        <div id="font-msg" class="msg"></div>
+      </div>
+      <div class="card"><h3>📚 مكتبة الخطوط</h3><div id="font-list"></div></div>
+    </div>
+  </section>
+
+  <!-- الإحصائيات -->
+  <section id="tab-stats" class="hide">
+    <div class="card"><h3>📊 استخدام القوالب</h3><div id="stats"></div></div>
+    <div class="card"><h3>🕒 آخر الرسوم</h3><div id="recent"></div></div>
+  </section>
+</div>
 </div>
 
 <script>
 const API=location.origin;
-function key(){return localStorage.getItem('nc_admin_key')||''}
-function headers(){return {'Content-Type':'application/json','X-API-Key':key()}}
+function h(){return {'Content-Type':'application/json','X-API-Key':localStorage.getItem('nc_key')||''}}
 function say(t,c){const m=document.getElementById('msg');m.textContent=t;m.className='msg '+(c||'')}
-function saveKey(){localStorage.setItem('nc_admin_key',document.getElementById('key').value.trim());load()}
-async function load(){
+function fmsg(t,c){const m=document.getElementById('font-msg');m.textContent=t;m.className='msg '+(c||'')}
+function login(){
+  const k=document.getElementById('key').value.trim();
+  if(!k)return say('أدخل المفتاح أولاً','err');
+  localStorage.setItem('nc_key',k); checkAuth();
+}
+function logout(){localStorage.removeItem('nc_key');location.href=location.pathname}
+function checkAuth(){
+  const urlk=new URLSearchParams(location.search).get('key');
+  if(urlk){localStorage.setItem('nc_key',urlk);history.replaceState({},'',location.pathname)}
+  const ok=!!localStorage.getItem('nc_key');
+  document.getElementById('login-box').style.display=ok?'none':'block';
+  document.getElementById('app').style.display=ok?'block':'none';
+  const b=document.getElementById('auth-badge');
+  b.textContent=ok?'🔓 متصل باللوحة':'🔒 غير مسجّل'; b.className='badge'+(ok?'':' off');
+  if(ok)loadAll();
+}
+document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button[data-tab]').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  ['templates','fonts','stats'].forEach(t=>document.getElementById('tab-'+t).classList.toggle('hide',t!==b.dataset.tab));
+});
+async function api(url,opt){const r=await fetch(API+url,opt);const j=await r.json().catch(()=>({}));if(r.status===403){logout();throw new Error('انتهت الجلسة — سجّل الدخول مجدداً')}return j}
+
+async function loadAll(){await Promise.all([loadTemplates(),loadFonts(),loadStats()])}
+
+let ALL_TEMPLATES=[],FONTS=[];
+async function loadTemplates(){
+  const j=await api('/api/cards/admin/templates',{headers:h()});
+  if(!j.ok)return say(j.error||'فشل','err');
+  ALL_TEMPLATES=j.templates||[];FONTS=j.fonts||[];
+  const sel=document.getElementById('fontsel');
+  sel.innerHTML='<option value="">افتراضي النظام</option>'+FONTS.map(f=>'<option value="'+f.id+'">'+f.name+'</option>').join('');
+  renderTemplates();
+}
+function renderTemplates(){
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  const list=ALL_TEMPLATES.filter(t=>(t.name+' '+t.id).toLowerCase().includes(q));
+  document.getElementById('list').innerHTML=list.length?list.map(t=>
+    '<div class="card" style="padding:9px;margin-bottom:8px;display:flex;gap:9px;align-items:center">'+
+    '<img class="thumb" src="'+API+t.thumb+'">'+
+    '<div style="flex:1"><b>'+t.name+'</b><div class="hint">'+t.id+' · '+(t.active?'مفعّل':'معطّل')+' · '+t.uses+' استخدام</div></div>'+
+    '<button class="sm ghost" onclick="editTpl(\''+t.id+'\')">تعديل</button>'+
+    '<button class="sm ghost" onclick="toggleTpl(\''+t.id+'\','+(!t.active)+')">'+(t.active?'تعطيل':'تفعيل')+'</button>'+
+    '<button class="sm red" onclick="delTpl(\''+t.id+'\')">حذف</button></div>').join(''):'<div class="hint">لا توجد قوالب</div>';
+}
+async function editTpl(id){
+  const j=await api('/api/cards/admin/template?id='+encodeURIComponent(id),{headers:h()});
+  if(!j.ok)return say(j.error,'err');
+  const t=j.template;
+  document.getElementById('id').value=t.id;document.getElementById('tname').value=t.name||'';
+  document.getElementById('fontsel').value=t.font_id||'';
+  document.getElementById('fontsize').value=t.font_size||110;
+  document.getElementById('color').value=t.color||'#111111';
+  document.getElementById('shadow-color').value=t.shadow_color||'#000000';
+  document.getElementById('shadow-x').value=t.shadow_x||0;
+  document.getElementById('shadow-y').value=t.shadow_y||0;
+  document.getElementById('shadow-blur').value=t.shadow_blur||0;
+  document.getElementById('stroke-w').value=t.stroke_width||0;
+  document.getElementById('stroke-color').value=t.stroke_color||'#ffffff';
+  document.getElementById('align').value=t.align||'center';
+  document.getElementById('two').checked=!!t.two_names;document.getElementById('wm').checked=!!t.watermark;
+  document.getElementById('active').checked=!!t.active;
+  window.EDIT_BOX=t.name_box||null;window.EDIT_BOX2=t.name2_box||null;
+  const img=new Image();img.onload=()=>showEditor(img.src);img.src=API+t.thumb+'?t='+Date.now();
+  say('تم تحميل إعدادات القالب للتعديل','warn');
+}
+async function toggleTpl(id,active){await api('/api/cards/admin/toggle',{method:'POST',headers:h(),body:JSON.stringify({id,active})});loadTemplates()}
+async function delTpl(id){if(!confirm('حذف '+id+'؟'))return;await api('/api/cards/admin/delete',{method:'POST',headers:h(),body:JSON.stringify({id})});loadTemplates()}
+
+// ── محرّر الصورة ────────────────────────────────────────────────────────────
+let boxMode='box1';
+function showEditor(src){
+  const im=document.getElementById('editor-img');im.src=src;
+  document.getElementById('editor').style.display='inline-block';
+  const ov=document.getElementById('overlay');
+  const place=()=>{
+    const r=im.getBoundingClientRect();
+    const b=(boxMode==='box1'?window.EDIT_BOX:window.EDIT_BOX2)||[20,90,460,100];
+    const sx=r.width/(im.naturalWidth||r.width), sy=r.height/(im.naturalHeight||r.height);
+    ov.style.display='block';
+    ov.style.right=(b[0]*sx)+'px';ov.style.top=(b[1]*sy)+'px';
+    ov.style.width=(b[2]*sx)+'px';ov.style.height=(b[3]*sy)+'px';
+    window._scale=[sx,sy];
+  };
+  if(im.complete)place();else im.onload=place;
+  window._placeOverlay=place;
+}
+document.getElementById('drop').onclick=()=>document.getElementById('file').click();
+document.getElementById('drop').addEventListener('dragover',e=>{e.preventDefault();e.currentTarget.classList.add('over')});
+document.getElementById('drop').addEventListener('dragleave',e=>e.currentTarget.classList.remove('over'));
+document.getElementById('drop').addEventListener('drop',e=>{e.preventDefault();e.currentTarget.classList.remove('over');readImage(e.dataTransfer.files[0])});
+document.getElementById('file').onchange=e=>readImage(e.target.files[0]);
+function readImage(f){
+  if(!f)return;if(f.size>10*1024*1024)return say('الصورة أكبر من 10MB','err');
+  const r=new FileReader();r.onload=()=>{window.IMG_DATA=r.result;showEditor(r.result);say('تم تحميل الصورة — ارسم مكان الاسم','warn')};r.readAsDataURL(f);
+}
+const ov=document.getElementById('overlay');let drag=null;
+ov.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};ov.setPointerCapture(e.pointerId);e.preventDefault()});
+ov.addEventListener('pointermove',e=>{if(!drag)return;const im=document.getElementById('editor-img'),r=im.getBoundingClientRect();
+  const s=window._scale||[1,1];let x=ov.offsetLeft+(e.clientX-drag.x),y=ov.offsetTop+(e.clientY-drag.y);
+  x=Math.max(0,Math.min(x,r.width-ov.offsetWidth));y=Math.max(0,Math.min(y,r.height-ov.offsetHeight));
+  ov.style.left='auto';ov.style.right=(r.width-x-ov.offsetWidth)+'px';ov.style.top=y+'px';drag={x:e.clientX,y:e.clientY};});
+ov.addEventListener('pointerup',()=>{if(!drag)return;drag=null;syncBox()});
+function syncBox(){const im=document.getElementById('editor-img'),r=im.getBoundingClientRect(),s=window._scale||[1,1];
+  const b=[Math.round(parseFloat(ov.style.right)/s[0]),Math.round(parseFloat(ov.style.top)/s[1]),
+           Math.round(ov.offsetWidth/s[0]),Math.round(ov.offsetHeight/s[1])];
+  if(boxMode==='box1')window.EDIT_BOX=b;else window.EDIT_BOX2=b;}
+document.getElementById('two').onchange=e=>{boxMode=e.target.checked?'box2':'box1';if(window._placeOverlay)window._placeOverlay()};
+
+function settings(){return {
+  name:document.getElementById('tname').value.trim(),
+  font_id:document.getElementById('fontsel').value,
+  font_size:+document.getElementById('fontsize').value||110,
+  color:document.getElementById('color').value,
+  shadow_color:document.getElementById('shadow-color').value,
+  shadow_x:+document.getElementById('shadow-x').value||0,
+  shadow_y:+document.getElementById('shadow-y').value||0,
+  shadow_blur:+document.getElementById('shadow-blur').value||0,
+  stroke_width:+document.getElementById('stroke-w').value||0,
+  stroke_color:document.getElementById('stroke-color').value,
+  align:document.getElementById('align').value,
+  two_names:document.getElementById('two').checked,
+  watermark:document.getElementById('wm').checked,
+  active:document.getElementById('active').checked,
+  name_box:window.EDIT_BOX||[20,90,460,100],
+  name2_box:window.EDIT_BOX2||[20,220,460,90]}}
+
+async function preview(){
+  const p=document.getElementById('preview-img');
   try{
-    const r=await fetch(API+'/api/cards/admin/templates',{headers:headers()});
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'فشل');
-    document.getElementById('list').innerHTML='<table><tr><th>المعرّف</th><th>الاسم</th><th>حالة</th><th>استخدام</th><th></th></tr>'+
-      j.templates.map(t=>'<tr><td>'+t.id+'</td><td>'+t.name+'</td><td>'+(t.active?'مفعّل':'معطّل')+'</td><td>'+t.uses+'</td><td><button class="red" onclick="del(\''+t.id+'\')">حذف</button></td></tr>').join('')+'</table>';
-    const fonts=j.fonts||[];
-    const sel=document.getElementById('fontsel');
-    sel.innerHTML='<option value="">افتراضي النظام</option>'+fonts.map(f=>'<option value="'+f.id+'">'+f.name+'</option>').join('');
-    document.getElementById('font-list').innerHTML=fonts.length?fonts.map(f=>f.name+' ('+Math.round(f.size/1024)+'KB) <button class="red" onclick="delFont(\''+f.id+'\')">حذف</button>').join(' · '):'لا توجد خطوط مرفوعة';
-    say('تم التحميل');
+    const r=await fetch(API+'/api/cards/admin/preview',{method:'POST',headers:h(),body:JSON.stringify({
+      template_id:document.getElementById('id').value.trim(),settings:settings(),
+      name:document.getElementById('test-name').value.trim()||'محمد',
+      name2:document.getElementById('test-name2').value.trim()||'سارة'})});
+    if(!r.ok){const j=await r.json();return say(j.error||'فشل المعاينة','err')}
+    p.src=URL.createObjectURL(await r.blob());p.style.display='block';say('تم توليد المعاينة');
   }catch(e){say(e.message,'err')}
 }
-async function del(id){
-  if(!confirm('حذف القالب '+id+'؟'))return;
-  const r=await fetch(API+'/api/cards/admin/delete',{method:'POST',headers:headers(),body:JSON.stringify({id:id})});
-  const j=await r.json(); say(j.ok?'تم الحذف':(j.error||'فشل'),j.ok?'':'err'); load();
+async function saveTemplate(){
+  syncBox();const id=document.getElementById('id').value.trim();
+  if(!id)return say('اكتب معرّف القالب','err');
+  if(!window.IMG_DATA && !(ALL_TEMPLATES||[]).some(t=>t.id===id))return say('ارفع صورة القالب أولاً','err');
+  const s=settings();const payload=Object.assign(s,{image_base64:window.IMG_DATA?window.IMG_DATA.split(',')[1]:'',
+    id:id,two_names:s.two_names,watermark:s.watermark,active:s.active});
+  const j=await api('/api/cards/admin/upload',{method:'POST',headers:h(),body:JSON.stringify(payload)});
+  say(j.ok?'✅ تم حفظ القالب':(j.error||'فشل'),j.ok?'':'err');if(j.ok){await loadTemplates();if(j.template&&j.template.id)editTpl(j.template.id)}
 }
+
+async function loadFonts(){
+  const j=await api('/api/cards/admin/fonts',{headers:h()});if(!j.ok)return;FONTS=j.fonts||[];
+  document.getElementById('font-list').innerHTML=FONTS.length?FONTS.map(f=>
+    '<div class="card" style="padding:9px;margin-bottom:7px;display:flex;gap:9px;align-items:center">'+
+    '<style>@font-face{font-family:f_'+f.id+';src:url('+API+'/api/cards/admin/font/file?id='+f.id+')}</style>'+
+    '<div style="flex:1"><b>'+f.name+'</b><div class="fontpreview" style="font-family:f_'+f.id+'">اسمك هنا ✨</div>'+
+    '<div class="hint">'+Math.round(f.size/1024)+'KB</div></div>'+
+    '<button class="sm red" onclick="delFont(\''+f.id+'\')">حذف</button></div>').join(''):'<div class="hint">لا توجد خطوط مرفوعة</div>';
+}
+const fd=document.getElementById('font-drop');
+fd.onclick=()=>document.getElementById('font-file').click();
+fd.addEventListener('dragover',e=>{e.preventDefault();fd.classList.add('over')});
+fd.addEventListener('drop',e=>{e.preventDefault();fd.classList.remove('over');window.FONT_FILE=e.dataTransfer.files[0]});
+document.getElementById('font-file').onchange=e=>window.FONT_FILE=e.target.files[0];
 async function uploadFont(){
-  const f=document.getElementById('font-file').files[0];
-  if(!f) return say('اختر ملف خط أولاً','err');
-  if(f.size>10*1024*1024) return say('الخط أكبر من 10MB','err');
+  const f=window.FONT_FILE;if(!f)return fmsg('اختر ملف خط أولاً','err');
+  if(f.size>10*1024*1024)return fmsg('الخط أكبر من 10MB','err');
   const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]||'');r.onerror=rej;r.readAsDataURL(f)});
-  const payload={id:document.getElementById('font-id').value.trim(),font_base64:b64};
-  const r=await fetch(API+'/api/cards/admin/fonts/upload',{method:'POST',headers:headers(),body:JSON.stringify(payload)});
-  const j=await r.json(); say(j.ok?'تم رفع الخط':(j.error||'فشل'),j.ok?'':'err'); if(j.ok)load();
+  const j=await api('/api/cards/admin/fonts/upload',{method:'POST',headers:h(),body:JSON.stringify({id:document.getElementById('font-id').value.trim(),font_base64:b64})});
+  fmsg(j.ok?'✅ تم رفع الخط':(j.error||'فشل'),j.ok?'':'err');if(j.ok){window.FONT_FILE=null;await loadFonts();await loadTemplates()}
 }
-async function delFont(id){
-  if(!confirm('حذف الخط '+id+'؟'))return;
-  const r=await fetch(API+'/api/cards/admin/fonts/delete',{method:'POST',headers:headers(),body:JSON.stringify({id:id})});
-  const j=await r.json(); say(j.ok?'تم الحذف':(j.error||'فشل'),j.ok?'':'err'); load();
+async function delFont(id){if(!confirm('حذف الخط '+id+'؟'))return;await api('/api/cards/admin/fonts/delete',{method:'POST',headers:h(),body:JSON.stringify({id})});loadFonts();loadTemplates()}
+
+async function loadStats(){
+  const j=await api('/api/cards/admin/stats',{headers:h()});if(!j.ok)return;
+  const u=j.usage||{};
+  document.getElementById('stats').innerHTML='<table><tr><th>القالب</th><th>الاستخدام</th></tr>'+
+    Object.entries(u).map(([k,v])=>'<tr><td>'+k+'</td><td>'+v+'</td></tr>').join('')+'</table>'||'<div class="hint">لا توجد بيانات</div>';
+  document.getElementById('recent').innerHTML=(j.recent||[]).length?'<table><tr><th>الوقت</th><th>القالب</th><th>المستخدم</th><th>حالة</th></tr>'+
+    j.recent.map(r=>'<tr><td>'+r.ts+'</td><td>'+r.template_id+'</td><td>'+r.user_hash+'</td><td>'+(r.ok?'✅':'⚠️')+'</td></tr>').join('')+'</table>':'<div class="hint">لا توجد رسوم بعد</div>';
 }
-async function upload(){
-  const f=document.getElementById('file').files[0];
-  if(!f) return say('اختر صورة أولاً','err');
-  if(f.size>10*1024*1024) return say('الصورة أكبر من 10MB','err');
-  const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]||'');r.onerror=rej;r.readAsDataURL(f)});
-  let box,box2;
-  try{box=JSON.parse(document.getElementById('box').value);box2=JSON.parse(document.getElementById('box2').value||'[]')}catch(e){return say('خطأ في إحداثيات المكان (JSON)','err')}
-  const payload={id:document.getElementById('id').value.trim(),name:document.getElementById('tname').value.trim(),image_base64:b64,
-    name_box:box,name2_box:box2,font_id:document.getElementById('fontsel').value,
-    font_size:+document.getElementById('fontsize').value||56,color:document.getElementById('color').value,
-    align:document.getElementById('align').value,two_names:document.getElementById('two').checked,watermark:document.getElementById('wm').checked,
-    shadow_color:document.getElementById('shadow-color').value,shadow_x:+document.getElementById('shadow-x').value||0,
-    shadow_y:+document.getElementById('shadow-y').value||0,shadow_blur:+document.getElementById('shadow-blur').value||0,
-    stroke_width:+document.getElementById('stroke-w').value||0,stroke_color:document.getElementById('stroke-color').value,
-    active:document.getElementById('active').checked};
-  const r=await fetch(API+'/api/cards/admin/upload',{method:'POST',headers:headers(),body:JSON.stringify(payload)});
-  const j=await r.json(); say(j.ok?'تم رفع القالب':(j.error||'فشل'),j.ok?'':'err'); if(j.ok)load();
-}
-load();
+checkAuth();
 </script>
 </body>
 </html>

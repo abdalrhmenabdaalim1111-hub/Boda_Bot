@@ -69,6 +69,16 @@ def recent_cards(user_hash: str, limit: int = 5) -> List[Dict[str, Any]]:
     return [{"template_id": r["template_id"], "ts": r["ts"], "ok": bool(r["ok"])} for r in rows]
 
 
+def recent_all(limit: int = 20) -> List[Dict[str, Any]]:
+    ensure_tables()
+    db = _db()
+    with db._get_conn() as conn:
+        rows = conn.execute(
+            "SELECT ts,user_hash,template_id,ok FROM card_renders ORDER BY id DESC LIMIT ?",
+            (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def usage_map() -> Dict[str, int]:
     ensure_tables()
     db = _db()

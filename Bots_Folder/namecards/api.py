@@ -157,8 +157,57 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
                            "templates": store.list_templates(admin=True),
                            "fonts": store.list_fonts()})
 
+    if method == "GET" and p == "/admin/template":
+        tpl = store.get_template((qs.get("id") or [""])[0])
+        meta = dict(tpl)
+        meta.pop("image_path", None)
+        if not meta:
+            return _json(404, {"ok": False, "error": "القالب غير موجود"})
+        return _json(200, {"ok": True, "template": meta})
+
+    if method == "GET" and p == "/admin/stats":
+        return _json(200, {"ok": True, "usage": store.usage_map(),
+                           "recent": store.recent_all(20)})
+
+    if method == "POST" and p == "/admin/toggle":
+        tid = "".join(ch for ch in str(body.get("id") or "") if ch.isalnum() or ch in "-_")[:64]
+        tpl = store.get_template(tid)
+        if not tpl.get("image_path"):
+            return _json(404, {"ok": False, "error": "القالب غير موجود"})
+        meta = dict(tpl)
+        meta.pop("image_path", None)
+        meta["active"] = bool(body.get("active", True))
+        (store.templates_dir() / f"{tid}.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        return _json(200, {"ok": True, "active": meta["active"]})
+
+    if method == "POST" and p == "/admin/preview":
+        # معاينة WITHOUT إرسال إلى تيليجرام
+        tid = str(body.get("template_id") or "")
+        base = store.get_template(tid) if tid else {}
+        if body.get("settings") and isinstance(body["settings"], dict):
+            base.update(body["settings"])
+        if not base.get("image_path"):
+            return _json(404, {"ok": False, "error": "اختر قالباً أولاً"})
+        name = security.sanitize_name(body.get("name") or "تجربة")
+        name2 = security.sanitize_name(body.get("name2") or "")
+        try:
+            png = renderer.render_card(base, name, name2,
+                                       watermark_text="@" + _bot_username(),
+                                       draw_watermark=bool(base.get("watermark", False)) and not bool(body.get("remove_watermark")))
+        except Exception as e:
+            return _json(500, {"ok": False, "error": str(e)[:120]})
+        return 200, png, "image/png"
+
     if method == "GET" and p == "/admin/fonts":
         return _json(200, {"ok": True, "fonts": store.list_fonts()})
+
+    if method == "GET" and p == "/admin/font/file":
+        fp = store.get_font_path((qs.get("id") or [""])[0])
+        if not fp:
+            return _json(404, {"ok": False, "error": "الخط غير موجود"})
+        ct = "font/otf" if fp.suffix.lower() == ".otf" else "font/ttf"
+        return 200, fp.read_bytes(), ct
 
     if method == "POST" and p == "/admin/fonts/upload":
         fid = "".join(ch for ch in str(body.get("id") or "") if ch.isalnum() or ch in "-_")[:64]
