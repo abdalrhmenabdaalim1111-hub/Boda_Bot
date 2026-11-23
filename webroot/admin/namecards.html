@@ -75,6 +75,13 @@ th{color:var(--hint);font-weight:normal}
 
   <!-- القوالب -->
   <section id="tab-templates">
+    <div class="card" style="border-color:var(--brand)">
+      <h3>⚡ استيراد مجموعة صور جاهزة (الطريقة الأسهل)</h3>
+      <p class="hint">اختر عدة صور مرة واحدة → النظام يرفعها، يكشف مكان الاسم تلقائياً، يضبط الخط واللون، ويحفظها كقوالب جاهزة للمستخدمين. لا تحتاج أي إعداد يدوي.</p>
+      <input id="bulk-files" type="file" accept="image/*" multiple>
+      <button onclick="bulkImport()">📦 استيراد وحفظ تلقائي</button>
+      <div id="bulk-msg" class="msg"></div>
+    </div>
     <div class="grid2">
       <div class="card">
         <h3>🖼️ محرّر القالب</h3>
@@ -125,6 +132,9 @@ th{color:var(--hint);font-weight:normal}
           <label><input type="checkbox" id="wm" style="width:auto"> علامة مائية</label>
           <label><input type="checkbox" id="active" checked style="width:auto"> مفعّل</label>
         </div>
+        <label>عبارة جاهزة تحت الاسم (اختياري — تظهر تلقائياً للمستخدم)</label>
+        <input id="quote-text" placeholder="أنتِ كقطعة سكر وسط مرارة هذا العالم">
+        <label>حجم خط العبارة</label><input id="quote-size" value="44" type="number">
         <label>نص تجريبي للمعاينة</label>
         <div class="row"><input id="test-name" value="محمد"><input id="test-name2" value="سارة"></div>
         <div class="row" style="margin-top:9px">
@@ -236,6 +246,8 @@ async function editTpl(id){
   document.getElementById('align').value=t.align||'center';
   document.getElementById('two').checked=!!t.two_names;document.getElementById('wm').checked=!!t.watermark;
   document.getElementById('active').checked=!!t.active;
+  document.getElementById('quote-text').value=t.quote_text||'';
+  document.getElementById('quote-size').value=t.quote_font_size||44;
   window.EDIT_BOX=t.name_box||null;window.EDIT_BOX2=t.name2_box||null;
   const img=new Image();img.onload=()=>showEditor(img.src);img.src=API+t.thumb+'?t='+Date.now();
   say('تم تحميل إعدادات القالب للتعديل','warn');
@@ -321,7 +333,9 @@ function settings(){return {
   watermark:document.getElementById('wm').checked,
   active:document.getElementById('active').checked,
   name_box:window.EDIT_BOX||[20,90,460,100],
-  name2_box:window.EDIT_BOX2||[20,220,460,90]}}
+  name2_box:window.EDIT_BOX2||[20,220,460,90],
+  quote_text:document.getElementById('quote-text').value.trim(),
+  quote_font_size:+document.getElementById('quote-size').value||44}}
 
 async function preview(){
   const p=document.getElementById('preview-img');
@@ -403,6 +417,40 @@ async function testNames(){
   box.innerHTML=previews.map((u,i)=>'<div style="text-align:center"><img src="'+u+'" style="width:190px;border-radius:8px">'+
     '<div class="hint">'+['قصير','طويل جداً','إنجليزي'][i]+(m.ok&&m.tests[i]&&m.tests[i].warning?'<br><span style="color:var(--warn)">⚠️ الخط صغير جداً</span>':'')+'</div></div>').join('');
   say('تم توليد معاينة الأسماء الثلاثة');
+}
+
+async function bulkImport(){
+  const files=Array.from(document.getElementById('bulk-files').files||[]);
+  const msg=document.getElementById('bulk-msg');
+  if(!files.length){msg.textContent='اختر صوراً أولاً';msg.className='msg err';return}
+  let done=0;
+  for(const f of files){
+    try{
+      if(f.size>10*1024*1024){msg.textContent='تخطي '+f.name+' (أكبر من 10MB)';continue}
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]||'');r.onerror=rej;r.readAsDataURL(f)});
+      const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src='data:image/png;base64,'+b64});
+      const W=img.naturalWidth,H=img.naturalHeight;
+      let id=(f.name.replace(/\.[^.]+$/,'').replace(/[^\w\u0600-\u06FF-]+/g,'_').slice(0,48)||('tpl_'+Date.now()));
+      const base={id,name:id,image_base64:b64,style:'classic',font_size:230,color:'#151515',
+        name_box:[Math.round(W*0.07),Math.round(H*0.45),Math.round(W*0.86),Math.round(H*0.27)],
+        name2_box:[Math.round(W*0.11),Math.round(H*0.75),Math.round(W*0.78),Math.round(H*0.11)],
+        quote_text:'',quote_font_size:44,active:true,watermark:false,two_names:false};
+      let j=await api('/api/cards/admin/upload',{method:'POST',headers:h(),body:JSON.stringify(base)});
+      if(!j.ok)throw new Error(j.error||'فشل الرفع');
+      const d=await api('/api/cards/admin/detect',{method:'POST',headers:h(),body:JSON.stringify({filename:id+'.png'})});
+      if(d.ok&&d.suggestion&&d.suggestion.name){
+        const s=d.suggestion,px=r=>[Math.round(r.x*W),Math.round(r.y*H),Math.round(r.w*W),Math.round(r.h*H)];
+        base.name_box=px(s.name);
+        if(s.quote){base.name2_box=px(s.quote)}
+        if(s.text_color)base.color=s.text_color;
+        base.image_base64='';
+        await api('/api/cards/admin/upload',{method:'POST',headers:h(),body:JSON.stringify(base)});
+      }
+      done++;msg.textContent='تم استيراد '+done+' / '+files.length+' …';msg.className='msg';
+    }catch(e){msg.textContent='خطأ في '+f.name+': '+e.message;msg.className='msg err'}
+  }
+  msg.textContent='✅ تم استيراد '+done+' قالب جاهز';msg.className='msg';
+  await loadTemplates();
 }
 
 async function loadFonts(){

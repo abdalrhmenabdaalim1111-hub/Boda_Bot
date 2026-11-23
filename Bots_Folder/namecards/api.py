@@ -361,6 +361,8 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
             "stroke_color": body.get("stroke_color") or "#ffffff",
             "name_box": body.get("name_box") or [20, 90, 460, 100],
             "name2_box": body.get("name2_box") or [20, 220, 460, 90],
+            "quote_text": str(body.get("quote_text") or ""),
+            "quote_font_size": int(body.get("quote_font_size") or 44),
         }
         (directory / f"{tid}.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
