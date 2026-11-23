@@ -10,6 +10,7 @@ Bots_Folder/bot_namecards.py — بوت «بطاقات بالاسم».
 from __future__ import annotations
 
 import os
+import urllib.parse
 from pathlib import Path
 
 import telebot
@@ -41,6 +42,13 @@ if not _BASE:
 APP_URL = f"{_BASE}/namecards/"
 if not APP_URL.endswith("/"):
     APP_URL += "/"
+
+# لوحة الأدمن: مخصصة لمعرّفات محددة في BODA_ADMIN_IDS
+_ADMIN_IDS = {int(x) for x in
+              (os.getenv("BODA_ADMIN_IDS") or "").split(",") if x.strip().isdigit()}
+_API_KEY = (os.getenv("API_SERVER_KEY") or "").strip()
+_ADMIN_BASE = (os.getenv("BODA_API_BASE") or "").strip().rstrip("/") or _BASE
+ADMIN_URL = f"{_ADMIN_BASE}/admin/namecards.html?key={urllib.parse.quote(_API_KEY)}"
 
 WELCOME = (
     "🃏 <b>مرحباً بك في بوت بطاقات بالاسم</b>\n\n"
@@ -75,10 +83,30 @@ def cmd_help(message):
         "🃏 <b>مساعدة البوت</b>\n\n"
         "• /start — فتح التطبيق وإنشاء بطاقة\n"
         "• /mycards — آخر 5 بطاقات أنشأتها\n"
+        "• /admin — لوحة الأدمن (للأدمن فقط)\n"
         "• /help — هذه الرسالة\n\n"
         "للإنشاء: افتح التطبيق، اختر قالباً، اكتب الاسم، اضغط «إنشاء».\n"
         "ستصلك الصورة هنا في المحادثة.",
     )
+
+
+@bot.message_handler(commands=["admin"])
+def cmd_admin(message):
+    if message.from_user.id not in _ADMIN_IDS:
+        bot.send_message(message.chat.id, "⛔ هذا الأمر مخصص للأدمن فقط.")
+        return
+    kb = types.InlineKeyboardMarkup()
+    label = "⚙️ افتح لوحة الأدمن"
+    if ADMIN_URL.startswith("https://"):
+        kb.add(types.InlineKeyboardButton(label, web_app=types.WebAppInfo(url=ADMIN_URL)))
+    else:
+        kb.add(types.InlineKeyboardButton(label, url=ADMIN_URL))
+    bot.send_message(
+        message.chat.id,
+        "⚙️ <b>لوحة أدمن البطاقات</b>\n\n"
+        "تعمل من نفس خادم Boda (المنفذ 8080). إن كنت على جهاز آخر، "
+        "اضبط BODA_API_BASE برابط HTTPS عام قبل الإرسال.",
+        reply_markup=kb)
 
 
 @bot.message_handler(commands=["mycards"])
