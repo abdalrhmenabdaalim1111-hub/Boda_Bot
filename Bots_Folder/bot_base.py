@@ -8,6 +8,9 @@ import time
 import logging
 from pathlib import Path
 
+# إزالة البوتات من مسار الاستيراد المباشر إذا لزم الأمر
+sys.path.append(str(Path(__file__).parent.parent))
+
 # تحميل .env
 try:
     from dotenv import load_dotenv

@@ -121,6 +121,22 @@ class BodaDatabase:
                     UNIQUE(referrer_id, referred_id, bot_name)
                 );
 
+                -- بطاقات بالاسم: سجل الرسم وعدّاد استخدام القوالب
+                CREATE TABLE IF NOT EXISTS card_renders (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts          TEXT NOT NULL,
+                    user_hash   TEXT NOT NULL,
+                    template_id TEXT NOT NULL,
+                    ok          INTEGER DEFAULT 1
+                );
+                CREATE TABLE IF NOT EXISTS card_template_usage (
+                    template_id TEXT PRIMARY KEY,
+                    uses        INTEGER DEFAULT 0,
+                    last_used   TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_card_renders_user
+                    ON card_renders(user_hash);
+
                 -- جدول تفعيل الشبكة الموحد (الـ 5 بوتات)
                 CREATE TABLE IF NOT EXISTS network_activations (
                     id          INTEGER PRIMARY KEY AUTOINCREMENT,

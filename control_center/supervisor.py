@@ -273,7 +273,13 @@ class BotSupervisor:
         env = dict(os.environ)
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUNBUFFERED"] = "1"
-        env.setdefault("PYTHONPATH", str(self.base_dir))
+        # إضافة مجلد البوتات إلى PYTHONPATH لضمان نجاح الاستيرادات
+        bots_dir = str(self.base_dir / "Bots_Folder")
+        if "PYTHONPATH" in env:
+            env["PYTHONPATH"] = f"{bots_dir}{os.pathsep}{env['PYTHONPATH']}"
+        else:
+            env["PYTHONPATH"] = bots_dir
+        
         if bot_id:
             try:
                 from . import botconfig, crypto
@@ -294,7 +300,9 @@ class BotSupervisor:
                     if proc.info['pid'] == my_pid:
                         continue
                     cmd = " ".join(proc.info.get('cmdline') or [])
-                    if script_name.lower() in cmd.lower() and ("python" in (proc.info.get('name') or '').lower() or "python" in cmd.lower()):
+                    # تحديث الكاشف ليشمل كلا طريقتي التشغيل
+                    is_bot_proc = (script_name.lower() in cmd.lower() or f"bots_folder.{script.stem.lower()}" in cmd.lower())
+                    if is_bot_proc and ("python" in (proc.info.get('name') or '').lower() or "python" in cmd.lower()):
                         proc.kill()
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue

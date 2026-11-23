@@ -12,9 +12,12 @@ def kill_all_bot_processes():
             if 'python' in proc.info['name'].lower():
                 cmdline = proc.info['cmdline']
                 if cmdline:
-                    # تحقق إذا كان أي من وسائط الأمر يحتوي على مسار المشروع
-                    if any(str(BASE_DIR) in str(arg) for arg in cmdline):
-                        print(f"   - إيقاف العملية: {proc.pid}")
+                    # تحقق إذا كان أي من وسائط الأمر يحتوي على مسار المشروع أو اسم المجلد
+                    is_project_proc = any(str(BASE_DIR) in str(arg) for arg in cmdline)
+                    is_module_proc = any("Bots_Folder." in str(arg) for arg in cmdline)
+                    
+                    if is_project_proc or is_module_proc:
+                        print(f"   - إيقاف العملية: {proc.pid} ({' '.join(cmdline)})")
                         proc.kill()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass

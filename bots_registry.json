@@ -746,5 +746,28 @@
     "order": 108,
     "hidden_from_store": false,
     "url": "https://t.me/AlarmXProBot"
+  },
+  {
+    "id": "namecards",
+    "emoji": "🃏",
+    "name": "بطاقات بالاسم",
+    "description": "اختر قالباً، اكتب اسمك، وسنرسم لك بطاقة احترافية ونرسلها لك في المحادثة. يمكنك مشاهدة إعلان قصير لإزالة العلامة المائية.",
+    "short_desc": "اصنع بطاقتك باسمك 🃏",
+    "features": [
+      "قوالب جاهزة احترافية",
+      "رسم عربي بجودة عالية",
+      "إرسال الصورة في المحادثة",
+      "إزالة العلامة المائية بإعلان"
+    ],
+    "username": "BodaNameCardsBot",
+    "tag": "تصميم 🎨",
+    "category": "صور وتصميم",
+    "category_key": "design",
+    "category_icon": "🎨",
+    "tier": "heavy",
+    "featured": false,
+    "order": 206,
+    "hidden_from_store": false,
+    "url": "https://t.me/BodaNameCardsBot"
   }
 ]

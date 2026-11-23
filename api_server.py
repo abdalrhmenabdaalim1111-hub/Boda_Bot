@@ -531,12 +531,47 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Max-Age", "600")
         self.end_headers()
 
+    def _dispatch_namecards(self, method: str) -> bool:
+        """مرّر /api/cards و/api/promo إلى راوتر بطاقات بالاسم."""
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
+        if not (path.startswith("/api/cards") or path == "/api/promo"):
+            return False
+        try:
+            from Bots_Folder.namecards import api as nc_api
+        except Exception as e:
+            self._send_json(500, {"ok": False, "error": f"namecards غير متاح: {e}"})
+            return True
+        qs = parse_qs(parsed.query)
+        body: dict = {}
+        if method in WRITE_METHODS:
+            try:
+                length = min(int(self.headers.get("Content-Length") or 0), 12 * 1024 * 1024)
+                raw = self.rfile.read(length) if length else b""
+                if raw:
+                    body = json.loads(raw.decode("utf-8")) or {}
+            except Exception:
+                body = {}
+        subpath = path[len("/api/cards"):] if path.startswith("/api/cards") else "/promo"
+        try:
+            status, payload, ct = nc_api.dispatch(method, subpath, qs, body, self.headers)
+        except Exception as e:
+            self._send_json(500, {"ok": False, "error": str(e)[:200]})
+            return True
+        if isinstance(payload, bytes):
+            self._send_bytes(status, payload, content_type=ct)
+        else:
+            self._send_json(status, payload)
+        return True
+
     def do_GET(self):
         violation = self._policy_violation("GET")
         if violation:
             self._send_json(403, {"error": violation})
             return
         if self._dispatch_control_center("GET"):
+            return
+        if self._dispatch_namecards("GET"):
             return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
@@ -588,6 +623,21 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
                 return
             self._send_bytes(404, b"Not Found")
             return
+
+        # صفحة الأدمن للبطاقات — مسار محمي بمفتاح API (header أو ?key=)
+        if path in ("/admin/namecards", "/admin/namecards.html"):
+            qs_key = (parse_qs(parsed.query).get("key") or [""])[0]
+            supplied = qs_key or (self.headers.get("X-API-Key") or "").strip()
+            expected = (os.getenv("API_SERVER_KEY") or "").strip()
+            if expected and supplied != expected:
+                self._send_json(403, {"error": "Admin page forbidden — أضف ?key= أو X-API-Key"})
+                return
+            admin_file = WEBROOT_DIR / "admin" / "namecards.html"
+            if admin_file.exists():
+                self._send_bytes(200, admin_file.read_bytes(),
+                                 content_type="text/html; charset=utf-8")
+                return
+            self._send_json(404, {"error": "Admin page not built"})
 
         # تقديم تطبيقات الويب بدون حجب المفتاح (متاح لمستخدمي تيليجرام)
         if path.startswith("/apps"):
@@ -710,6 +760,8 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
             self._send_json(403, {"error": violation})
             return
         if self._dispatch_control_center("POST"):
+            return
+        if self._dispatch_namecards("POST"):
             return
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")

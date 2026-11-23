@@ -16,9 +16,9 @@ from urllib.parse import quote
 import telebot
 from telebot import types
 
-from Bots_Folder.bot_base import get_token, start_bot
-from Bots_Folder.gate_middleware import GateMiddleware
-from Bots_Folder.store_catalog import (
+from bot_base import get_token, start_bot
+from gate_middleware import GateMiddleware
+from store_catalog import (
     category_list,
     category_meta,
     bots_in_category,
@@ -29,8 +29,8 @@ from Bots_Folder.store_catalog import (
 )
 
 try:
-    from Bots_Folder import gate_check
-except ImportError:  # تشغيل مباشر من داخل Bots_Folder
+    import gate_check
+except ImportError:
     import gate_check
 
 TOKEN = get_token("BOT_STORE_TOKEN")

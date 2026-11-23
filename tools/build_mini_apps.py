@@ -755,7 +755,7 @@ def main():
         _preserved_markers = {}
         app_ids = {a["id"] for a in apps if a.get("id")}
         for child in list(out_dir.iterdir()):
-            if child.is_dir() and child.name not in ("data", "store", "assets", "dashboard", "shared"):
+            if child.is_dir() and child.name not in ("data", "store", "assets", "dashboard", "shared", "namecards", "admin"):
                 _old = child / "index.html"
                 if _old.exists():
                     try:
@@ -831,6 +831,19 @@ def main():
     (out_dir / "store").mkdir(exist_ok=True)
     (out_dir / "store" / "index.html").write_text(
         render_store(catalog, ads_cfg, api_base, stats), encoding="utf-8")
+
+    # تطبيق «بطاقات بالاسم» — يُنسخ من المصدر ولا يُبنى من app_defs
+    try:
+        import shutil as _shutil
+        _src = ROOT / "ui" / "namecards"
+        if (_src / "index.html").exists():
+            (out_dir / "namecards").mkdir(exist_ok=True)
+            _shutil.copy2(_src / "index.html", out_dir / "namecards" / "index.html")
+        if (_src / "admin.html").exists():
+            (out_dir / "admin").mkdir(exist_ok=True)
+            _shutil.copy2(_src / "admin.html", out_dir / "admin" / "namecards.html")
+    except Exception as e:
+        print(f"⚠️  تعذر نسخ تطبيق namecards: {e}")
 
     # لوحة التحليلات (Control Center dashboard) — صفحة مستقلة
     try:

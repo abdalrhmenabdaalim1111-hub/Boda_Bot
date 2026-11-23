@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#6d5dfc">
+<title>🃏 بطاقات بالاسم — Boda</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#0f141a;--surface:#1a212a;--text:#eef2f7;--hint:#93a4b8;--brand:#6d5dfc;--line:rgba(109,93,252,.45);}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Cairo',Tahoma,Arial,sans-serif;padding:14px 12px 90px;}
+.container{max-width:560px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--hint);font-size:12.5px;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:12.5px;color:var(--hint);margin:0 0 5px 2px}
+input,select{width:100%;padding:11px 12px;border-radius:10px;border:1.5px solid #2b3542;background:#111820;color:var(--text);font-family:inherit;font-size:15px;outline:none}
+input:focus{border-color:var(--brand)}
+button{border:none;border-radius:12px;padding:12px 16px;font-size:14.5px;font-weight:800;font-family:inherit;cursor:pointer;width:100%;background:var(--brand);color:#fff;margin-top:10px}
+button.ghost{background:#222d3a;color:var(--text)}
+button:disabled{opacity:.55;cursor:not-allowed}
+.tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:9px}
+.tpl{background:#111820;border:1.5px solid #2b3542;border-radius:13px;padding:8px;cursor:pointer;text-align:center;font-size:12.5px}
+.tpl.active{border-color:var(--brand);background:#1b1940}
+.tpl img{width:100%;height:94px;object-fit:contain;border-radius:8px;background:#0b0f14;display:block;margin-bottom:6px}
+.msg{text-align:center;font-size:13px;line-height:1.9;color:var(--hint);min-height:22px;margin-top:6px}
+.ok{color:#3fb950}.err{color:#f85149}
+#promo{display:none;background:#141d28;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px;font-size:12px;line-height:1.8}
+#promo a{color:#8ab4ff}
+.banner{background:linear-gradient(135deg,rgba(109,93,252,.28),transparent);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;font-size:12.5px;line-height:1.9}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="banner">🃏 اختر قالباً، اكتب اسمك، وسنرسم لك بطاقة ونرسلها لك في المحادثة.</div>
+  <h1>بطاقات بالاسم</h1>
+  <div class="sub">من تصميمات بودة — بدون إعلانات مزعجة</div>
+
+  <div class="card">
+    <label>١) اختر القالب</label>
+    <div id="templates" class="tpl-grid"><span class="msg">جارٍ تحميل القوالب…</span></div>
+  </div>
+
+  <div class="card">
+    <label for="name">٢) الاسم</label>
+    <input id="name" maxlength="30" placeholder="مثال: أحمد محمد">
+    <div id="name2-wrap" style="display:none;margin-top:10px">
+      <label for="name2">الاسم الثاني</label>
+      <input id="name2" maxlength="30" placeholder="الاسم الثاني">
+    </div>
+    <button id="go" onclick="create(false)">🎨 إنشاء وإرسال البطاقة</button>
+    <div id="msg" class="msg">اكتب اسماً واضغط إنشاء</div>
+  </div>
+
+  <div class="card" id="reward-card" style="display:none">
+    <div style="font-size:12.5px;color:var(--hint)">تظهر علامة مائية صغيرة على بعض القوالب.</div>
+    <button class="ghost" id="reward" onclick="watchAd()">🎬 شاهد إعلاناً لإزالة العلامة المائية</button>
+  </div>
+
+  <div id="promo"></div>
+</div>
+
+<script>
+const API = location.origin;
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
+const initData = tg ? (tg.initData || '') : '';
+const uid = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 0;
+let selected = null, lastPayload = null, adLoading = false;
+
+function say(text, cls){ const m=document.getElementById('msg'); m.textContent=text; m.className='msg '+(cls||''); }
+
+function loadMonetag(zone){
+  if(document.querySelector('script[data-sdk="show_'+zone+'"]')) return;
+  const s=document.createElement('script');
+  s.src='https://libtl.com/sdk.js';
+  s.dataset.zone=zone; s.dataset.sdk='show_'+zone; s.async=true;
+  document.head.appendChild(s);
+}
+loadMonetag('10274259');
+
+async function loadTemplates(){
+  try{
+    const r = await fetch(API+'/api/cards/templates?init_data='+encodeURIComponent(initData));
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || 'فشل التحميل');
+    const box=document.getElementById('templates');
+    if(!(j.templates||[]).length){ box.innerHTML='<span class="msg">لا توجد قوالب مفعّلة بعد</span>'; return; }
+    box.innerHTML=j.templates.map(t=>
+      '<div class="tpl" data-id="'+t.id+'" data-two="'+(t.two_names?'1':'0')+'" onclick="pick(this)">'+
+      '<img src="'+API+t.thumb+'" alt=""><div>'+t.name+'</div></div>').join('');
+  }catch(e){ say(e.message,'err'); }
+}
+function pick(el){
+  document.querySelectorAll('.tpl').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active'); selected=el.dataset.id;
+  document.getElementById('name2-wrap').style.display = el.dataset.two==='1'?'block':'none';
+  document.getElementById('reward-card').style.display='block';
+  say('تم اختيار القالب: '+el.textContent.trim());
+}
+async function create(removeWatermark){
+  if(!selected) return say('اختر قالباً أولاً','err');
+  const name=document.getElementById('name').value.trim();
+  if(!name) return say('اكتب اسماً أولاً','err');
+  if(!initData) return say('افتح التطبيق من داخل البوت أولاً','err');
+  const payload={init_data:initData, template_id:selected, name:name,
+    name2:document.getElementById('name2').value.trim(), remove_watermark:!!removeWatermark};
+  lastPayload=payload;
+  const btn=document.getElementById('go'); btn.disabled=true; say('جارٍ الرسم والإرسال…');
+  try{
+    const r=await fetch(API+'/api/cards/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'فشل الإنشاء');
+    say(j.message||'تم الإرسال ✅','ok');
+    if(tg){ try{ tg.HapticFeedback.notificationOccurred('success'); }catch(e){} }
+    share(j.share_url);
+  }catch(e){ say(e.message,'err'); }
+  finally{ btn.disabled=false; }
+}
+function share(url){
+  const text='جرّب بوت بطاقات بالاسم 🃏';
+  if(tg && tg.openTelegramLink){ tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text)); }
+}
+function watchAd(){
+  if(adLoading) return; adLoading=true;
+  say('جارٍ تحميل الإعلان…');
+  try{
+    const fn=window.show_10274259;
+    if(typeof fn!=='function') throw new Error('تعذر تحميل الإعلان الواحد؟ حاول مجدداً');
+    Promise.resolve(fn()).then(()=>{ adLoading=false; say('تمت المشاهدة — أعد الإنشاء لإزالة العلامة المائية','ok'); create(true); })
+      .catch(()=>{ adLoading=false; say('لم تكتمل المشاهدة','err'); });
+  }catch(e){ adLoading=false; say(e.message,'err'); }
+}
+
+async function loadPromo(){
+  try{
+    const r=await fetch(API+'/api/promo?user_id='+uid+'&source_bot=namecards');
+    if(!r.ok) return;
+    const j=await r.json();
+    const text=j.text||j.message||'';
+    if(!text) return;
+    const box=document.getElementById('promo');
+    box.innerHTML='📢 '+text+(j.url?' <a href="'+j.url+'" target="_blank">المزيد</a>':'');
+    box.style.display='block';
+  }catch(e){ /* صمت تام عند الفشل */ }
+}
+loadTemplates(); loadPromo();
+</script>
+</body>
+</html>

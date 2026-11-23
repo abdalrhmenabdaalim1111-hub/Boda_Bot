@@ -15,7 +15,7 @@ import time
 import logging
 import threading
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import requests
 
