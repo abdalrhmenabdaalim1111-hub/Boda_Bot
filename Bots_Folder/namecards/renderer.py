@@ -20,6 +20,14 @@ except Exception:  # fallback آمن
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# أنماط نص عربية احترافية مدمجة (لا حاجة لرفع خطوط)
+STYLE_FONTS = {
+    "thuluth": "assets/fonts/namecards/Rakkas.ttf",   # ثلث زخرفي — الأقرب للصور
+    "ruqaa": "assets/fonts/namecards/ArefRuqaa.ttf",  # رقعة
+    "classic": "assets/fonts/namecards/Amiri.ttf",    # نسخ كلاسيكي
+    "system": "",                                      # خط النظام
+}
+
 
 def _font_path(preferred: str = "") -> str:
     candidates = []
@@ -96,6 +104,12 @@ def render_card(template: Dict, name: str, name2: str = "",
                 font_path = str(fp)
         except Exception:
             pass
+    if not font_path:
+        style = str(template.get("style") or "")
+        if style in STYLE_FONTS and STYLE_FONTS[style]:
+            candidate = ROOT / STYLE_FONTS[style]
+            if candidate.exists():
+                font_path = str(candidate)
     if not font_path:
         font_path = _font_path(str(template.get("font") or ""))
 

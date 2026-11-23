@@ -87,6 +87,23 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
             return _json(404, {"ok": False, "error": "القالب غير موجود"})
         return 200, image.read_bytes(), "image/png"
 
+    if method == "GET" and p == "/styles":
+        from .renderer import STYLE_FONTS
+        names = {"thuluth": "ثلث زخرفي", "ruqaa": "رقعة فني", "classic": "نسخ كلاسيكي", "system": "خط النظام"}
+        return _json(200, {"ok": True, "styles": [
+            {"id": k, "name": names.get(k, k)} for k in STYLE_FONTS]})
+
+    if method == "GET" and p == "/style/font":
+        from .renderer import STYLE_FONTS, ROOT as _R
+        sid = (qs.get("style") or [""])[0]
+        rel = STYLE_FONTS.get(sid, "")
+        if not rel:
+            return _json(404, {"ok": False, "error": "نمط غير معروف"})
+        fp = _R / rel
+        if not fp.exists():
+            return _json(404, {"ok": False, "error": "الخط غير موجود"})
+        return 200, fp.read_bytes(), "font/ttf"
+
     if method == "GET" and p == "/promo":
         try:
             from control_center.promo import get_promo_for_user
@@ -283,6 +300,7 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
             "two_names": bool(body.get("two_names", False)),
             "watermark": bool(body.get("watermark", False)),
             "font": str(body.get("font") or ""),
+            "style": str(body.get("style") or "thuluth"),
             "font_id": str(body.get("font_id") or ""),
             "font_size": int(body.get("font_size") or 56),
             "color": body.get("color") or "#141414",

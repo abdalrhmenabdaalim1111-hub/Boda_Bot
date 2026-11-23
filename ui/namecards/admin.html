@@ -35,7 +35,8 @@ th{color:var(--hint);font-weight:normal}
 .drop.over{border-color:var(--brand);color:var(--text)}
 .editor{position:relative;display:inline-block;max-width:100%;border-radius:10px;overflow:hidden;background:#000}
 .editor img{display:block;max-width:100%;max-height:430px}
-#overlay{position:absolute;border:2px dashed #ffcf4d;background:rgba(255,207,77,.14);cursor:crosshair;display:none}
+#overlay{position:absolute;border:2px dashed #ffcf4d;background:rgba(255,207,77,.14);cursor:move;display:none}
+#ov-handle{position:absolute;bottom:-6px;left:-6px;width:13px;height:13px;background:#ffcf4d;border-radius:3px;cursor:nwse-resize}
 #preview-img{max-width:100%;border-radius:10px;display:block;margin-top:9px}
 .thumb{width:54px;height:54px;object-fit:contain;border-radius:7px;background:#0d131b}
 .fontpreview{font-size:22px;line-height:1.4;padding:6px 0;color:var(--text)}
@@ -79,12 +80,21 @@ th{color:var(--hint);font-weight:normal}
         <input id="file" type="file" accept="image/*" hidden>
         <div id="editor" class="editor" style="display:none">
           <img id="editor-img" alt="قالب">
-          <div id="overlay"></div>
+          <div id="overlay"><div id="ov-handle" title="اسحب لتغيير الحجم"></div></div>
         </div>
         <p class="hint">اسحب على الصورة لتحديد مكان الاسم الكبير (name_box). للاسم الثاني فعّل الخيار ثم ارسم مستطيلاً ثانياً.</p>
         <label>معرّف القالب</label><input id="id" placeholder="art_gold">
         <label>اسم العرض</label><input id="tname" placeholder="ذهبي أنيق">
-        <label>الخط الثابت</label><select id="fontsel"><option value="">افتراضي النظام</option></select>
+        <label>نمط الخط الاحترافي (جاهز — لا تحتاج رفع خطوط)</label>
+        <select id="stylesel" onchange="showStyleSample()">
+          <option value="thuluth">ثلث زخرفي (الأقرب للصور)</option>
+          <option value="ruqaa">رقعة فني</option>
+          <option value="classic">نسخ كلاسيكي</option>
+          <option value="system">خط النظام</option>
+        </select>
+        <div id="style-sample" class="fontpreview" style="color:var(--text)">محمد</div>
+        <label>أو خط مرفوع مخصص (اختياري — يتغلب على النمط)</label>
+        <select id="fontsel"><option value="">بدون — استخدم النمط أعلاه</option></select>
         <label>حجم الخط</label><input id="fontsize" value="110" type="number">
         <div class="row">
           <div><label>لون الخط</label><input id="color" type="color" value="#111111"></div>
@@ -163,7 +173,8 @@ function checkAuth(){
   document.getElementById('app').style.display=ok?'block':'none';
   const b=document.getElementById('auth-badge');
   b.textContent=ok?'🔓 متصل باللوحة':'🔒 غير مسجّل'; b.className='badge'+(ok?'':' off');
-  if(ok)loadAll();
+  if(ok){loadAll();showStyleSample()}
+  document.getElementById('test-name').addEventListener('input',showStyleSample);
 }
 document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tabs button[data-tab]').forEach(x=>x.classList.remove('active'));
@@ -199,6 +210,7 @@ async function editTpl(id){
   if(!j.ok)return say(j.error,'err');
   const t=j.template;
   document.getElementById('id').value=t.id;document.getElementById('tname').value=t.name||'';
+  document.getElementById('stylesel').value=t.style||'thuluth';showStyleSample();
   document.getElementById('fontsel').value=t.font_id||'';
   document.getElementById('fontsize').value=t.font_size||110;
   document.getElementById('color').value=t.color||'#111111';
@@ -229,7 +241,7 @@ function showEditor(src){
     const b=(boxMode==='box1'?window.EDIT_BOX:window.EDIT_BOX2)||[20,90,460,100];
     const sx=r.width/(im.naturalWidth||r.width), sy=r.height/(im.naturalHeight||r.height);
     ov.style.display='block';
-    ov.style.right=(b[0]*sx)+'px';ov.style.top=(b[1]*sy)+'px';
+    ov.style.left=(b[0]*sx)+'px';ov.style.top=(b[1]*sy)+'px';
     ov.style.width=(b[2]*sx)+'px';ov.style.height=(b[3]*sy)+'px';
     window._scale=[sx,sy];
   };
@@ -245,21 +257,43 @@ function readImage(f){
   if(!f)return;if(f.size>10*1024*1024)return say('الصورة أكبر من 10MB','err');
   const r=new FileReader();r.onload=()=>{window.IMG_DATA=r.result;showEditor(r.result);say('تم تحميل الصورة — ارسم مكان الاسم','warn')};r.readAsDataURL(f);
 }
-const ov=document.getElementById('overlay');let drag=null;
-ov.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};ov.setPointerCapture(e.pointerId);e.preventDefault()});
-ov.addEventListener('pointermove',e=>{if(!drag)return;const im=document.getElementById('editor-img'),r=im.getBoundingClientRect();
-  const s=window._scale||[1,1];let x=ov.offsetLeft+(e.clientX-drag.x),y=ov.offsetTop+(e.clientY-drag.y);
+const ov=document.getElementById('overlay');let drag=null,resizing=null;
+ov.addEventListener('pointerdown',e=>{if(e.target.id==='ov-handle')return;drag={x:e.clientX,y:e.clientY};ov.setPointerCapture(e.pointerId);e.preventDefault()});
+document.getElementById('ov-handle').addEventListener('pointerdown',e=>{
+  e.stopPropagation();
+  resizing={x:e.clientX,y:e.clientY,w:ov.offsetWidth||parseFloat(ov.style.width||0),h:ov.offsetHeight||parseFloat(ov.style.height||0)};
+  ov.setPointerCapture(e.pointerId);e.preventDefault();});
+ov.addEventListener('pointermove',e=>{
+  const im=document.getElementById('editor-img'),r=im.getBoundingClientRect();
+  if(resizing){
+    let w=resizing.w+(e.clientX-resizing.x),h=resizing.h+(e.clientY-resizing.y);
+    w=Math.max(30,Math.min(w,r.width-ov.offsetLeft));h=Math.max(20,Math.min(h,r.height-ov.offsetTop));
+    ov.style.width=w+'px';ov.style.height=h+'px';return;
+  }
+  if(!drag)return;
+  let x=ov.offsetLeft+(e.clientX-drag.x),y=ov.offsetTop+(e.clientY-drag.y);
   x=Math.max(0,Math.min(x,r.width-ov.offsetWidth));y=Math.max(0,Math.min(y,r.height-ov.offsetHeight));
-  ov.style.left='auto';ov.style.right=(r.width-x-ov.offsetWidth)+'px';ov.style.top=y+'px';drag={x:e.clientX,y:e.clientY};});
-ov.addEventListener('pointerup',()=>{if(!drag)return;drag=null;syncBox()});
-function syncBox(){const im=document.getElementById('editor-img'),r=im.getBoundingClientRect(),s=window._scale||[1,1];
-  const b=[Math.round(parseFloat(ov.style.right)/s[0]),Math.round(parseFloat(ov.style.top)/s[1]),
-           Math.round(ov.offsetWidth/s[0]),Math.round(ov.offsetHeight/s[1])];
+  ov.style.left=x+'px';ov.style.top=y+'px';drag={x:e.clientX,y:e.clientY};});
+ov.addEventListener('pointerup',()=>{if(resizing){resizing=null;syncBox();return}if(!drag)return;drag=null;syncBox()});
+function syncBox(){const s=window._scale||[1,1];
+  const w=ov.offsetWidth||parseFloat(ov.style.width||0)||0;
+  const h=ov.offsetHeight||parseFloat(ov.style.height||0)||0;
+  const b=[Math.round(parseFloat(ov.style.left||0)/s[0]),Math.round(parseFloat(ov.style.top||0)/s[1]),
+           Math.round(w/s[0]),Math.round(h/s[1])];
   if(boxMode==='box1')window.EDIT_BOX=b;else window.EDIT_BOX2=b;}
 document.getElementById('two').onchange=e=>{boxMode=e.target.checked?'box2':'box1';if(window._placeOverlay)window._placeOverlay()};
 
+function showStyleSample(){
+  const st=document.getElementById('stylesel').value;
+  let s=document.getElementById('dyn-style');
+  if(!s){s=document.createElement('style');s.id='dyn-style';document.head.appendChild(s)}
+  s.textContent="@font-face{font-family:boda_dyn;src:url('"+API+"/api/cards/style/font?style="+st+"')}";
+  document.getElementById('style-sample').style.fontFamily=st==='system'?'Tahoma':'boda_dyn';
+  document.getElementById('style-sample').textContent=document.getElementById('test-name').value.trim()||'محمد';
+}
 function settings(){return {
   name:document.getElementById('tname').value.trim(),
+  style:document.getElementById('stylesel').value,
   font_id:document.getElementById('fontsel').value,
   font_size:+document.getElementById('fontsize').value||110,
   color:document.getElementById('color').value,

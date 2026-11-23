@@ -48,3 +48,6 @@ API_SERVER_KEY=boda_xxxxx...
 
 ## الاختبارات
 `python -m pytest tests/test_namecards.py -q`
+
+## أنماط النص الجاهزة
+ثلث زخرفي (Rakkas) / رقعة (Aref Ruqaa) / نسخ كلاسيكي (Amiri) — مضمّنة في assets/fonts/namecards/، لا حاجة لرفع خطوط.
