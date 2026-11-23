@@ -23,7 +23,15 @@ from Bots_Folder.bot_base import get_token, start_bot
 from Bots_Folder import gate_check
 from Bots_Folder.namecards import security, store
 
-TOKEN = get_token("NAMECARDS_BOT_TOKEN")
+# التوكين يُحفظ مشفراً عبر لوحة التحكم (زر «تحديث توكن البوت»)،
+# مع دعم الاحتياطي من .env والاسم الذي يحقنه Supervisor.
+TOKEN = ""
+try:
+    from control_center.botconfig import resolve_token as _resolve_token
+    TOKEN = _resolve_token("namecards") or ""
+except Exception:
+    pass
+TOKEN = TOKEN or get_token("NAMECARDS_BOT_TOKEN") or get_token("BOT_NAMECARDS_TOKEN")
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 _BASE = os.getenv("MINIAPPS_BASE_URL", "").strip().rstrip("/")

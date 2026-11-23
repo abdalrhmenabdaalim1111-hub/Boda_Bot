@@ -15,8 +15,13 @@ from typing import Tuple, Dict, Any
 
 from . import security, store, renderer
 
-TOKEN = (os.getenv("NAMECARDS_BOT_TOKEN") or "").strip()
-BOT_USERNAME = (os.getenv("NAMECARDS_BOT_USERNAME") or "BodaNameCardsBot").strip().lstrip("@")
+TOKEN = (os.getenv("NAMECARDS_BOT_TOKEN") or os.getenv("BOT_NAMECARDS_TOKEN") or "").strip()
+try:
+    from control_center.botconfig import resolve_token as _resolve_token
+    TOKEN = _resolve_token("namecards") or TOKEN
+except Exception:
+    pass
+BOT_USERNAME = (os.getenv("NAMECARDS_BOT_USERNAME") or "NameOnPicBot").strip().lstrip("@")
 ADMIN_KEY = (os.getenv("API_SERVER_KEY") or "").strip()
 
 _bot = None

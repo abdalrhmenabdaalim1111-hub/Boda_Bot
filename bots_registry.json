@@ -759,7 +759,7 @@
       "إرسال الصورة في المحادثة",
       "إزالة العلامة المائية بإعلان"
     ],
-    "username": "BodaNameCardsBot",
+    "username": "NameOnPicBot",
     "tag": "تصميم 🎨",
     "category": "صور وتصميم",
     "category_key": "design",
@@ -768,6 +768,6 @@
     "featured": false,
     "order": 206,
     "hidden_from_store": false,
-    "url": "https://t.me/BodaNameCardsBot"
+    "url": "https://t.me/NameOnPicBot"
   }
 ]
