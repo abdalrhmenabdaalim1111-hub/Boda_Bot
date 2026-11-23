@@ -87,7 +87,8 @@ th{color:var(--hint);font-weight:normal}
         <label>اسم العرض</label><input id="tname" placeholder="ذهبي أنيق">
         <label>نمط الخط الاحترافي (جاهز — لا تحتاج رفع خطوط)</label>
         <select id="stylesel" onchange="showStyleSample()">
-          <option value="thuluth">ثلث زخرفي (الأقرب للصور)</option>
+          <option value="classic">نسخ كلاسيكي (الأفضل للعربية)</option>
+          <option value="thuluth">ثلث زخرفي</option>
           <option value="ruqaa">رقعة فني</option>
           <option value="classic">نسخ كلاسيكي</option>
           <option value="system">خط النظام</option>
@@ -210,7 +211,7 @@ async function editTpl(id){
   if(!j.ok)return say(j.error,'err');
   const t=j.template;
   document.getElementById('id').value=t.id;document.getElementById('tname').value=t.name||'';
-  document.getElementById('stylesel').value=t.style||'thuluth';showStyleSample();
+  document.getElementById('stylesel').value=t.style||'classic';showStyleSample();
   document.getElementById('fontsel').value=t.font_id||'';
   document.getElementById('fontsize').value=t.font_size||110;
   document.getElementById('color').value=t.color||'#111111';
