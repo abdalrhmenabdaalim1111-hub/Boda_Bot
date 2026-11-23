@@ -46,6 +46,8 @@ if not APP_URL.endswith("/"):
 # لوحة الأدمن: مخصصة لمعرّفات محددة في BODA_ADMIN_IDS
 _ADMIN_IDS = {int(x) for x in
               (os.getenv("BODA_ADMIN_IDS") or "").split(",") if x.strip().isdigit()}
+_ADMIN_USERNAMES = {x.strip().lstrip("@").lower() for x in
+                    (os.getenv("BODA_ADMIN_USERNAMES") or "").split(",") if x.strip()}
 _API_KEY = (os.getenv("API_SERVER_KEY") or "").strip()
 _ADMIN_BASE = (os.getenv("BODA_API_BASE") or "").strip().rstrip("/") or _BASE
 ADMIN_URL = f"{_ADMIN_BASE}/admin/namecards.html?key={urllib.parse.quote(_API_KEY)}"
@@ -92,7 +94,9 @@ def cmd_help(message):
 
 @bot.message_handler(commands=["admin"])
 def cmd_admin(message):
-    if message.from_user.id not in _ADMIN_IDS:
+    uname = (getattr(message.from_user, "username", "") or "").lstrip("@").lower()
+    is_admin = (message.from_user.id in _ADMIN_IDS or uname in _ADMIN_USERNAMES)
+    if not is_admin:
         bot.send_message(message.chat.id, "⛔ هذا الأمر مخصص للأدمن فقط.")
         return
     kb = types.InlineKeyboardMarkup()
