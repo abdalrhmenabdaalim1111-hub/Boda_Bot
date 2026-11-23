@@ -52,7 +52,6 @@ WELCOME = (
 def _app_markup() -> types.InlineKeyboardMarkup:
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton("📱 افتح التطبيق", web_app=types.WebAppInfo(url=APP_URL)))
-    kb.add(types.InlineKeyboardButton("🌐 فتح في المتصفح", url=APP_URL))
     kb.add(types.InlineKeyboardButton("🏪 متجر بودة", url="https://t.me/BodaStoreeBot"))
     return kb
 

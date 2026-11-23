@@ -29,6 +29,14 @@ table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:6px;borde
 </div>
 
 <div class="card">
+  <h3>مكتبة الخطوط (أرفع خطوطك مرة واحدة)</h3>
+  <div id="font-list" class="muted">—</div>
+  <label>معرّف الخط (مثال: calligraphy)</label><input id="font-id" placeholder="calligraphy">
+  <label>ملف الخط (TTF/OTF حتى 10MB)</label><input id="font-file" type="file" accept=".ttf,.otf">
+  <button onclick="uploadFont()">⬆️ رفع الخط</button>
+</div>
+
+<div class="card">
   <h3>رفع قالب جديد</h3>
   <label>معرّف القالب (إنجليزي، بدون مسافات)</label><input id="id" placeholder="elegant_gold">
   <label>اسم العرض</label><input id="tname" placeholder="ذهبي أنيق">
@@ -37,8 +45,14 @@ table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:6px;borde
   <textarea id="box" rows="2">[20, 90, 460, 100]</textarea>
   <label>مكان الاسم الثاني (اختياري)</label>
   <textarea id="box2" rows="2">[20, 220, 460, 90]</textarea>
-  <label>حجم الخط / اللون / المحاذاة</label>
-  <input id="fontsize" value="56" type="number"><input id="color" value="#141414"><input id="align" value="center">
+  <label>الخط الثابت للقالب</label><select id="fontsel"><option value="">افتراضي النظام</option></select>
+  <label>حجم الخط / لون الخط / المحاذاة</label>
+  <input id="fontsize" value="56" type="number"><input id="color" type="color" value="#141414"><input id="align" value="center">
+  <label>الظل: اللون / الإزاحة الأفقية / العمودية / التمويه (Blur)</label>
+  <input id="shadow-color" type="color" value="#000000">
+  <input id="shadow-x" value="0" type="number"><input id="shadow-y" value="3" type="number"><input id="shadow-blur" value="0" type="number">
+  <label>حدود الحرف: العرض / اللون (0 يعني بلا حدود)</label>
+  <input id="stroke-w" value="0" type="number"><input id="stroke-color" type="color" value="#ffffff">
   <label><input type="checkbox" id="two" style="width:auto"> قالب باسمين &nbsp; <input type="checkbox" id="wm" style="width:auto"> علامة مائية افتراضية &nbsp; <input type="checkbox" id="active" checked style="width:auto"> مفعّل</label>
   <button onclick="upload()">⬆️ رفع القالب</button>
 </div>
@@ -55,12 +69,30 @@ async function load(){
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'فشل');
     document.getElementById('list').innerHTML='<table><tr><th>المعرّف</th><th>الاسم</th><th>حالة</th><th>استخدام</th><th></th></tr>'+
       j.templates.map(t=>'<tr><td>'+t.id+'</td><td>'+t.name+'</td><td>'+(t.active?'مفعّل':'معطّل')+'</td><td>'+t.uses+'</td><td><button class="red" onclick="del(\''+t.id+'\')">حذف</button></td></tr>').join('')+'</table>';
+    const fonts=j.fonts||[];
+    const sel=document.getElementById('fontsel');
+    sel.innerHTML='<option value="">افتراضي النظام</option>'+fonts.map(f=>'<option value="'+f.id+'">'+f.name+'</option>').join('');
+    document.getElementById('font-list').innerHTML=fonts.length?fonts.map(f=>f.name+' ('+Math.round(f.size/1024)+'KB) <button class="red" onclick="delFont(\''+f.id+'\')">حذف</button>').join(' · '):'لا توجد خطوط مرفوعة';
     say('تم التحميل');
   }catch(e){say(e.message,'err')}
 }
 async function del(id){
   if(!confirm('حذف القالب '+id+'؟'))return;
   const r=await fetch(API+'/api/cards/admin/delete',{method:'POST',headers:headers(),body:JSON.stringify({id:id})});
+  const j=await r.json(); say(j.ok?'تم الحذف':(j.error||'فشل'),j.ok?'':'err'); load();
+}
+async function uploadFont(){
+  const f=document.getElementById('font-file').files[0];
+  if(!f) return say('اختر ملف خط أولاً','err');
+  if(f.size>10*1024*1024) return say('الخط أكبر من 10MB','err');
+  const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]||'');r.onerror=rej;r.readAsDataURL(f)});
+  const payload={id:document.getElementById('font-id').value.trim(),font_base64:b64};
+  const r=await fetch(API+'/api/cards/admin/fonts/upload',{method:'POST',headers:headers(),body:JSON.stringify(payload)});
+  const j=await r.json(); say(j.ok?'تم رفع الخط':(j.error||'فشل'),j.ok?'':'err'); if(j.ok)load();
+}
+async function delFont(id){
+  if(!confirm('حذف الخط '+id+'؟'))return;
+  const r=await fetch(API+'/api/cards/admin/fonts/delete',{method:'POST',headers:headers(),body:JSON.stringify({id:id})});
   const j=await r.json(); say(j.ok?'تم الحذف':(j.error||'فشل'),j.ok?'':'err'); load();
 }
 async function upload(){
@@ -71,8 +103,12 @@ async function upload(){
   let box,box2;
   try{box=JSON.parse(document.getElementById('box').value);box2=JSON.parse(document.getElementById('box2').value||'[]')}catch(e){return say('خطأ في إحداثيات المكان (JSON)','err')}
   const payload={id:document.getElementById('id').value.trim(),name:document.getElementById('tname').value.trim(),image_base64:b64,
-    name_box:box,name2_box:box2,font_size:+document.getElementById('fontsize').value||56,color:document.getElementById('color').value,
+    name_box:box,name2_box:box2,font_id:document.getElementById('fontsel').value,
+    font_size:+document.getElementById('fontsize').value||56,color:document.getElementById('color').value,
     align:document.getElementById('align').value,two_names:document.getElementById('two').checked,watermark:document.getElementById('wm').checked,
+    shadow_color:document.getElementById('shadow-color').value,shadow_x:+document.getElementById('shadow-x').value||0,
+    shadow_y:+document.getElementById('shadow-y').value||0,shadow_blur:+document.getElementById('shadow-blur').value||0,
+    stroke_width:+document.getElementById('stroke-w').value||0,stroke_color:document.getElementById('stroke-color').value,
     active:document.getElementById('active').checked};
   const r=await fetch(API+'/api/cards/admin/upload',{method:'POST',headers:headers(),body:JSON.stringify(payload)});
   const j=await r.json(); say(j.ok?'تم رفع القالب':(j.error||'فشل'),j.ok?'':'err'); if(j.ok)load();

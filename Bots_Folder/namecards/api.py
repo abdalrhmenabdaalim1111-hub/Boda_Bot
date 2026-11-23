@@ -153,31 +153,79 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
         return _json(403, {"ok": False, "error": "مفتاح الأدمن غير صالح"})
 
     if method == "GET" and p == "/admin/templates":
-        return _json(200, {"ok": True, "templates": store.list_templates(admin=True)})
+        return _json(200, {"ok": True,
+                           "templates": store.list_templates(admin=True),
+                           "fonts": store.list_fonts()})
+
+    if method == "GET" and p == "/admin/fonts":
+        return _json(200, {"ok": True, "fonts": store.list_fonts()})
+
+    if method == "POST" and p == "/admin/fonts/upload":
+        fid = "".join(ch for ch in str(body.get("id") or "") if ch.isalnum() or ch in "-_")[:64]
+        b64 = str(body.get("font_base64") or "")
+        if not fid:
+            return _json(400, {"ok": False, "error": "معرّف الخط مطلوب"})
+        try:
+            raw = base64.b64decode(b64, validate=True)
+        except Exception:
+            return _json(400, {"ok": False, "error": "ملف الخط غير صالح"})
+        if len(raw) > 10 * 1024 * 1024:
+            return _json(413, {"ok": False, "error": "حجم الخط يتجاوز 10MB"})
+        signature = raw[:4]
+        if not (signature in (b"\x00\x01\x00\x00", b"true", b"OTTO", b"typ1") or
+                str(signature).startswith("b'\\x00\\x01")):
+            return _json(400, {"ok": False, "error": "الملف ليس خط TTF/OTF صالحاً"})
+        try:
+            path = store.save_font(fid, raw)
+            from PIL import ImageFont
+            ImageFont.truetype(str(path), 24)  # تأكد أن Pillow يستطيع قراءته
+        except Exception as e:
+            return _json(400, {"ok": False, "error": "تعذر قراءة الخط: " + str(e)[:100]})
+        return _json(200, {"ok": True, "font": {"id": fid, "name": fid}})
+
+    if method == "POST" and p == "/admin/fonts/delete":
+        fid = "".join(ch for ch in str(body.get("id") or "") if ch.isalnum() or ch in "-_")[:64]
+        fp = store.get_font_path(fid)
+        if fp:
+            fp.unlink(missing_ok=True)
+            return _json(200, {"ok": True})
+        return _json(404, {"ok": False, "error": "الخط غير موجود"})
 
     if method == "POST" and p == "/admin/upload":
         tid = "".join(ch for ch in str(body.get("id") or "") if ch.isalnum() or ch in "-_")[:64]
         if not tid:
             return _json(400, {"ok": False, "error": "معرّف القالب مطلوب"})
         b64 = str(body.get("image_base64") or "")
-        try:
-            raw = base64.b64decode(b64, validate=True)
-        except Exception:
-            return _json(400, {"ok": False, "error": "صورة القالب غير صالحة"})
-        if len(raw) > 10 * 1024 * 1024:
-            return _json(413, {"ok": False, "error": "حجم الصورة يتجاوز 10MB"})
-        try:
-            from PIL import Image
-            im = Image.open(io.BytesIO(raw))
-            im.verify()
-            fmt = (im.format or "PNG").lower()
-            ext = "jpg" if fmt in ("jpeg", "jpg") else "png" if fmt == "png" else "webp"
-        except Exception:
-            return _json(400, {"ok": False, "error": "نوع الصورة غير مدعوم (PNG/JPG/WebP فقط)"})
-
         directory = store.templates_dir()
+        ext = ""
+        if not b64:
+            # تحديث إعدادات قالب موجود بدون رفع الصورة مجدداً
+            existing = store.get_template(tid)
+            if not existing:
+                return _json(404, {"ok": False, "error": "القالب غير موجود"})
+            image_name = str(existing.get("image") or "")
+            if not (directory / image_name).exists():
+                return _json(404, {"ok": False, "error": "صورة القالب غير موجودة"})
+            ext = image_name.rsplit(".", 1)[-1] if "." in image_name else "png"
+        else:
+            try:
+                raw = base64.b64decode(b64, validate=True)
+            except Exception:
+                return _json(400, {"ok": False, "error": "صورة القالب غير صالحة"})
+            if len(raw) > 10 * 1024 * 1024:
+                return _json(413, {"ok": False, "error": "حجم الصورة يتجاوز 10MB"})
+            try:
+                from PIL import Image
+                im = Image.open(io.BytesIO(raw))
+                im.verify()
+                fmt = (im.format or "PNG").lower()
+                ext = "jpg" if fmt in ("jpeg", "jpg") else "png" if fmt == "png" else "webp"
+            except Exception:
+                return _json(400, {"ok": False, "error": "نوع الصورة غير مدعوم (PNG/JPG/WebP فقط)"})
+            image_path = directory / f"{tid}.{ext}"
+            image_path.write_bytes(raw)
+
         image_path = directory / f"{tid}.{ext}"
-        image_path.write_bytes(raw)
         meta = {
             "id": tid,
             "name": security.sanitize_name(body.get("name") or tid, 60) or tid,
@@ -186,9 +234,16 @@ def dispatch(method: str, subpath: str, qs: Dict, body: Dict, headers) -> Tuple[
             "two_names": bool(body.get("two_names", False)),
             "watermark": bool(body.get("watermark", False)),
             "font": str(body.get("font") or ""),
+            "font_id": str(body.get("font_id") or ""),
             "font_size": int(body.get("font_size") or 56),
             "color": body.get("color") or "#141414",
             "align": str(body.get("align") or "center"),
+            "shadow_color": body.get("shadow_color") or "#000000",
+            "shadow_x": int(body.get("shadow_x") or 0),
+            "shadow_y": int(body.get("shadow_y") or 0),
+            "shadow_blur": int(body.get("shadow_blur") or 0),
+            "stroke_width": int(body.get("stroke_width") or 0),
+            "stroke_color": body.get("stroke_color") or "#ffffff",
             "name_box": body.get("name_box") or [20, 90, 460, 100],
             "name2_box": body.get("name2_box") or [20, 220, 460, 90],
         }

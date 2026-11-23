@@ -9,7 +9,7 @@ import io
 from pathlib import Path
 from typing import Dict, Tuple
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 try:
     import arabic_reshaper
@@ -85,8 +85,27 @@ def render_card(template: Dict, name: str, name2: str = "",
 
     img = Image.open(image_path).convert("RGBA")
     draw = ImageDraw.Draw(img)
-    font_path = _font_path(str(template.get("font") or ""))
-    color = _hex_color(template.get("color"), (20, 20, 20))
+
+    # ── الخط: خط مرفوع للأدمن له الأولوية، ثم مسار مباشر، ثم الافتراضي ──
+    font_path = ""
+    if template.get("font_id"):
+        try:
+            from . import store as _store
+            fp = _store.get_font_path(template.get("font_id"))
+            if fp:
+                font_path = str(fp)
+        except Exception:
+            pass
+    if not font_path:
+        font_path = _font_path(str(template.get("font") or ""))
+
+    color = _hex_color(template.get("color"), (20, 20, 20)) + (255,)
+    shadow_color = _hex_color(template.get("shadow_color"), (0, 0, 0)) + (180,)
+    sx = int(template.get("shadow_x", 0) or 0)
+    sy = int(template.get("shadow_y", 0) or 0)
+    blur = max(0, int(template.get("shadow_blur", 0) or 0))
+    stroke_w = max(0, int(template.get("stroke_width", 0) or 0))
+    stroke_c = _hex_color(template.get("stroke_color"), (255, 255, 255)) + (255,)
 
     def place(text: str, box_key: str, default_box):
         if not text:
@@ -112,7 +131,18 @@ def render_card(template: Dict, name: str, name2: str = "",
         else:
             tx = x + (w - tw) / 2
         ty = y + (h - th) / 2 - bb[1]
-        draw.text((tx, ty), shaped, font=font, fill=color)
+
+        # ظل اختياري (طبقة منفصقة +blur خفيف)
+        if sx or sy or blur:
+            layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            ld = ImageDraw.Draw(layer)
+            ld.text((tx + sx, ty + sy), shaped, font=font, fill=shadow_color)
+            if blur:
+                layer = layer.filter(ImageFilter.GaussianBlur(blur))
+            img.alpha_composite(layer)
+
+        draw.text((tx, ty), shaped, font=font, fill=color,
+                  stroke_width=stroke_w, stroke_fill=stroke_c)
 
     w, h = img.size
     place(name, "name_box", (int(w*0.1), int(h*0.35), int(w*0.8), int(h*0.2)))

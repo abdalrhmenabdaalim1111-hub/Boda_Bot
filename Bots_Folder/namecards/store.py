@@ -9,6 +9,7 @@ from typing import List, Dict, Any
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES_DIR = ROOT / "Data" / "namecards" / "templates"
+FONTS_DIR = ROOT / "Data" / "namecards" / "fonts"
 
 
 def _db():
@@ -98,6 +99,47 @@ def record_referral(referrer_hash: str, referred_id: int) -> bool:
 def templates_dir() -> Path:
     TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
     return TEMPLATES_DIR
+
+
+def fonts_dir() -> Path:
+    FONTS_DIR.mkdir(parents=True, exist_ok=True)
+    return FONTS_DIR
+
+
+def list_fonts() -> List[Dict[str, Any]]:
+    out = []
+    for f in sorted(fonts_dir().iterdir()):
+        if f.suffix.lower() not in (".ttf", ".otf"):
+            continue
+        out.append({"id": f.stem, "name": f.stem, "file": f.name,
+                    "size": f.stat().st_size})
+    return out
+
+
+def get_font_path(font_id: str) -> Path | None:
+    fid = "".join(ch for ch in str(font_id) if ch.isalnum() or ch in "-_")[:64]
+    if not fid:
+        return None
+    for ext in (".ttf", ".otf"):
+        p = fonts_dir() / f"{fid}{ext}"
+        if p.exists():
+            return p
+    return None
+
+
+def save_font(font_id: str, raw: bytes) -> Path:
+    fid = "".join(ch for ch in str(font_id) if ch.isalnum() or ch in "-_")[:64]
+    if not fid:
+        raise ValueError("معرّف الخط مطلوب")
+    # احتفظ بالامتداد الأصلي
+    ext = ".ttf"
+    p = fonts_dir() / f"{fid}{ext}"
+    p.write_bytes(raw)
+    # احذف الامتداد الآخر إن وُجد
+    other = fonts_dir() / f"{fid}{'.otf' if ext == '.ttf' else '.ttf'}"
+    if other.exists():
+        other.unlink()
+    return p
 
 
 def list_templates(admin: bool = False) -> List[Dict[str, Any]]:
