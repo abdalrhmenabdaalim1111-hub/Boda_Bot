@@ -838,7 +838,9 @@ def main():
         _src = ROOT / "ui" / "namecards"
         if (_src / "index.html").exists():
             (out_dir / "namecards").mkdir(exist_ok=True)
-            _shutil.copy2(_src / "index.html", out_dir / "namecards" / "index.html")
+            _nc_html = (_src / "index.html").read_text(encoding="utf-8")
+            _nc_html = _nc_html.replace("__BODA_API_BASE__", api_base or "")
+            (out_dir / "namecards" / "index.html").write_text(_nc_html, encoding="utf-8")
         if (_src / "admin.html").exists():
             (out_dir / "admin").mkdir(exist_ok=True)
             _shutil.copy2(_src / "admin.html", out_dir / "admin" / "namecards.html")

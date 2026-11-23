@@ -639,6 +639,15 @@ class BodaAPIHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(404, {"error": "Admin page not built"})
 
+        # مسار موحّد لتطبيق البطاقات (/namecards/) — يعمل محلياً كما على GitHub Pages
+        if path in ("/namecards", "/namecards/"):
+            target_file = WEBROOT_DIR / "namecards" / "index.html"
+            if target_file.exists():
+                self._send_bytes(200, target_file.read_bytes(),
+                                 content_type="text/html; charset=utf-8")
+                return
+            self._send_json(404, {"error": "Namecards app not built"})
+
         # تقديم تطبيقات الويب بدون حجب المفتاح (متاح لمستخدمي تيليجرام)
         if path.startswith("/apps"):
             parts = [p for p in path.split("/") if p and p != "apps"]

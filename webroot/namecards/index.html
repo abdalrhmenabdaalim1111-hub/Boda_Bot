@@ -62,7 +62,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 </div>
 
 <script>
-const API = location.origin;
+const API = "" || location.origin;
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 const initData = tg ? (tg.initData || '') : '';

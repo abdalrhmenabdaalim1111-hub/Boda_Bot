@@ -37,7 +37,8 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 _BASE = os.getenv("MINIAPPS_BASE_URL", "").strip().rstrip("/")
 if not _BASE:
     _BASE = "https://abdalrhmenabdaalim1111-hub.github.io/Boda_Bot"
-APP_URL = f"{_BASE}/apps/namecards/" if "/apps" not in _BASE else f"{_BASE}/namecards/"
+# المسار الموحّد: /namecards/ (يعمل محلياً عبر alias في api_server وعلى GitHub Pages)
+APP_URL = f"{_BASE}/namecards/"
 if not APP_URL.endswith("/"):
     APP_URL += "/"
 
